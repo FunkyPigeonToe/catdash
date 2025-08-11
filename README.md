@@ -1,6 +1,5 @@
 # catdash
 Fun cat game
-<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
