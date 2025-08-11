@@ -29,10 +29,9 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Resize canvas to fit screen height (minus a little space for mobile browser UI)
 function resizeCanvas() {
   canvas.width = Math.min(window.innerWidth, 400);
-  canvas.height = Math.min(window.innerHeight * 0.95, 600);
+  canvas.height = Math.min(window.innerHeight * 0.88, 560);
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -169,13 +168,13 @@ function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff'; ctx.font = '28px system-ui, sans-serif';
   const title = 'Cat Dash'; const w = ctx.measureText(title).width;
-  ctx.fillText(title, (W - w)/2, 80);
+  ctx.fillText(title, (W() - w)/2, 80);
   ctx.font = '18px system-ui, sans-serif';
   const sub = 'Tap or swipe to start';
-  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 120);
+  ctx.fillText(sub, (W() - ctx.measureText(sub).width)/2, 120);
   ctx.font = '16px system-ui, sans-serif';
   const aim = 'Aim: Reach a high score by collecting as many fish as you can';
-  ctx.fillText(aim, (W - ctx.measureText(aim).width)/2, 150);
+  ctx.fillText(aim, (W() - ctx.measureText(aim).width)/2, 150);
 }
 
 function loop(ts){
