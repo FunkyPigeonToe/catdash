@@ -1,12 +1,11 @@
-# catdash
-Fun cat game
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Cat Dash — Leaderboard</title>
+<title>Cat Dash — Mobile</title>
 <style>
   body { margin:0; background:#333; color:#fff; font-family:sans-serif; text-align:center; }
-  canvas { display:block; margin:0 auto; background:#6dbb4a; }
+  canvas { display:block; margin:0 auto; background:#6dbb4a; touch-action: none; }
 </style>
 </head>
 <body>
@@ -28,35 +27,6 @@ let roadSpeed = 320;
 let maxSpeed = 1000;
 const baseAccel = 0.6;
 
-const BOARD_KEY = 'cat_leaderboard';
-function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); }catch{ return []; } }
-function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
-function addScore(name, sc){
-  const board = loadBoard();
-  board.push({ name: (name||'CAT').slice(0,10), score: sc|0, date: new Date().toISOString().slice(0,10) });
-  board.sort((a,b)=> b.score - a.score);
-  saveBoard(board.slice(0,10));
-}
-function maybeRecordScore(sc){
-  const board = loadBoard();
-  const qualifies = board.length < 10 || sc > board[board.length-1].score;
-  if (!qualifies || sc <= 0) return;
-  let name = prompt('New high score! Enter name/initials (3–10):','CAT');
-  if (!name) name = 'CAT';
-  addScore(name.trim().slice(0,10), sc);
-}
-function drawBoard(x, y){
-  const board = loadBoard();
-  ctx.font = '18px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('Leaderboard (Top 10)', x, y);
-  ctx.font = '14px monospace';
-  if (board.length === 0){ ctx.fillText('No scores yet — be the first!', x, y+22); return; }
-  for (let i=0;i<board.length;i++){
-    const e = board[i];
-    const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(4,' ')}  ${e.date}`;
-    ctx.fillText(line, x, y + 22 + i*18);
-  }
-}
-
 function drawBackground(){
   ctx.fillStyle = '#5e9d45'; ctx.fillRect(0,0,W,H);
   const trailWidth = W/6;
@@ -67,14 +37,7 @@ function drawBackground(){
     ctx.fillRect(lanesX[i]-1, 0, 2, H);
   }
 }
-function drawTree(x,y,w,h){
-  ctx.fillStyle = '#7b4b1f'; ctx.fillRect(x - w*0.12, y + h*0.1, w*0.24, h*0.4);
-  ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.moveTo(x,y-h*0.4); ctx.lineTo(x-w*0.6,y+h*0.3); ctx.lineTo(x+w*0.6,y+h*0.3); ctx.closePath(); ctx.fill();
-}
-function drawPuddle(x,y,w,h){
-  ctx.fillStyle = '#3aa3ff'; ctx.beginPath(); ctx.ellipse(x,y,w*0.5,h*0.5,0,0,Math.PI*2); ctx.fill();
-  ctx.globalAlpha=0.25; ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x+w*0.15,y-h*0.1,w*0.18,h*0.14,0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
-}
+
 function drawFish(x,y){
   ctx.fillStyle = 'orange';
   ctx.beginPath();
@@ -92,7 +55,7 @@ function drawFish(x,y){
   ctx.fill();
 }
 
-function drawCatCar(x, y, w, h){
+function drawCat(x, y, w, h){
   ctx.fillStyle = '#f7c67f';
   ctx.strokeStyle = '#000';
   ctx.lineWidth = 2;
@@ -119,39 +82,23 @@ function drawCatCar(x, y, w, h){
   ctx.beginPath(); ctx.arc(hx-headR*0.4, hy-headR*0.1, headR*0.15, 0, Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(hx+headR*0.4, hy-headR*0.1, headR*0.15, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#ff99aa'; ctx.beginPath(); ctx.arc(hx, hy+headR*0.1, headR*0.1, 0, Math.PI*2); ctx.fill();
-
-  ctx.strokeStyle = '#333'; ctx.beginPath();
-  ctx.moveTo(hx-headR*0.8, hy+4); ctx.lineTo(hx-headR*0.2, hy+4);
-  ctx.moveTo(hx-headR*0.8, hy+9); ctx.lineTo(hx-headR*0.25, hy+9);
-  ctx.moveTo(hx+headR*0.8, hy+4); ctx.lineTo(hx+headR*0.2, hy+4);
-  ctx.moveTo(hx+headR*0.8, hy+9); ctx.lineTo(hx+headR*0.25, hy+9);
-  ctx.stroke();
-
-  ctx.strokeStyle = '#f7c67f'; ctx.lineWidth = 5; ctx.beginPath();
-  ctx.moveTo(x+w/2, y); ctx.quadraticCurveTo(x+w, y-h/4, x+w/1.5, y-h/1.5); ctx.stroke();
 }
 
 function spawnEnemy(){
   const lane = Math.floor(Math.random()*lanesX.length);
   const type = Math.random()<0.55 ? 'tree' : 'puddle';
-  enemies.push(type==='tree' ? {type, x: lanesX[lane], y: -50, w: 40, h: 70}
-                             : {type, x: lanesX[lane], y: -40, w: 56, h: 24});
+  enemies.push(type==='tree' ? {type, x: lanesX[lane], y: -50, w: 40, h: 70} : {type, x: lanesX[lane], y: -40, w: 56, h: 24});
 }
+
 function spawnPickup(){
   const lane = Math.floor(Math.random()*lanesX.length);
   pickups.push({x: lanesX[lane], y: -40, w: 30, h: 16});
 }
 
 function update(dt){
-  const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
-  roadSpeed = Math.min(maxSpeed, (roadSpeed + accel) * Math.pow(1.00000002, meters));
-
+  roadSpeed = Math.min(maxSpeed, (roadSpeed + baseAccel) * Math.pow(1.00000002, meters));
   spawnTimer += dt;
-  if (spawnTimer > 1){
-    spawnTimer = 0;
-    (Math.random() < 0.78 ? spawnEnemy : spawnPickup)();
-  }
-
+  if (spawnTimer > 1){ spawnTimer = 0; (Math.random() < 0.78 ? spawnEnemy : spawnPickup)(); }
   enemies.forEach(e=> e.y += roadSpeed*dt);
   pickups.forEach(p=> p.y += roadSpeed*dt);
   enemies = enemies.filter(e=> e.y < H+60);
@@ -169,9 +116,7 @@ function update(dt){
   }
   for (let i=0;i<pickups.length;i++){
     const p = pickups[i];
-    if (Math.abs(p.x-px) < (p.w+pw)/2 && Math.abs(p.y-py) < (p.h+ph)/2){
-      pickups.splice(i,1); fuel = Math.min(100, fuel + 10); score += 3; break;
-    }
+    if (Math.abs(p.x-px) < (p.w+pw)/2 && Math.abs(p.y-py) < (p.h+ph)/2){ pickups.splice(i,1); fuel = Math.min(100, fuel + 10); score += 3; break; }
   }
 
   meters += (roadSpeed * dt) / 120;
@@ -182,28 +127,23 @@ function drawHUD(){
   ctx.fillStyle = '#fff'; ctx.font = '16px sans-serif';
   ctx.fillText('Score: '+score, 10, 20);
   ctx.fillText('Fish: '+Math.round(fuel), 10, 40);
-  ctx.fillText('Speed: '+Math.round(roadSpeed), 10, 60);
-  ctx.fillText('Meters: '+Math.round(meters), 10, 80);
+  ctx.fillText('Meters: '+Math.round(meters), 10, 60);
 }
 
 function draw(){
   drawBackground();
-  enemies.forEach(e=> e.type==='tree' ? drawTree(e.x,e.y,e.w,e.h) : drawPuddle(e.x,e.y,e.w,e.h));
+  enemies.forEach(e=> ctx.fillStyle = e.type==='tree' ? '#2e7d32' : '#3aa3ff');
   pickups.forEach(p=> drawFish(p.x,p.y));
-  drawCatCar(lanesX[currentLane], H-60, 40, 60);
+  drawCat(lanesX[currentLane], H-60, 40, 60);
   drawHUD();
 }
 
 function drawMenu(){
   drawBackground();
-  ctx.fillStyle = '#fff';
-  ctx.font = '28px sans-serif';
-  const title = 'Cat Dash';
-  ctx.fillText(title, W/2 - ctx.measureText(title).width/2, 80);
+  ctx.fillStyle = '#fff'; ctx.font = '28px sans-serif';
+  ctx.fillText('Cat Dash', W/2 - 60, 80);
   ctx.font = '18px sans-serif';
-  ctx.fillText('← → move lanes', W/2 - 70, 120);
-  ctx.fillText('Press SPACE to Start', W/2 - 90, 150);
-  drawBoard(40, 200);
+  ctx.fillText('Tap or swipe to start', W/2 - 80, 120);
 }
 
 function loop(ts){
@@ -217,13 +157,20 @@ function startGame(){
   score = 0; fuel = 100; meters = 0; roadSpeed = 320;
   gameRunning = true; last = 0;
 }
-function endGame(){ gameRunning = false; maybeRecordScore(score); }
+function endGame(){ gameRunning = false; }
 
-document.addEventListener('keydown', e=>{
-  if(e.key==='ArrowLeft' && currentLane>0) currentLane--;
-  if(e.key==='ArrowRight' && currentLane<lanesX.length-1) currentLane++;
-  if(!gameRunning && e.key===' ') startGame();
+let touchStartX = null;
+canvas.addEventListener('touchstart', e=>{
+  if(!gameRunning) { startGame(); return; }
+  touchStartX = e.touches[0].clientX;
 });
+canvas.addEventListener('touchmove', e=>{
+  if (touchStartX === null) return;
+  let dx = e.touches[0].clientX - touchStartX;
+  if (dx > 50 && currentLane < 2){ currentLane++; touchStartX = null; }
+  else if (dx < -50 && currentLane > 0){ currentLane--; touchStartX = null; }
+});
+canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
 requestAnimationFrame(loop);
 </script>
