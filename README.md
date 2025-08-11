@@ -31,7 +31,7 @@ const ctx = canvas.getContext('2d');
 
 function resizeCanvas() {
   canvas.width = Math.min(window.innerWidth, 400);
-  canvas.height = Math.min(window.innerHeight * 0.88, 560);
+  canvas.height = Math.min(window.innerHeight * 0.9, 580);
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -91,26 +91,27 @@ function drawFish(x,y){
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
 function drawCat(x, y, w, h){
-  ctx.fillStyle = '#f7c67f'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-  const r = Math.min(w,h)*0.25;
-  ctx.beginPath();
-  ctx.moveTo(x - w/2 + r, y - h/2);
-  ctx.lineTo(x + w/2 - r, y - h/2);
-  ctx.quadraticCurveTo(x + w/2, y - h/2, x + w/2, y - h/2 + r);
-  ctx.lineTo(x + w/2, y + h/2 - r);
-  ctx.quadraticCurveTo(x + w/2, y + h/2, x + w/2 - r, y + h/2);
-  ctx.lineTo(x - w/2 + r, y + h/2);
-  ctx.quadraticCurveTo(x - w/2, y + h/2, x - w/2, y + h/2 - r);
-  ctx.lineTo(x - w/2, y - h/2 + r);
-  ctx.quadraticCurveTo(x - w/2, y - h/2, x - w/2 + r, y - h/2);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-  const headR = h*0.28, hx=x, hy=y-h*0.4;
-  ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy-headR*0.1, headR*0.15, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(hx+headR*0.4, hy-headR*0.1, headR*0.15, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#ff99aa'; ctx.beginPath(); ctx.arc(hx, hy+headR*0.1, headR*0.1, 0, Math.PI*2); ctx.fill();
+  // body
+  ctx.fillStyle = '#d2691e';
+  ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#a0522d';
+  ctx.beginPath(); ctx.ellipse(x, y, w/2.5, h/2.5, 0, 0, Math.PI*2); ctx.fill();
+  // head
+  const headR = h*0.25, hx = x, hy = y - h*0.55;
+  ctx.fillStyle = '#d2691e';
+  ctx.beginPath(); ctx.arc(hx, hy, headR, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#a0522d';
+  ctx.beginPath(); ctx.arc(hx, hy, headR*0.75, 0, Math.PI*2); ctx.fill();
+  // ears
+  ctx.fillStyle = '#d2691e';
+  ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
+  // eyes
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(hx+headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+  // tail
+  ctx.fillStyle = '#d2691e';
+  ctx.beginPath(); ctx.ellipse(x + w/2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
 }
 
 function spawnEnemy(){
@@ -173,8 +174,14 @@ function drawMenu(){
   const sub = 'Tap or swipe to start';
   ctx.fillText(sub, (W() - ctx.measureText(sub).width)/2, 120);
   ctx.font = '16px system-ui, sans-serif';
-  const aim = 'Aim: Reach a high score by collecting as many fish as you can';
-  ctx.fillText(aim, (W() - ctx.measureText(aim).width)/2, 150);
+  const aimLines = [
+    'Aim: Reach a high score',
+    'by collecting as many',
+    'fish as you can'
+  ];
+  aimLines.forEach((line, i) => {
+    ctx.fillText(line, (W() - ctx.measureText(line).width)/2, 150 + i*18);
+  });
 }
 
 function loop(ts){
