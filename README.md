@@ -157,9 +157,15 @@ function update(dt){
   // slip wobble timer
   if (slipTimer > 0){ slipTimer = Math.max(0, slipTimer - dt); slipOffset = Math.sin(performance.now()/40)*4; } else { slipOffset = 0; }
 
-  // spawns
-  spawnTimer += dt;
-  if (spawnTimer > 1){ spawnTimer = 0; (Math.random() < 0.78 ? spawnEnemy : spawnPickup)(); }
+ // spawns (more fish!)
+spawnTimer += dt;
+if (spawnTimer > 0.85) {
+  spawnTimer = 0;
+  // 55% chance of fish instead of ~22%
+  if (Math.random() < 0.45) spawnEnemy(); else spawnPickup();
+  // occasional bonus fish
+  if (Math.random() < 0.25) spawnPickup();
+}
 
   // movement
   enemies.forEach(e=> e.y += roadSpeed*dt);
