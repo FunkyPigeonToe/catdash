@@ -42,6 +42,38 @@ let roadSpeed = 320, maxSpeed = 1000; const baseAccel = 0.6;
 // Slip wobble when hitting mud (visual only)
 let slipTimer = 0, slipOffset = 0;
 
+/* ================= Leaderboard (localStorage) ================= */
+const BOARD_KEY = 'cat_leaderboard';
+function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); } catch { return []; } }
+function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
+function addScore(name, sc){
+  const board = loadBoard();
+  board.push({ name: (name||'CAT').slice(0,10), score: sc|0, date: new Date().toISOString().slice(0,10) });
+  board.sort((a,b)=> b.score - a.score);
+  saveBoard(board.slice(0,10));
+}
+function maybeRecordScore(sc){
+  const board = loadBoard();
+  const qualifies = board.length < 10 || sc > board[board.length-1].score;
+  if (!qualifies || sc <= 0) return;
+  let name = prompt('New high score! Enter name/initials (3–10):','CAT');
+  if (!name) name = 'CAT';
+  addScore(name.trim().slice(0,10), sc);
+}
+function drawBoard(x, y){
+  const board = loadBoard();
+  ctx.fillStyle = '#fff';
+  ctx.font = '18px system-ui, sans-serif';
+  ctx.fillText('Leaderboard (Top 10)', x, y);
+  ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
+  if (board.length === 0){ ctx.fillText('No scores yet — be the first!', x, y+22); return; }
+  for (let i=0; i<board.length && i<10; i++){
+    const e = board[i];
+    const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(4,' ')}  ${e.date}`;
+    ctx.fillText(line, x, y + 22 + i*18);
+  }
+}
+
 /* ================= Art ================= */
 function drawBackground(){
   // grass texture
@@ -187,6 +219,8 @@ function drawMenu(){
   ctx.font = '16px system-ui, sans-serif';
   const lines = ['Aim: Reach a high score', 'by collecting as many', 'fish as you can'];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 150 + i*18));
+  // show leaderboard on menu
+  drawBoard(24, 210);
 }
 
 function loop(ts){
@@ -202,7 +236,7 @@ function startGame(){
   // seed a couple of obstacles quickly
   for (let i=0;i<3;i++){ spawnEnemy(); enemies[i].y -= i*120; }
 }
-function endGame(){ gameRunning = false; lastEndTime = performance.now(); }
+function endGame(){ gameRunning = false; lastEndTime = performance.now(); maybeRecordScore(score); }
 
 /* ================= Touch controls ================= */
 let touchStartX = null, touchStartY = null, touchStartTime = 0;
