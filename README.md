@@ -123,11 +123,33 @@ function drawFish(x,y){
   ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
-function drawGoldenFish(x,y){
+function drawGoldenFish(x, y){
   ctx.fillStyle = 'gold';
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-16, y-9); ctx.lineTo(x-16, y+9); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(x+9, y, 9, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+11, y-1, 1.6, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 12, y - 7);
+  ctx.lineTo(x - 12, y + 7);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x + 7, y, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  // sparkle highlight (moves slowly around the body)
+  const t = performance.now() / 300; // change speed by adjusting divisor
+  const sparkleX = x + 7 + Math.cos(t) * 3;
+  const sparkleY = y + Math.sin(t) * 3;
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.beginPath();
+  ctx.arc(sparkleX, sparkleY, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // eye
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(x + 9, y - 1, 1.6, 0, Math.PI * 2);
+  ctx.fill();
 }
 function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e';
