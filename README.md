@@ -113,7 +113,7 @@ function drawFish(x,y){
 function drawGoldenFish(x,y){
   // rare golden fish
   ctx.fillStyle = 'gold';
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-12, y+7); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-20, y+15); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
 }
