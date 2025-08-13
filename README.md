@@ -17,7 +17,7 @@
   canvas {
     display: block;
     margin: 0 auto;
-    background: #6dbb4a; /* softer grass green */
+    background: #6dbb4a;
     touch-action: none;
   }
 </style>
@@ -40,30 +40,23 @@ window.addEventListener('resize', () => {
   canvas.height = H;
 });
 
-// ====== Game variables ======
+// ===== Game vars =====
 let gameRunning = false;
-const lanesX = () => [W/4, W/2, (3*W)/4];  // dynamic so lanes adapt on resize
+const lanesX = () => [W/4, W/2, (3*W)/4];
 let currentLane = 1;
-
-let enemies = [];   // trees / mud
-let pickups = [];   // normal & golden fish
-
+let enemies = [];
+let pickups = [];
 let score = 0;
-let fuel = 100;     // "Energy"
+let fuel = 100;
 let meters = 0;
-
 let spawnTimer = 0;
 let last = 0;
-
-// Speed curve
 let roadSpeed = 320;
-let maxSpeed   = 1000;
+let maxSpeed = 1000;
 const baseAccel = 0.6;
-
-// Slip wobble when hitting mud (visual only)
 let slipTimer = 0, slipOffset = 0;
 
-// ====== Leaderboard (localStorage) ======
+// ===== Leaderboard =====
 const BOARD_KEY = 'cat_leaderboard';
 function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); } catch { return []; } }
 function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
@@ -98,16 +91,13 @@ function drawBoard(x, y){
   }
 }
 
-// ====== Artwork ======
+// ===== Art =====
 function drawBackground(){
-  // grass
   ctx.fillStyle = '#5e9d45'; ctx.fillRect(0,0,W,H);
-  // light texture
   ctx.fillStyle = 'rgba(40,90,40,0.15)';
   for (let y=0; y<H; y+=40){
     for (let x=((y/40)%2===0?0:20); x<W; x+=40){ ctx.fillRect(x,y,10,10); }
   }
-  // three trails
   const trailW = W/6;
   const lx = lanesX();
   for (let i=0;i<3;i++){
@@ -117,60 +107,47 @@ function drawBackground(){
     ctx.fillRect(lx[i]-1, 0, 2, H);
   }
 }
-
 function drawTree(x,y,w,h){
   ctx.fillStyle = '#6d3f17'; ctx.fillRect(x - w*0.12, y + h*0.1, w*0.24, h*0.45);
   ctx.fillStyle = '#1b5e20'; ctx.beginPath(); ctx.moveTo(x, y - h*0.45); ctx.lineTo(x - w*0.65, y + h*0.25); ctx.lineTo(x + w*0.65, y + h*0.25); ctx.closePath(); ctx.fill();
   ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.moveTo(x, y - h*0.25); ctx.lineTo(x - w*0.5, y + h*0.4); ctx.lineTo(x + w*0.5, y + h*0.4); ctx.closePath(); ctx.fill();
 }
-
 function drawMud(x, y, w, h){
   ctx.fillStyle = '#5b3a29';
   ctx.beginPath(); ctx.ellipse(x, y, w*0.5, h*0.5, 0, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#3e2723';
   ctx.beginPath(); ctx.ellipse(x - w*0.2, y - h*0.1, w*0.15, h*0.15, 0, 0, Math.PI*2); ctx.fill();
 }
-
 function drawFish(x,y){
   ctx.fillStyle = 'orange';
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-10, y-6); ctx.lineTo(x-10, y+6); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
-
 function drawGoldenFish(x,y){
   ctx.fillStyle = 'gold';
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-12, y+7); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-16, y-9); ctx.lineTo(x-26, y+19); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+9, y, 9, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+11, y-1, 1.6, 0, Math.PI*2); ctx.fill();
 }
-
 function drawCat(x, y, w, h){
-  // round two-tone body
   ctx.fillStyle = '#d2691e';
   ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#a0522d';
   ctx.beginPath(); ctx.ellipse(x, y, w/2.5, h/2.5, 0, 0, Math.PI*2); ctx.fill();
-
-  // head
   const headR = h*0.25, hx=x, hy=y - h*0.55;
   ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
   ctx.fillStyle = '#a0522d'; ctx.beginPath(); ctx.arc(hx,hy,headR*0.75,0,Math.PI*2); ctx.fill();
-
-  // ears
   ctx.fillStyle = '#d2691e';
   ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
-
-  // eyes
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(hx+headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
-
-  // tail (to the right)
   ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
 }
-// ====== Spawning helpers ======
-const SPAWN_BUFFER_Y = 120; // keep items from overlapping at spawn
+
+// ===== Spawning =====
+const SPAWN_BUFFER_Y = 120;
 function laneIsFree(x, y){
   return !enemies.some(e => Math.abs(e.x - x) < 1 && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
       && !pickups.some(p => Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < SPAWN_BUFFER_Y);
@@ -181,80 +158,56 @@ function pickFreeLane(spawnY){
   if (!candidates.length) return null;
   return candidates[Math.floor(Math.random()*candidates.length)];
 }
-
-// Trees / mud hazards
 function spawnEnemy(){
   const lane = pickFreeLane(-60);
   if (lane == null) return;
   const lx = lanesX();
   const type = Math.random() < 0.55 ? 'tree' : 'mud';
-  enemies.push(
-    type==='tree'
+  enemies.push(type==='tree'
       ? {type, x: lx[lane], y: -50, w: 40, h: 70}
-      : {type, x: lx[lane], y: -40, w: 56, h: 24}
-  );
+      : {type, x: lx[lane], y: -40, w: 56, h: 24});
 }
-
-// Fish (normal + rare golden)
 function spawnPickup(){
   const lane = pickFreeLane(-50);
   if (lane == null) return;
   const lx = lanesX();
-  const golden = Math.random() < (1/15); // ~6.7% chance
+  const golden = Math.random() < (1/15);
   pickups.push({x: lx[lane], y: -40, w: 30, h: 16, golden});
 }
 
-// ====== Update & Draw ======
-const PLAYER_Y = () => H - 110;  // raised so bottom bar doesn't cover
+// ===== Update & Draw =====
+const PLAYER_Y = () => H - 110;
 const CAT_W = 40, CAT_H = 60;
-
 function update(dt){
-  // Speed ramp
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
   roadSpeed = Math.min(maxSpeed, (roadSpeed + accel) * Math.pow(1.00000002, meters));
-
-  // Slip wobble timer
   if (slipTimer > 0){
     slipTimer = Math.max(0, slipTimer - dt);
     slipOffset = Math.sin(performance.now()/40) * 4;
-  } else {
-    slipOffset = 0;
-  }
-
-  // Spawns — ~15% more pickups overall + occasional extra
+  } else slipOffset = 0;
   spawnTimer += dt;
   if (spawnTimer > 0.95){
     spawnTimer = 0;
-    if (Math.random() < 0.75) spawnEnemy(); else spawnPickup(); // ~25% pickups
-    if (Math.random() < 0.10) spawnPickup(); // bonus pickup sometimes
+    if (Math.random() < 0.75) spawnEnemy(); else spawnPickup();
+    if (Math.random() < 0.10) spawnPickup();
   }
-
-  // Move items
   enemies.forEach(e => e.y += roadSpeed*dt);
   pickups.forEach(p => p.y += roadSpeed*dt);
   enemies = enemies.filter(e => e.y < H + 60);
   pickups = pickups.filter(p => p.y < H + 60);
-
-  // Collisions
   const px = lanesX()[currentLane] + slipOffset, py = PLAYER_Y(), pw = CAT_W-4, ph = CAT_H-2;
-
-  // Hazards
   for (let i=0; i<enemies.length; i++){
     const e = enemies[i];
     if (Math.abs(e.x-px) < (e.w+pw)/2 && Math.abs(e.y-py) < (e.h+ph)/2){
       if (e.type === 'mud'){
         enemies.splice(i,1);
-        fuel = Math.max(0, fuel - 10);   // energy penalty
-        score = Math.max(0, score - 2);  // score penalty
-        slipTimer = 0.6;                 // wobble only (no global slow)
-      } else {
-        endGame();
-      }
+        fuel = Math.max(0, fuel - 10);
+        score = Math.max(0, score - 2);
+        slipTimer = 0.6;
+      } else endGame();
       break;
     }
   }
-
-  // Pickups
   for (let i=0; i<pickups.length; i++){
     const p = pickups[i];
     if (Math.abs(p.x-px) < (p.w+pw)/2 && Math.abs(p.y-py) < (p.h+ph)/2){
@@ -269,22 +222,16 @@ function update(dt){
       break;
     }
   }
-
-  // Distance: 60px ≈ 0.5 m → px / 120
   meters += (roadSpeed * dt) / 120;
-
-  // Energy drain & game over
   fuel -= dt*2;
   if (fuel <= 0) endGame();
 }
-
 function drawHUD(){
   ctx.fillStyle = '#fff'; ctx.font = '16px system-ui, sans-serif';
-  ctx.fillText('Score: '  + score,        10, 22);
+  ctx.fillText('Score: '  + score, 10, 22);
   ctx.fillText('Energy: ' + Math.round(fuel), 10, 42);
   ctx.fillText('Meters: ' + Math.round(meters), 10, 62);
 }
-
 function draw(){
   drawBackground();
   enemies.forEach(e => { if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
@@ -292,28 +239,23 @@ function draw(){
   drawCat(lanesX()[currentLane] + slipOffset, PLAYER_Y(), CAT_W, CAT_H);
   drawHUD();
 }
-
 function drawMenu(){
   drawBackground();
-  // (Title intentionally removed at your request)
   ctx.fillStyle = '#fff';
   ctx.font = '18px system-ui, sans-serif';
   const sub = 'Tap or swipe to start';
   ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 120);
-
   ctx.font = '16px system-ui, sans-serif';
   const lines = ['Aim: Reach a high score', 'by collecting as many', 'fish as you can'];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 150 + i*18));
-
-  // Leaderboard
   drawBoard(24, 210);
 }
-// ====== Game control ======
+
+// ===== Game control =====
 function endGame(){
   gameRunning = false;
   maybeRecordScore(score);
 }
-
 function resetGame(){
   enemies = [];
   pickups = [];
@@ -323,25 +265,19 @@ function resetGame(){
   roadSpeed = 320;
   currentLane = 1;
 }
-
 function loop(ts){
-  if (!last) last = ts;                 // guard the first frame
-  const dt = Math.min((ts - last)/1000, 0.05); // cap dt to 50ms
+  if (!last) last = ts;
+  const dt = Math.min((ts - last) / 1000, 0.05);
   last = ts;
-
   ctx.clearRect(0,0,W,H);
   if (gameRunning){
     update(dt);
     draw();
-  } else {
-    drawMenu();
-  }
+  } else drawMenu();
   requestAnimationFrame(loop);
 }
-}
 
-// ====== Controls ======
-// Keyboard (desktop)
+// ===== Controls =====
 document.addEventListener('keydown', e=>{
   if (!gameRunning){
     resetGame();
@@ -351,8 +287,6 @@ document.addEventListener('keydown', e=>{
   if (e.key === 'ArrowLeft' && currentLane > 0) currentLane--;
   else if (e.key === 'ArrowRight' && currentLane < 2) currentLane++;
 });
-
-// Touch & swipe (mobile)
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
   if (!gameRunning){
@@ -375,7 +309,6 @@ canvas.addEventListener('touchmove', e=>{
 });
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-// ====== Start game loop ======
 requestAnimationFrame(loop);
 </script>
 </body>
