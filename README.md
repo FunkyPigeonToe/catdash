@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -125,7 +126,7 @@ function drawFish(x,y){
 }
 function drawGoldenFish(x,y){
   ctx.fillStyle = 'gold';
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-16, y-9); ctx.lineTo(x-26, y+19); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-16, y-9); ctx.lineTo(x-16, y+9); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.arc(x+9, y, 9, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+11, y-1, 1.6, 0, Math.PI*2); ctx.fill();
 }
@@ -175,7 +176,7 @@ function spawnPickup(){
 }
 
 // ===== Update & Draw =====
-const PLAYER_Y = () => H - 110;
+const PLAYER_Y = () => H - 150;
 const CAT_W = 40, CAT_H = 60;
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
