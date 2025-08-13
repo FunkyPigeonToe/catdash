@@ -20,23 +20,29 @@
     background: #6dbb4a;
     touch-action: none;
   }
+
+  /* Mobile lane buttons sit over lanes 1 and 3 */
   .controls {
     position: fixed;
-    left: 0; right: 0; bottom: 20px;
-    display: flex; justify-content: center; gap: 24px;
-    pointer-events: auto;
+    inset: 0;
+    pointer-events: none;
     z-index: 10;
   }
-  .controls button {
-    width: 72px; height: 72px;
-    font-size: 28px; line-height: 1;
-    border: none; border-radius: 18px;
+  .laneBtn {
+    position: absolute;
+    width: 88px; height: 88px;
+    border: none; border-radius: 20px;
     background: rgba(0,0,0,0.35); color: #fff;
+    font-size: 28px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.35);
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
   }
-  .controls button:active { transform: scale(0.96); }
+  .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
+
+  /* Hide buttons on wider screens */
   @media (min-width: 900px) {
     .controls { display: none; }
   }
@@ -44,10 +50,13 @@
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
+
+<!-- Buttons that sit over lane 1 and lane 3 -->
 <div id="controls" class="controls">
-  <button id="btnLeft" aria-label="Move left">◀</button>
-  <button id="btnRight" aria-label="Move right">▶</button>
+  <button id="btnLane1" class="laneBtn" aria-label="Lane 1">◀</button>
+  <button id="btnLane3" class="laneBtn" aria-label="Lane 3">▶</button>
 </div>
+
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -57,20 +66,36 @@ let H = window.innerHeight;
 canvas.width = W;
 canvas.height = H;
 
+function lanesX(){ return [W/4, W/2, (3*W)/4]; }
+
+function positionButtons(){
+  const btn1 = document.getElementById('btnLane1');
+  const btn3 = document.getElementById('btnLane3');
+  const lx = lanesX();
+
+  // Place buttons centered over lane 1 and lane 3
+  // Keep them low on screen but not covering the cat
+  const y = H - Math.min(120, H * 0.12);
+
+  btn1.style.left = lx[0] + 'px';
+  btn1.style.top  = y + 'px';
+  btn3.style.left = lx[2] + 'px';
+  btn3.style.top  = y + 'px';
+}
+positionButtons();
+
 window.addEventListener('resize', () => {
   W = window.innerWidth;
   H = window.innerHeight;
   canvas.width = W;
   canvas.height = H;
+  positionButtons();
 });
 
 let gameRunning = false;
-const lanesX = () => [W/4, W/2, (3*W)/4];
 let currentLane = 1;
-
 let enemies = [];
 let pickups = [];
-
 let score = 0;
 let fuel = 100;
 let meters = 0;
@@ -96,7 +121,7 @@ function maybeRecordScore(sc){
   const board = loadBoard();
   const qualifies = (board.length < 10) || (sc > board[board.length-1].score);
   if (!qualifies || sc <= 0) return;
-  let name = prompt('New high score! Enter name or initials:', 'CAT');
+  let name = prompt('New high score. Enter name or initials', 'CAT');
   if (!name) name = 'CAT';
   addScore(name.trim().slice(0,10), sc);
 }
@@ -117,7 +142,7 @@ function drawBoard(x, y){
   }
 }
 
-// Artwork
+// Art
 function drawBackground(){
   ctx.fillStyle = '#5e9d45'; ctx.fillRect(0,0,W,H);
   ctx.fillStyle = 'rgba(40,90,40,0.15)';
@@ -150,8 +175,6 @@ function drawFish(x,y){
   ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
-
-// sparkle helper
 function drawStar(cx, cy, spikes, innerR, outerR, rot){
   let rotA = Math.PI / 2 * 3 + rot;
   let x = cx, y = cy;
@@ -170,21 +193,16 @@ function drawStar(cx, cy, spikes, innerR, outerR, rot){
   ctx.closePath();
   ctx.fill();
 }
-
 function drawGoldenFish(x,y){
-  // body
   ctx.fillStyle = 'gold';
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-22, y+17); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
 
-  // glow and sparkle
   const t = performance.now() * 0.005;
   const pulse = 0.5 + 0.5 * Math.sin(t);
   ctx.save();
   ctx.globalAlpha = 0.35 + 0.45 * pulse;
-
-  // soft glow
   const g = ctx.createRadialGradient(x+6, y, 0, x+6, y, 24 + 6*pulse);
   g.addColorStop(0, 'rgba(255,215,0,0.9)');
   g.addColorStop(1, 'rgba(255,215,0,0)');
@@ -192,15 +210,12 @@ function drawGoldenFish(x,y){
   ctx.beginPath();
   ctx.arc(x+6, y, 24 + 6*pulse, 0, Math.PI*2);
   ctx.fill();
-
-  // twinkling star
   ctx.translate(x+6, y-10);
   ctx.rotate(t * 0.2);
   ctx.fillStyle = 'rgba(255,255,200,0.9)';
   drawStar(0, 0, 5, 2 + 0.6*pulse, 5 + 1.2*pulse, 0);
   ctx.restore();
 }
-
 function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e';
   ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
@@ -229,8 +244,8 @@ function pickFreeLane(spawnY){
   if (!candidates.length) return null;
   return candidates[Math.floor(Math.random()*candidates.length)];
 }
-
 let lastFishLane = null;
+
 function spawnEnemy(){
   const lane = pickFreeLane(-60);
   if (lane == null) return;
@@ -242,24 +257,37 @@ function spawnEnemy(){
       : {type, x: lx[lane], y: -40, w: 56, h: 24}
   );
 }
+
 function spawnPickup(){
-  let lane = pickFreeLane(-50);
+  const spawnY = -40;
+
+  // pick a lane that is free around this Y
+  let lane = pickFreeLane(spawnY);
   if (lane == null) return;
+
+  // do not allow two pickups at the same Y across any lanes
+  const tooClose = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
+  if (tooClose) return;
+
+  // avoid same lane twice in a row
   if (lane === lastFishLane){
     const otherLanes = [0,1,2].filter(l => l !== lastFishLane);
     if (otherLanes.length) lane = otherLanes[Math.floor(Math.random()*otherLanes.length)];
   }
   lastFishLane = lane;
+
   const lx = lanesX();
-  const goldenChance = (1/15) * 1.1; // 10 percent more golden fish chance
+  const goldenChance = (1/15) * 1.1; // 10 percent more golden fish
   const golden = Math.random() < goldenChance;
-  pickups.push({x: lx[lane], y: -40, w: 30, h: 16, golden});
+  pickups.push({x: lx[lane], y: spawnY, w: 30, h: 16, golden});
 }
 
-// Update and Draw
+// Update and draw
 const CAT_W = 40, CAT_H = 60;
-// keep cat a touch higher so it does not feel too low
-const PLAYER_Y = () => Math.min(H - 160, H * 0.78);
+
+/* Move the cat higher so fingers do not cover it.
+   About two thirds down the screen on phones. */
+const PLAYER_Y = () => Math.min(H - 260, H * 0.64);
 
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
@@ -272,8 +300,8 @@ function update(dt){
   spawnTimer += dt;
   if (spawnTimer > 0.95){
     spawnTimer = 0;
-    if (Math.random() < 0.825) spawnEnemy(); else spawnPickup(); // about 10 percent more pickups
-    if (Math.random() < 0.10) spawnPickup(); // extra occasional pickup
+    if (Math.random() < 0.825) spawnEnemy(); else spawnPickup();
+    if (Math.random() < 0.10) spawnPickup();
   }
 
   enemies.forEach(e => e.y += roadSpeed*dt);
@@ -337,7 +365,7 @@ function drawMenu(){
   drawBoard(24, 210);
 }
 
-// Game control
+// Control
 function endGame(){
   gameRunning = false;
   maybeRecordScore(score);
@@ -366,7 +394,7 @@ document.addEventListener('keydown', e=>{
   else if (e.key === 'ArrowRight' && currentLane < 2) currentLane++;
 });
 
-// Touch and swipe on canvas
+// Touch on canvas
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
@@ -380,7 +408,20 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-// Simple tap to nudge left or right based on where you tap
+// Lane buttons
+const btn1 = document.getElementById('btnLane1');
+const btn3 = document.getElementById('btnLane3');
+
+function toLane(i){
+  if (!gameRunning){ resetGame(); gameRunning = true; }
+  currentLane = i;
+}
+['click','touchstart'].forEach(evt=>{
+  btn1.addEventListener(evt, e=>{ e.preventDefault(); toLane(0); }, {passive: false});
+  btn3.addEventListener(evt, e=>{ e.preventDefault(); toLane(2); }, {passive: false});
+});
+
+// Also allow simple tap left or right to nudge one lane
 canvas.addEventListener('click', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; return; }
   const x = e.clientX;
@@ -389,26 +430,7 @@ canvas.addEventListener('click', e=>{
   else if (x > center && currentLane < 2) currentLane++;
 });
 
-// On screen buttons
-const btnLeft = document.getElementById('btnLeft');
-const btnRight = document.getElementById('btnRight');
-
-function moveLeft(){
-  if (!gameRunning){ resetGame(); gameRunning = true; }
-  if (currentLane > 0) currentLane--;
-}
-function moveRight(){
-  if (!gameRunning){ resetGame(); gameRunning = true; }
-  if (currentLane < 2) currentLane++;
-}
-
-// support both mouse and touch
-['click', 'touchstart'].forEach(evt=>{
-  btnLeft.addEventListener(evt, e=>{ e.preventDefault(); moveLeft(); }, {passive: false});
-  btnRight.addEventListener(evt, e=>{ e.preventDefault(); moveRight(); }, {passive: false});
-});
-
-// Start the loop
+// Go
 requestAnimationFrame(loop);
 </script>
 </body>
