@@ -25,6 +25,7 @@
     left: 0; right: 0; bottom: 20px;
     display: flex; justify-content: center; gap: 24px;
     pointer-events: auto;
+    z-index: 10;
   }
   .controls button {
     width: 72px; height: 72px;
@@ -95,7 +96,7 @@ function maybeRecordScore(sc){
   const board = loadBoard();
   const qualifies = (board.length < 10) || (sc > board[board.length-1].score);
   if (!qualifies || sc <= 0) return;
-  let name = prompt('New high score! Enter name/initials (3–10):','CAT');
+  let name = prompt('New high score! Enter name or initials:', 'CAT');
   if (!name) name = 'CAT';
   addScore(name.trim().slice(0,10), sc);
 }
@@ -103,10 +104,10 @@ function drawBoard(x, y){
   const board = loadBoard();
   ctx.fillStyle = '#fff';
   ctx.font = '18px system-ui, sans-serif';
-  ctx.fillText('Leaderboard (Top 10)', x, y);
+  ctx.fillText('Leaderboard Top 10', x, y);
   ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
   if (board.length === 0){
-    ctx.fillText('No scores yet — be the first!', x, y+22);
+    ctx.fillText('No scores yet. Be the first', x, y+22);
     return;
   }
   for (let i=0; i<board.length && i<10; i++){
@@ -149,12 +150,57 @@ function drawFish(x,y){
   ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
+
+// sparkle helper
+function drawStar(cx, cy, spikes, innerR, outerR, rot){
+  let rotA = Math.PI / 2 * 3 + rot;
+  let x = cx, y = cy;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - outerR);
+  for (let i=0; i<spikes; i++){
+    x = cx + Math.cos(rotA) * outerR;
+    y = cy + Math.sin(rotA) * outerR;
+    ctx.lineTo(x,y);
+    rotA += Math.PI / spikes;
+    x = cx + Math.cos(rotA) * innerR;
+    y = cy + Math.sin(rotA) * innerR;
+    ctx.lineTo(x,y);
+    rotA += Math.PI / spikes;
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawGoldenFish(x,y){
+  // body
   ctx.fillStyle = 'gold';
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-22, y+17); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
+
+  // glow and sparkle
+  const t = performance.now() * 0.005;
+  const pulse = 0.5 + 0.5 * Math.sin(t);
+  ctx.save();
+  ctx.globalAlpha = 0.35 + 0.45 * pulse;
+
+  // soft glow
+  const g = ctx.createRadialGradient(x+6, y, 0, x+6, y, 24 + 6*pulse);
+  g.addColorStop(0, 'rgba(255,215,0,0.9)');
+  g.addColorStop(1, 'rgba(255,215,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x+6, y, 24 + 6*pulse, 0, Math.PI*2);
+  ctx.fill();
+
+  // twinkling star
+  ctx.translate(x+6, y-10);
+  ctx.rotate(t * 0.2);
+  ctx.fillStyle = 'rgba(255,255,200,0.9)';
+  drawStar(0, 0, 5, 2 + 0.6*pulse, 5 + 1.2*pulse, 0);
+  ctx.restore();
 }
+
 function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e';
   ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
@@ -205,14 +251,15 @@ function spawnPickup(){
   }
   lastFishLane = lane;
   const lx = lanesX();
-  const goldenChance = (1/15) * 1.1; // 10% more golden fish
+  const goldenChance = (1/15) * 1.1; // 10 percent more golden fish chance
   const golden = Math.random() < goldenChance;
   pickups.push({x: lx[lane], y: -40, w: 30, h: 16, golden});
 }
 
-// Update & Draw
-const PLAYER_Y = () => H - 140;
+// Update and Draw
 const CAT_W = 40, CAT_H = 60;
+// keep cat a touch higher so it does not feel too low
+const PLAYER_Y = () => Math.min(H - 160, H * 0.78);
 
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
@@ -225,8 +272,8 @@ function update(dt){
   spawnTimer += dt;
   if (spawnTimer > 0.95){
     spawnTimer = 0;
-    if (Math.random() < 0.825) spawnEnemy(); else spawnPickup(); // ~10% more pickups
-    if (Math.random() < 0.10) spawnPickup();
+    if (Math.random() < 0.825) spawnEnemy(); else spawnPickup(); // about 10 percent more pickups
+    if (Math.random() < 0.10) spawnPickup(); // extra occasional pickup
   }
 
   enemies.forEach(e => e.y += roadSpeed*dt);
@@ -306,7 +353,7 @@ function resetGame(){
 }
 function loop(ts){
   const dt = (ts - last) / 1000;
-  last = ts;
+  last = ts || 0;
   ctx.clearRect(0,0,W,H);
   if (gameRunning){ update(dt); draw(); } else { drawMenu(); }
   requestAnimationFrame(loop);
@@ -314,24 +361,55 @@ function loop(ts){
 
 // Keyboard
 document.addEventListener('keydown', e=>{
-  if (!gameRunning){ resetGame(); gameRunning = true; return; }
+  if (!gameRunning){ resetGame(); gameRunning = true; }
   if (e.key === 'ArrowLeft' && currentLane > 0) currentLane--;
   else if (e.key === 'ArrowRight' && currentLane < 2) currentLane++;
 });
 
-// Touch & swipe
+// Touch and swipe on canvas
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
-  if (!gameRunning){ resetGame(); gameRunning = true; return; }
+  if (!gameRunning){ resetGame(); gameRunning = true; }
   touchStartX = e.touches[0].clientX;
-});
+}, {passive: true});
 canvas.addEventListener('touchmove', e=>{
   if (touchStartX === null) return;
   const dx = e.touches[0].clientX - touchStartX;
   if (dx > 50 && currentLane < 2){ currentLane++; touchStartX = e.touches[0].clientX; }
   else if (dx < -50 && currentLane > 0){ currentLane--; touchStartX = e.touches[0].clientX; }
-});
+}, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-// On-screen buttons
-function moveLeft(){ if (!gameRunning){ resetGame(); gameRunning = true; } if
+// Simple tap to nudge left or right based on where you tap
+canvas.addEventListener('click', e=>{
+  if (!gameRunning){ resetGame(); gameRunning = true; return; }
+  const x = e.clientX;
+  const center = lanesX()[currentLane];
+  if (x < center && currentLane > 0) currentLane--;
+  else if (x > center && currentLane < 2) currentLane++;
+});
+
+// On screen buttons
+const btnLeft = document.getElementById('btnLeft');
+const btnRight = document.getElementById('btnRight');
+
+function moveLeft(){
+  if (!gameRunning){ resetGame(); gameRunning = true; }
+  if (currentLane > 0) currentLane--;
+}
+function moveRight(){
+  if (!gameRunning){ resetGame(); gameRunning = true; }
+  if (currentLane < 2) currentLane++;
+}
+
+// support both mouse and touch
+['click', 'touchstart'].forEach(evt=>{
+  btnLeft.addEventListener(evt, e=>{ e.preventDefault(); moveLeft(); }, {passive: false});
+  btnRight.addEventListener(evt, e=>{ e.preventDefault(); moveRight(); }, {passive: false});
+});
+
+// Start the loop
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
