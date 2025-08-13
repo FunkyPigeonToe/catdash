@@ -243,7 +243,6 @@ function draw(){
   drawHUD();
 }
 
-function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff'; ctx.font = '28px system-ui, sans-serif';
   const title = 'Cat Dash'; const w = ctx.measureText(title).width;
