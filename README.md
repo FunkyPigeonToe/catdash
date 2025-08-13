@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -19,10 +20,33 @@
     background: #6dbb4a;
     touch-action: none;
   }
+  .controls {
+    position: fixed;
+    left: 0; right: 0; bottom: 20px;
+    display: flex; justify-content: center; gap: 24px;
+    pointer-events: auto;
+  }
+  .controls button {
+    width: 72px; height: 72px;
+    font-size: 28px; line-height: 1;
+    border: none; border-radius: 18px;
+    background: rgba(0,0,0,0.35); color: #fff;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .controls button:active { transform: scale(0.96); }
+  @media (min-width: 900px) {
+    .controls { display: none; }
+  }
 </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
+<div id="controls" class="controls">
+  <button id="btnLeft" aria-label="Move left">◀</button>
+  <button id="btnRight" aria-label="Move right">▶</button>
+</div>
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -39,23 +63,25 @@ window.addEventListener('resize', () => {
   canvas.height = H;
 });
 
-// ===== Game vars =====
 let gameRunning = false;
 const lanesX = () => [W/4, W/2, (3*W)/4];
 let currentLane = 1;
+
 let enemies = [];
 let pickups = [];
+
 let score = 0;
 let fuel = 100;
 let meters = 0;
+
 let spawnTimer = 0;
 let last = 0;
 let roadSpeed = 320;
-let maxSpeed = 1000;
+let maxSpeed   = 1000;
 const baseAccel = 0.6;
 let slipTimer = 0, slipOffset = 0;
 
-// ===== Leaderboard =====
+// Leaderboard
 const BOARD_KEY = 'cat_leaderboard';
 function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); } catch { return []; } }
 function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
@@ -90,7 +116,7 @@ function drawBoard(x, y){
   }
 }
 
-// ===== Art =====
+// Artwork
 function drawBackground(){
   ctx.fillStyle = '#5e9d45'; ctx.fillRect(0,0,W,H);
   ctx.fillStyle = 'rgba(40,90,40,0.15)';
@@ -123,33 +149,11 @@ function drawFish(x,y){
   ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
-function drawGoldenFish(x, y){
+function drawGoldenFish(x,y){
   ctx.fillStyle = 'gold';
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x - 12, y - 7);
-  ctx.lineTo(x - 12, y + 7);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(x + 7, y, 7, 0, Math.PI * 2);
-  ctx.fill();
-
-  // sparkle highlight (moves slowly around the body)
-  const t = performance.now() / 300; // change speed by adjusting divisor
-  const sparkleX = x + 7 + Math.cos(t) * 3;
-  const sparkleY = y + Math.sin(t) * 3;
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.beginPath();
-  ctx.arc(sparkleX, sparkleY, 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // eye
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.arc(x + 9, y - 1, 1.6, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-22, y+17); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
 }
 function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e';
@@ -167,7 +171,7 @@ function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
 }
 
-// ===== Spawning =====
+// Spawning
 const SPAWN_BUFFER_Y = 120;
 function laneIsFree(x, y){
   return !enemies.some(e => Math.abs(e.x - x) < 1 && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
@@ -179,48 +183,37 @@ function pickFreeLane(spawnY){
   if (!candidates.length) return null;
   return candidates[Math.floor(Math.random()*candidates.length)];
 }
+
+let lastFishLane = null;
 function spawnEnemy(){
   const lane = pickFreeLane(-60);
   if (lane == null) return;
   const lx = lanesX();
   const type = Math.random() < 0.55 ? 'tree' : 'mud';
-  enemies.push(type==='tree'
+  enemies.push(
+    type==='tree'
       ? {type, x: lx[lane], y: -50, w: 40, h: 70}
-      : {type, x: lx[lane], y: -40, w: 56, h: 24});
+      : {type, x: lx[lane], y: -40, w: 56, h: 24}
+  );
 }
 function spawnPickup(){
-  const lane = pickFreeLane(-50);
+  let lane = pickFreeLane(-50);
   if (lane == null) return;
-  const lx = lanesX();
-  const golden = Math.random() < (1/15);
-  pickups.push({x: lx[lane], y: -40, w: 30, h: 16, golden});
-}
-let lastFishLane = null; // put this near top with other globals
-
-function spawnPickup(){
-  const lane = pickFreeLane(-50);
-  if (lane == null) return;
-
-  // Avoid same lane as last fish
   if (lane === lastFishLane){
     const otherLanes = [0,1,2].filter(l => l !== lastFishLane);
-    if (otherLanes.length) {
-      const alt = pickFreeLane(-50);
-      if (alt !== null && alt !== lastFishLane) {
-        lane = alt;
-      }
-    }
+    if (otherLanes.length) lane = otherLanes[Math.floor(Math.random()*otherLanes.length)];
   }
   lastFishLane = lane;
-
   const lx = lanesX();
-  const golden = Math.random() < (1/15); // ~6.7% chance
+  const goldenChance = (1/15) * 1.1; // 10% more golden fish
+  const golden = Math.random() < goldenChance;
   pickups.push({x: lx[lane], y: -40, w: 30, h: 16, golden});
 }
 
-// ===== Update & Draw =====
-const PLAYER_Y = () => H - 130;
+// Update & Draw
+const PLAYER_Y = () => H - 140;
 const CAT_W = 40, CAT_H = 60;
+
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
   roadSpeed = Math.min(maxSpeed, (roadSpeed + accel) * Math.pow(1.00000002, meters));
@@ -228,16 +221,19 @@ function update(dt){
     slipTimer = Math.max(0, slipTimer - dt);
     slipOffset = Math.sin(performance.now()/40) * 4;
   } else slipOffset = 0;
+
   spawnTimer += dt;
   if (spawnTimer > 0.95){
     spawnTimer = 0;
-    if (Math.random() < 0.75) spawnEnemy(); else spawnPickup();
+    if (Math.random() < 0.825) spawnEnemy(); else spawnPickup(); // ~10% more pickups
     if (Math.random() < 0.10) spawnPickup();
   }
+
   enemies.forEach(e => e.y += roadSpeed*dt);
   pickups.forEach(p => p.y += roadSpeed*dt);
   enemies = enemies.filter(e => e.y < H + 60);
   pickups = pickups.filter(p => p.y < H + 60);
+
   const px = lanesX()[currentLane] + slipOffset, py = PLAYER_Y(), pw = CAT_W-4, ph = CAT_H-2;
   for (let i=0; i<enemies.length; i++){
     const e = enemies[i];
@@ -286,7 +282,7 @@ function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff';
   ctx.font = '18px system-ui, sans-serif';
-  const sub = 'Tap or swipe to start';
+  const sub = 'Tap, swipe, or use arrows to start';
   ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 120);
   ctx.font = '16px system-ui, sans-serif';
   const lines = ['Aim: Reach a high score', 'by collecting as many', 'fish as you can'];
@@ -294,7 +290,7 @@ function drawMenu(){
   drawBoard(24, 210);
 }
 
-// ===== Game control =====
+// Game control
 function endGame(){
   gameRunning = false;
   maybeRecordScore(score);
@@ -309,50 +305,33 @@ function resetGame(){
   currentLane = 1;
 }
 function loop(ts){
-  if (!last) last = ts;
-  const dt = Math.min((ts - last) / 1000, 0.05);
+  const dt = (ts - last) / 1000;
   last = ts;
   ctx.clearRect(0,0,W,H);
-  if (gameRunning){
-    update(dt);
-    draw();
-  } else drawMenu();
+  if (gameRunning){ update(dt); draw(); } else { drawMenu(); }
   requestAnimationFrame(loop);
 }
 
-// ===== Controls =====
+// Keyboard
 document.addEventListener('keydown', e=>{
-  if (!gameRunning){
-    resetGame();
-    gameRunning = true;
-    return;
-  }
+  if (!gameRunning){ resetGame(); gameRunning = true; return; }
   if (e.key === 'ArrowLeft' && currentLane > 0) currentLane--;
   else if (e.key === 'ArrowRight' && currentLane < 2) currentLane++;
 });
+
+// Touch & swipe
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
-  if (!gameRunning){
-    resetGame();
-    gameRunning = true;
-    return;
-  }
+  if (!gameRunning){ resetGame(); gameRunning = true; return; }
   touchStartX = e.touches[0].clientX;
 });
 canvas.addEventListener('touchmove', e=>{
   if (touchStartX === null) return;
   const dx = e.touches[0].clientX - touchStartX;
-  if (dx > 50 && currentLane < 2){
-    currentLane++;
-    touchStartX = e.touches[0].clientX;
-  } else if (dx < -50 && currentLane > 0){
-    currentLane--;
-    touchStartX = e.touches[0].clientX;
-  }
+  if (dx > 50 && currentLane < 2){ currentLane++; touchStartX = e.touches[0].clientX; }
+  else if (dx < -50 && currentLane > 0){ currentLane--; touchStartX = e.touches[0].clientX; }
 });
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-requestAnimationFrame(loop);
-</script>
-</body>
-</html>
+// On-screen buttons
+function moveLeft(){ if (!gameRunning){ resetGame(); gameRunning = true; } if
