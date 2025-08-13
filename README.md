@@ -195,6 +195,28 @@ function spawnPickup(){
   const golden = Math.random() < (1/15);
   pickups.push({x: lx[lane], y: -40, w: 30, h: 16, golden});
 }
+let lastFishLane = null; // put this near top with other globals
+
+function spawnPickup(){
+  const lane = pickFreeLane(-50);
+  if (lane == null) return;
+
+  // Avoid same lane as last fish
+  if (lane === lastFishLane){
+    const otherLanes = [0,1,2].filter(l => l !== lastFishLane);
+    if (otherLanes.length) {
+      const alt = pickFreeLane(-50);
+      if (alt !== null && alt !== lastFishLane) {
+        lane = alt;
+      }
+    }
+  }
+  lastFishLane = lane;
+
+  const lx = lanesX();
+  const golden = Math.random() < (1/15); // ~6.7% chance
+  pickups.push({x: lx[lane], y: -40, w: 30, h: 16, golden});
+}
 
 // ===== Update & Draw =====
 const PLAYER_Y = () => H - 130;
