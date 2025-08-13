@@ -110,6 +110,13 @@ function drawFish(x,y){
   ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
+function drawGoldenFish(x,y){
+  // rare golden fish
+  ctx.fillStyle = 'gold';
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-12, y+7); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
+}
 function drawCat(x, y, w, h){
   // rounder, two-tone cat with tail
   // body base
@@ -134,15 +141,29 @@ function drawCat(x, y, w, h){
 }
 
 /* ================= Spawning ================= */
+const SPAWN_BUFFER_Y = 120; // avoid spawn overlap
+function laneIsFree(x, y){
+  return !enemies.some(e => Math.abs(e.x - x) < 1 && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
+      && !pickups.some(p => Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < SPAWN_BUFFER_Y);
+}
+function pickFreeLane(spawnY){
+  const candidates = [0,1,2].filter(l => laneIsFree(lanesX[l], spawnY));
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random()*candidates.length)];
+}
 function spawnEnemy(){
-  const lane = (Math.random()*3|0);
+  const lane = pickFreeLane(-60);
+  if (lane == null) return;
   const type = Math.random() < 0.55 ? 'tree' : 'mud';
   enemies.push(type==='tree' ? {type, x: lanesX[lane], y: -50, w: 40, h: 70}
                              : {type, x: lanesX[lane], y: -40, w: 56, h: 24});
 }
 function spawnPickup(){
-  const lane = (Math.random()*3|0);
-  pickups.push({x: lanesX[lane], y: -40, w: 30, h: 16});
+  const lane = pickFreeLane(-50);
+  if (lane == null) return;
+  // ~1 in 15 chance of golden fish
+  const golden = Math.random() < (1/15);
+  pickups.push({x: lanesX[lane], y: -40, w: 30, h: 16, golden});
 }
 
 /* ================= Update & Draw ================= */
@@ -157,9 +178,15 @@ function update(dt){
   // slip wobble timer
   if (slipTimer > 0){ slipTimer = Math.max(0, slipTimer - dt); slipOffset = Math.sin(performance.now()/40)*4; } else { slipOffset = 0; }
 
-  // spawns
+  // spawns  — increase pickups ~15% overall
   spawnTimer += dt;
-  if (spawnTimer > 1){ spawnTimer = 0; (Math.random() < 0.78 ? spawnEnemy : spawnPickup)(); }
+  if (spawnTimer > 0.95){
+    spawnTimer = 0;
+    // Previously ~22% pickups; now ~25% (+~15% relative)
+    if (Math.random() < 0.75) spawnEnemy(); else spawnPickup();
+    // small extra chance of an additional pickup for more fish variety
+    if (Math.random() < 0.10) spawnPickup();
+  }
 
   // movement
   enemies.forEach(e=> e.y += roadSpeed*dt);
@@ -184,7 +211,15 @@ function update(dt){
   for (let i=0;i<pickups.length;i++){
     const p = pickups[i];
     if (Math.abs(p.x-px) < (p.w+pw)/2 && Math.abs(p.y-py) < (p.h+ph)/2){
-      pickups.splice(i,1); fuel = Math.min(100, fuel + 10); score += 3; break;
+      pickups.splice(i,1);
+      if (p.golden){
+        fuel = Math.min(100, fuel + 20);
+        score += 10;
+      } else {
+        fuel = Math.min(100, fuel + 10);
+        score += 3;
+      }
+      break;
     }
   }
 
@@ -203,7 +238,7 @@ function drawHUD(){
 function draw(){
   drawBackground();
   enemies.forEach(e=>{ if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
-  pickups.forEach(p=> drawFish(p.x,p.y));
+  pickups.forEach(p=> p.golden ? drawGoldenFish(p.x,p.y) : drawFish(p.x,p.y));
   drawCat(lanesX[currentLane] + slipOffset, PLAYER_Y, CAT_W, CAT_H);
   drawHUD();
 }
@@ -274,5 +309,3 @@ requestAnimationFrame(loop);
 </script>
 </body>
 </html>
-
-Get Outlook for iOS
