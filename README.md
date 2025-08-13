@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -176,7 +175,7 @@ function spawnPickup(){
 }
 
 // ===== Update & Draw =====
-const PLAYER_Y = () => H - 150;
+const PLAYER_Y = () => H - 160;
 const CAT_W = 40, CAT_H = 60;
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
