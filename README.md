@@ -283,7 +283,7 @@ function spawnPickup(){
   lastFishLane = lane;
 
   const lx = lanesX();
-  const goldenChance = (1/15) * 1.1; // a bit more golden fish
+  const goldenChance = (1/15) * 1.6; // a bit more golden fish
   const golden = Math.random() < goldenChance;
   pickups.push({x: lx[lane], y: spawnY, w: 30, h: 16, golden});
 }
