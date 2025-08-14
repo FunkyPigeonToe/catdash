@@ -194,39 +194,57 @@ function drawStar(cx, cy, spikes, innerR, outerR, rot){
   ctx.closePath();
   ctx.fill();
 }
-function drawGoldenFish(x,y){
-  // Glow effect
-  const t = performance.now() * 0.005;
-  const pulse = 0.5 + 0.5 * Math.sin(t);
-  ctx.save();
-  ctx.globalAlpha = 0.4 + 0.4 * pulse;
-  const g = ctx.createRadialGradient(x, y, 0, x, y, 30);
-  g.addColorStop(0, 'rgba(255,215,0,0.9)');
-  g.addColorStop(1, 'rgba(255,215,0,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(x, y, 30, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
+// one helper for both fish so the shape always matches
+function drawFishShape(x, y, scale, bodyColor, withGlow){
+  const tail = 10 * scale;
+  const tailH = 6 * scale;
+  const bodyR = 6 * scale;
+  const eyeR  = 1.5 * scale;
 
-  // Body — twice the size of normal
-  ctx.fillStyle = 'gold';
+  if (withGlow){
+    const t = performance.now() * 0.005;
+    const pulse = 0.5 + 0.5 * Math.sin(t);
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.45 * pulse;
+    const g = ctx.createRadialGradient(x + bodyR, y, 0, x + bodyR, y, 20 * scale + 6 * pulse);
+    g.addColorStop(0, 'rgba(255,215,0,0.95)');
+    g.addColorStop(1, 'rgba(255,215,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x + bodyR, y, 20 * scale + 6 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // body
+  ctx.fillStyle = bodyColor;
+  // tail triangle
   ctx.beginPath();
   ctx.moveTo(x, y);
-  ctx.lineTo(x-20, y-12);
-  ctx.lineTo(x-20, y+12);
+  ctx.lineTo(x - tail, y - tailH);
+  ctx.lineTo(x - tail, y + tailH);
   ctx.closePath();
   ctx.fill();
-
+  // round body
   ctx.beginPath();
-  ctx.arc(x+12, y, 12, 0, Math.PI*2);
+  ctx.arc(x + bodyR, y, bodyR, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eye
+  // eye
   ctx.fillStyle = '#000';
   ctx.beginPath();
-  ctx.arc(x+16, y-2, 3, 0, Math.PI*2);
+  ctx.arc(x + bodyR + 2 * scale, y - 1 * scale, eyeR, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// normal fish
+function drawFish(x, y){
+  drawFishShape(x, y, 1, 'orange', false);
+}
+
+// golden fish, exactly 2x and glowing
+function drawGoldenFish(x, y){
+  drawFishShape(x, y, 2, 'gold', true);
 }
 function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e';
