@@ -306,10 +306,11 @@ function spawnPickup(){
   }
   lastFishLane = lane;
 
-  const lx = lanesX();
-  const goldenChance = (1/15) * 1.6; // a bit more golden fish
-  const golden = Math.random() < goldenChance;
-  pickups.push({x: lx[lane], y: spawnY, w: 30, h: 16, golden});
+const golden = Math.random() < goldenChance;
+const scale  = golden ? 2 : 1;
+const w = 30 * scale;   // was 30
+const h = 16 * scale;   // was 16
+pickups.push({ x: lx[lane], y: spawnY, w, h, golden });
 }
 
 // Sizes and player position
