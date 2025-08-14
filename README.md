@@ -354,7 +354,7 @@ function drawMenu(){
   ctx.fillStyle = '#fff';
   ctx.font = '18px system-ui, sans-serif';
   const sub = 'Tap, swipe, or use arrows to start';
-  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 120);
+  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 90);
   ctx.font = '16px system-ui, sans-serif';
   const lines = ['Aim: Reach a high score', 'by collecting as many', 'fish as you can'];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 150 + i*18));
