@@ -72,7 +72,7 @@ function positionButtons(){
   const lx = lanesX();
 
   // keep low but clear of the cat
-  const y = H - Math.min(80, H * 0.8);
+  const y = H - Math.min(70, H * 0.7);
 
   btn1.style.left = lx[0] + 'px';
   btn1.style.top  = y + 'px';
