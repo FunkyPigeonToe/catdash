@@ -20,7 +20,6 @@
     touch-action: none;
   }
 
-  /* Mobile lane buttons over lanes 1 and 3 */
   .controls {
     position: fixed;
     inset: 0;
@@ -41,7 +40,6 @@
   }
   .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
 
-  /* Hide buttons on larger screens */
   @media (min-width: 900px) {
     .controls { display: none; }
   }
@@ -50,7 +48,6 @@
 <body>
 <canvas id="gameCanvas"></canvas>
 
-<!-- Buttons over lane 1 and lane 3 that nudge one lane per press -->
 <div id="controls" class="controls">
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
@@ -67,13 +64,16 @@ canvas.height = H;
 
 function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 
+/* Shared vertical offset for both cat and buttons */
+const CAT_AND_BUTTON_OFFSET = 50;
+
 function positionButtons(){
   const btn1 = document.getElementById('btnLane1');
   const btn3 = document.getElementById('btnLane3');
   const lx = lanesX();
 
-  // Low on screen but clear of the cat
-  const y = H - Math.min(120, H * 0.12);
+  const baseY = H - Math.min(120, H * 0.12);
+  const y = Math.min(H - 10, baseY + CAT_AND_BUTTON_OFFSET);
 
   btn1.style.left = lx[0] + 'px';
   btn1.style.top  = y + 'px';
@@ -228,7 +228,9 @@ function drawCat(x, y, w, h){
 }
 
 // Spawning and placement rules
-const SPAWN_BUFFER_Y = 120;
+/* Tighter vertical gap for more action */
+const SPAWN_BUFFER_Y = 70;
+
 function laneIsFree(x, y){
   return !enemies.some(e => e.x === x && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
       && !pickups.some(p => p.x === x && Math.abs(p.y - y) < SPAWN_BUFFER_Y);
@@ -253,7 +255,7 @@ function spawnEnemy(){
   );
 }
 
-// New helper to test if a lane has any enemy anywhere
+// lane wide check so fish never mix with trees or mud
 function laneHasAnyEnemy(laneIndex){
   const lx = lanesX();
   const laneX = lx[laneIndex];
@@ -263,18 +265,15 @@ function laneHasAnyEnemy(laneIndex){
 function spawnPickup(){
   const spawnY = -40;
 
-  // keep rows clean across all lanes
   const sameYEnemy  = enemies.some(e => Math.abs(e.y - spawnY) < SPAWN_BUFFER_Y);
   const sameYPickup = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
   if (sameYEnemy || sameYPickup) return;
 
   const lx = lanesX();
 
-  // candidates are lanes that are free near this Y and have no enemies at all
   let candidateLanes = [0,1,2].filter(i => laneIsFree(lx[i], spawnY) && !laneHasAnyEnemy(i));
   if (!candidateLanes.length) return;
 
-  // avoid same lane twice in a row
   let lane;
   const withoutLast = candidateLanes.filter(l => l !== lastFishLane);
   if (withoutLast.length) lane = withoutLast[Math.floor(Math.random()*withoutLast.length)];
@@ -293,7 +292,8 @@ function spawnPickup(){
 
 // Sizes and player position
 const CAT_W = 20, CAT_H = 30;
-const PLAYER_Y = () => Math.min(H - 240, H * 0.64);
+/* Lower the cat by the same shared offset, with a safety cap */
+const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_AND_BUTTON_OFFSET);
 
 // Update and draw
 function update(dt){
@@ -304,11 +304,12 @@ function update(dt){
     slipOffset = Math.sin(performance.now()/40) * 4;
   } else slipOffset = 0;
 
+  /* Faster cadence for spawns */
   spawnTimer += dt;
-  if (spawnTimer > 0.95){
+  if (spawnTimer > 0.6){
     spawnTimer = 0;
-    if (Math.random() < 0.825) spawnEnemy(); else spawnPickup();
-    if (Math.random() < 0.10) spawnPickup();
+    if (Math.random() < 0.82) spawnEnemy(); else spawnPickup();
+    if (Math.random() < 0.20) spawnPickup();
   }
 
   enemies.forEach(e => e.y += roadSpeed*dt);
@@ -364,18 +365,19 @@ function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff';
 
-  // Title smaller, two words
-  ctx.font = '18px system-ui, sans-serif';
-  const title = 'Cat Dash';
-  ctx.fillText(title, (W - ctx.measureText(title).width)/2, 90);
-
+  /* Smaller title block to free play space */
   ctx.font = '16px system-ui, sans-serif';
+  const title = 'Cat Dash';
+  ctx.fillText(title, (W - ctx.measureText(title).width)/2, 56);
+
+  ctx.font = '14px system-ui, sans-serif';
   const sub = 'Tap, swipe, or use arrows to start';
-  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 120);
+  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 78);
 
   const lines = ['Aim: Reach a high score', 'by collecting as many', 'fish as you can'];
-  lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 150 + i*18));
-  drawBoard(24, 210);
+  lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 98 + i*16));
+
+  drawBoard(24, 160);
 }
 
 // Control
@@ -400,7 +402,7 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-// Keyboard: nudge one lane per keydown with simple debounce
+// Keyboard
 let keyLock = false;
 document.addEventListener('keydown', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
@@ -431,7 +433,7 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-// Lane buttons nudge one lane per tap
+// Lane buttons
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
 
@@ -443,7 +445,7 @@ function nudgeRight(){ if (!gameRunning){ resetGame(); gameRunning = true; } if 
   btn3.addEventListener(evt, e=>{ e.preventDefault(); nudgeRight(); }, {passive: false});
 });
 
-// Tap anywhere to nudge toward tap side
+// Tap anywhere
 canvas.addEventListener('click', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; return; }
   const x = e.clientX;
