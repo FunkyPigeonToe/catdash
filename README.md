@@ -100,8 +100,8 @@ let meters = 0;
 
 let spawnTimer = 0;
 let last = 0;
-let roadSpeed = 320;
-let maxSpeed   = 1000;
+let roadSpeed = 256;
+let maxSpeed   = 800;
 const baseAccel = 0.6;
 let slipTimer = 0, slipOffset = 0;
 
