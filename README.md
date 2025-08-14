@@ -190,7 +190,6 @@ function drawFishShape(x, y, scale, bodyColor, withGlow){
     ctx.restore();
   }
 
-  // tail triangle
   ctx.fillStyle = bodyColor;
   ctx.beginPath();
   ctx.moveTo(x, y);
@@ -199,12 +198,10 @@ function drawFishShape(x, y, scale, bodyColor, withGlow){
   ctx.closePath();
   ctx.fill();
 
-  // round body
   ctx.beginPath();
   ctx.arc(x + bodyR, y, bodyR, 0, Math.PI * 2);
   ctx.fill();
 
-  // eye
   ctx.fillStyle = '#000';
   ctx.beginPath();
   ctx.arc(x + bodyR + 2 * scale, y - 1 * scale, eyeR, 0, Math.PI * 2);
@@ -230,10 +227,9 @@ function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
 }
 
-// Spawning & placement rules
+// Spawning and placement rules
 const SPAWN_BUFFER_Y = 120;
 function laneIsFree(x, y){
-  // strictly same lane (by lane X) and vertically separated by buffer
   return !enemies.some(e => e.x === x && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
       && !pickups.some(p => p.x === x && Math.abs(p.y - y) < SPAWN_BUFFER_Y);
 }
@@ -257,30 +253,37 @@ function spawnEnemy(){
   );
 }
 
+// New helper to test if a lane has any enemy anywhere
+function laneHasAnyEnemy(laneIndex){
+  const lx = lanesX();
+  const laneX = lx[laneIndex];
+  return enemies.some(e => e.x === laneX);
+}
+
 function spawnPickup(){
   const spawnY = -40;
 
-  // (A) keep rows clean: no object (enemy or pickup) near same Y across ANY lane
+  // keep rows clean across all lanes
   const sameYEnemy  = enemies.some(e => Math.abs(e.y - spawnY) < SPAWN_BUFFER_Y);
   const sameYPickup = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
   if (sameYEnemy || sameYPickup) return;
 
-  // (B) pick a lane that is free around this Y
-  let lane = pickFreeLane(spawnY);
-  if (lane == null) return;
+  const lx = lanesX();
 
-  // (C) avoid same lane twice in a row for variety
-  if (lane === lastFishLane){
-    const otherLanes = [0,1,2].filter(l => l !== lastFishLane);
-    if (otherLanes.length) lane = otherLanes[Math.floor(Math.random()*otherLanes.length)];
-  }
+  // candidates are lanes that are free near this Y and have no enemies at all
+  let candidateLanes = [0,1,2].filter(i => laneIsFree(lx[i], spawnY) && !laneHasAnyEnemy(i));
+  if (!candidateLanes.length) return;
+
+  // avoid same lane twice in a row
+  let lane;
+  const withoutLast = candidateLanes.filter(l => l !== lastFishLane);
+  if (withoutLast.length) lane = withoutLast[Math.floor(Math.random()*withoutLast.length)];
+  else lane = candidateLanes[Math.floor(Math.random()*candidateLanes.length)];
   lastFishLane = lane;
 
-  const lx = lanesX();
-  const goldenChance = 0.25; // 25% chance to make them easy to spot
+  const goldenChance = 0.25;
   const golden = Math.random() < goldenChance;
 
-  // hitbox matches visual scale
   const scale  = golden ? 2 : 1;
   const w = 30 * scale;
   const h = 16 * scale;
@@ -289,8 +292,8 @@ function spawnPickup(){
 }
 
 // Sizes and player position
-const CAT_W = 20, CAT_H = 30; // half size
-const PLAYER_Y = () => Math.min(H - 240, H * 0.64); // lower so thumbs don’t cover
+const CAT_W = 20, CAT_H = 30;
+const PLAYER_Y = () => Math.min(H - 240, H * 0.64);
 
 // Update and draw
 function update(dt){
