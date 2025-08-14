@@ -195,32 +195,38 @@ function drawStar(cx, cy, spikes, innerR, outerR, rot){
   ctx.fill();
 }
 function drawGoldenFish(x,y){
-  // original golden fish with tail triangle and round body + sparkle
-  ctx.fillStyle = 'gold';
-  // tail triangle
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-22, y+17); ctx.closePath(); ctx.fill();
-  // body circle
-  ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
-  // eye
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
-
-  // gold glow and sparkle
+  // Glow effect
   const t = performance.now() * 0.005;
   const pulse = 0.5 + 0.5 * Math.sin(t);
   ctx.save();
-  ctx.globalAlpha = 0.35 + 0.45 * pulse;
-  const g = ctx.createRadialGradient(x+6, y, 0, x+6, y, 24 + 6*pulse);
+  ctx.globalAlpha = 0.4 + 0.4 * pulse;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, 30);
   g.addColorStop(0, 'rgba(255,215,0,0.9)');
   g.addColorStop(1, 'rgba(255,215,0,0)');
   ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.arc(x+6, y, 24 + 6*pulse, 0, Math.PI*2);
+  ctx.arc(x, y, 30, 0, Math.PI*2);
   ctx.fill();
-  ctx.translate(x+6, y-10);
-  ctx.rotate(t * 0.2);
-  ctx.fillStyle = 'rgba(255,255,200,0.9)';
-  drawStar(0, 0, 5, 2 + 0.6*pulse, 5 + 1.2*pulse, 0);
   ctx.restore();
+
+  // Body — twice the size of normal
+  ctx.fillStyle = 'gold';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x-20, y-12);
+  ctx.lineTo(x-20, y+12);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x+12, y, 12, 0, Math.PI*2);
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(x+16, y-2, 3, 0, Math.PI*2);
+  ctx.fill();
 }
 function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e';
