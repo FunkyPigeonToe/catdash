@@ -283,7 +283,7 @@ function spawnPickup(){
 const CAT_W = 40, CAT_H = 60;
 
 /* Move the cat higher so fingers do not cover it */
-const PLAYER_Y = () => Math.min(H - 320, H * 0.58);
+const PLAYER_Y = () => Math.min(H - 280, H * 0.58);
 
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
