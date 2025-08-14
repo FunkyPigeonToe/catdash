@@ -169,7 +169,7 @@ function drawMud(x, y, w, h){
 function drawFish(x,y){
   ctx.fillStyle = 'orange';
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-15, y-9); ctx.lineTo(x-15, y+9); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+9, y, 9, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
 function drawStar(cx, cy, spikes, innerR, outerR, rot){
