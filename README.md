@@ -292,7 +292,7 @@ function spawnPickup(){
 }
 
 // Update and draw
-const CAT_W = 40, CAT_H = 60;
+const CAT_W = 20, CAT_H = 30;
 
 /* Move the cat higher so fingers do not cover it */
 const PLAYER_Y = () => Math.min(H - 260, H * 0.58);
