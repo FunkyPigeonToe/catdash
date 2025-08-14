@@ -71,7 +71,7 @@ function positionButtons(){
   const btn3 = document.getElementById('btnLane3');
   const lx = lanesX();
 
-  // Keep them low but clear of the cat
+  // Low on screen but clear of the cat
   const y = H - Math.min(120, H * 0.12);
 
   btn1.style.left = lx[0] + 'px';
@@ -166,35 +166,8 @@ function drawMud(x, y, w, h){
   ctx.fillStyle = '#3e2723';
   ctx.beginPath(); ctx.ellipse(x - w*0.2, y - h*0.1, w*0.15, h*0.15, 0, 0, Math.PI*2); ctx.fill();
 }
-function drawFish(x,y){
-  // original orange fish
-  ctx.fillStyle = 'orange';
-  // tail triangle
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-10, y-6); ctx.lineTo(x-10, y+6); ctx.closePath(); ctx.fill();
-  // body circle
-  ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
-  // eye
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
-}
-function drawStar(cx, cy, spikes, innerR, outerR, rot){
-  let rotA = Math.PI / 2 * 3 + rot;
-  let x = cx, y = cy;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - outerR);
-  for (let i=0; i<spikes; i++){
-    x = cx + Math.cos(rotA) * outerR;
-    y = cy + Math.sin(rotA) * outerR;
-    ctx.lineTo(x,y);
-    rotA += Math.PI / spikes;
-    x = cx + Math.cos(rotA) * innerR;
-    y = cy + Math.sin(rotA) * innerR;
-    ctx.lineTo(x,y);
-    rotA += Math.PI / spikes;
-  }
-  ctx.closePath();
-  ctx.fill();
-}
-// one helper for both fish so the shape always matches
+
+// shared fish helper so shapes always match
 function drawFishShape(x, y, scale, bodyColor, withGlow){
   const tail = 10 * scale;
   const tailH = 6 * scale;
@@ -216,15 +189,15 @@ function drawFishShape(x, y, scale, bodyColor, withGlow){
     ctx.restore();
   }
 
-  // body
-  ctx.fillStyle = bodyColor;
   // tail triangle
+  ctx.fillStyle = bodyColor;
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(x - tail, y - tailH);
   ctx.lineTo(x - tail, y + tailH);
   ctx.closePath();
   ctx.fill();
+
   // round body
   ctx.beginPath();
   ctx.arc(x + bodyR, y, bodyR, 0, Math.PI * 2);
@@ -237,15 +210,9 @@ function drawFishShape(x, y, scale, bodyColor, withGlow){
   ctx.fill();
 }
 
-// normal fish
-function drawFish(x, y){
-  drawFishShape(x, y, 1, 'orange', false);
-}
+function drawFish(x,y){ drawFishShape(x, y, 1, 'orange', false); }
+function drawGoldenFish(x,y){ drawFishShape(x, y, 2, 'gold', true); }
 
-// golden fish, exactly 2x and glowing
-function drawGoldenFish(x, y){
-  drawFishShape(x, y, 2, 'gold', true);
-}
 function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e';
   ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
@@ -306,16 +273,21 @@ function spawnPickup(){
   }
   lastFishLane = lane;
 
-const golden = Math.random() < goldenChance;
-const scale  = golden ? 2 : 1;
-const w = 30 * scale;   // was 30
-const h = 16 * scale;   // was 16
-pickups.push({ x: lx[lane], y: spawnY, w, h, golden });
+  const lx = lanesX();
+  const goldenChance = 0.25; // show golden fish more often
+  const golden = Math.random() < goldenChance;
+
+  // hitbox matches visual scale
+  const scale  = golden ? 2 : 1;
+  const w = 30 * scale;
+  const h = 16 * scale;
+
+  pickups.push({x: lx[lane], y: spawnY, w, h, golden});
 }
 
 // Sizes and player position
-const CAT_W = 20, CAT_H = 30; // 50 percent smaller
-const PLAYER_Y = () => Math.min(H - 240, H * 0.64); // set a bit lower per feedback
+const CAT_W = 20, CAT_H = 30; // half size
+const PLAYER_Y = () => Math.min(H - 240, H * 0.64); // a bit lower so thumbs do not cover
 
 // Update and draw
 function update(dt){
@@ -385,6 +357,7 @@ function draw(){
 function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff';
+
   // Title smaller, two words
   ctx.font = '18px system-ui, sans-serif';
   const title = 'Cat Dash';
@@ -421,11 +394,11 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-// Keyboard: nudge one lane per keydown
+// Keyboard: nudge one lane per keydown with simple debounce
 let keyLock = false;
 document.addEventListener('keydown', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
-  if (keyLock) return; // debounce to avoid key repeat jumps
+  if (keyLock) return;
   if (e.key === 'ArrowLeft'){
     if (currentLane > 0) currentLane--;
     keyLock = true;
@@ -434,7 +407,9 @@ document.addEventListener('keydown', e=>{
     keyLock = true;
   }
 });
-document.addEventListener('keyup', e=>{ if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyLock = false; });
+document.addEventListener('keyup', e=>{
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyLock = false;
+});
 
 // Touch on canvas
 let touchStartX = null;
@@ -450,7 +425,7 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-// Lane buttons now nudge one lane per tap
+// Lane buttons nudge one lane per tap
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
 
