@@ -99,9 +99,13 @@ let fuel = 100;
 let meters = 0;
 
 let spawnTimer = 0;
-let last = 0;
-let roadSpeed = 256;
-let maxSpeed   = 800;
+let last = undefined;
+let graceTimer = 0;
+
+/* 20 percent slower speeds */
+let roadSpeed = 256;   // 320 × 0.8
+let maxSpeed  = 800;   // 1000 × 0.8
+
 const baseAccel = 0.6;
 let slipTimer = 0, slipOffset = 0;
 
@@ -228,7 +232,6 @@ function drawCat(x, y, w, h){
 }
 
 // Spawning and placement rules
-/* Tighter vertical gap for more action */
 const SPAWN_BUFFER_Y = 70;
 
 function laneIsFree(x, y){
@@ -258,8 +261,8 @@ function spawnEnemy(){
 // lane wide check so fish never mix with trees or mud
 function laneHasAnyEnemy(laneIndex){
   const lx = lanesX();
-  const laneX = lx[laneIndex];
-  return enemies.some(e => e.x === laneX);
+  const x = lx[laneIndex];
+  return enemies.some(e => e.x === x);
 }
 
 function spawnPickup(){
@@ -292,7 +295,6 @@ function spawnPickup(){
 
 // Sizes and player position
 const CAT_W = 20, CAT_H = 30;
-/* Lower the cat by the same shared offset, with a safety cap */
 const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_AND_BUTTON_OFFSET);
 
 // Update and draw
@@ -304,7 +306,7 @@ function update(dt){
     slipOffset = Math.sin(performance.now()/40) * 4;
   } else slipOffset = 0;
 
-  /* Faster cadence for spawns */
+  // faster cadence for spawns
   spawnTimer += dt;
   if (spawnTimer > 0.6){
     spawnTimer = 0;
@@ -317,22 +319,43 @@ function update(dt){
   enemies = enemies.filter(e => e.y < H + 60);
   pickups = pickups.filter(p => p.y < H + 60);
 
-  const px = lanesX()[currentLane] + slipOffset, py = PLAYER_Y(), pw = CAT_W-4, ph = CAT_H-2;
-  for (let i=0; i<enemies.length; i++){
-    const e = enemies[i];
-    if (Math.abs(e.x-px) < (e.w+pw)/2 && Math.abs(e.y-py) < (e.h+ph)/2){
-      if (e.type === 'mud'){
-        enemies.splice(i,1);
-        fuel = Math.max(0, fuel - 10);
-        score = Math.max(0, score - 2);
-        slipTimer = 0.6;
-      } else endGame();
-      break;
+  const px = lanesX()[currentLane] + slipOffset;
+  const py = PLAYER_Y();
+  const pw = CAT_W - 4;
+  const ph = CAT_H - 2;
+
+  // grace at start to avoid cheap deaths
+  const collisionsActive = graceTimer <= 0;
+
+  if (collisionsActive){
+    for (let i=0; i<enemies.length; i++){
+      const e = enemies[i];
+
+      // match hitbox tighter for trees
+      let ew = e.w;
+      let eh = e.h;
+      if (e.type === 'tree'){
+        ew *= 0.6; // narrower than the drawn canopy
+        eh *= 0.8; // a bit shorter
+      }
+
+      if (Math.abs(e.x - px) < (ew + pw)/2 && Math.abs(e.y - py) < (eh + ph)/2){
+        if (e.type === 'mud'){
+          enemies.splice(i,1);
+          fuel = Math.max(0, fuel - 10);
+          score = Math.max(0, score - 2);
+          slipTimer = 0.6;
+        } else {
+          endGame();
+        }
+        break;
+      }
     }
   }
+
   for (let i=0; i<pickups.length; i++){
     const p = pickups[i];
-    if (Math.abs(p.x-px) < (p.w+pw)/2 && Math.abs(p.y-py) < (p.h+ph)/2){
+    if (Math.abs(p.x - px) < (p.w + pw)/2 && Math.abs(p.y - py) < (p.h + ph)/2){
       pickups.splice(i,1);
       if (p.golden){
         fuel = Math.min(100, fuel + 20);
@@ -344,10 +367,12 @@ function update(dt){
       break;
     }
   }
+
   meters += (roadSpeed * dt) / 120;
-  fuel -= dt*2;
+  fuel -= dt * 2;
   if (fuel <= 0) endGame();
 }
+
 function drawHUD(){
   ctx.fillStyle = '#fff'; ctx.font = '16px system-ui, sans-serif';
   ctx.fillText('Score: '  + score, 10, 22);
@@ -365,7 +390,7 @@ function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff';
 
-  /* Smaller title block to free play space */
+  // smaller title block to free play space
   ctx.font = '16px system-ui, sans-serif';
   const title = 'Cat Dash';
   ctx.fillText(title, (W - ctx.measureText(title).width)/2, 56);
@@ -391,14 +416,33 @@ function resetGame(){
   score = 0;
   fuel = 100;
   meters = 0;
-  roadSpeed = 320;
+  roadSpeed = 256;
   currentLane = 1;
+  spawnTimer = 0;
+  graceTimer = 0.75;
+  last = undefined; // next frame will set a clean baseline
 }
 function loop(ts){
-  const dt = (ts - last) / 1000;
-  last = ts || 0;
+  // baseline last time
+  if (last === undefined) last = ts;
+
+  let dt = (ts - last) / 1000;
+
+  // clamp dt to avoid spikes on tab resume or lag
+  if (!Number.isFinite(dt) || dt < 0) dt = 0;
+  dt = Math.min(dt, 0.05); // cap to 50 ms
+
+  last = ts;
+
   ctx.clearRect(0,0,W,H);
-  if (gameRunning){ update(dt); draw(); } else { drawMenu(); }
+
+  if (gameRunning){
+    if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
+    update(dt);
+    draw();
+  } else {
+    drawMenu();
+  }
   requestAnimationFrame(loop);
 }
 
