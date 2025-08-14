@@ -20,7 +20,7 @@
     touch-action: none;
   }
 
-  /* Mobile lane buttons positioned roughly over lanes 1 and 3 */
+  /* Mobile lane buttons over lanes 1 and 3 */
   .controls {
     position: fixed;
     inset: 0;
@@ -49,7 +49,7 @@
 <body>
 <canvas id="gameCanvas"></canvas>
 
-<!-- Buttons over lane 1 and lane 3 that nudge one lane each press -->
+<!-- Buttons over lane 1 and lane 3 that nudge one lane per press -->
 <div id="controls" class="controls">
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
@@ -71,8 +71,8 @@ function positionButtons(){
   const btn3 = document.getElementById('btnLane3');
   const lx = lanesX();
 
-  // keep low but clear of the cat
-  const y = H - Math.min(70, H * 0.7);
+  // Keep them low but clear of the cat
+  const y = H - Math.min(120, H * 0.12);
 
   btn1.style.left = lx[0] + 'px';
   btn1.style.top  = y + 'px';
@@ -139,7 +139,7 @@ function drawBoard(x, y){
   }
 }
 
-// Art
+// Artwork
 function drawBackground(){
   ctx.fillStyle = '#5e9d45'; ctx.fillRect(0,0,W,H);
   ctx.fillStyle = 'rgba(40,90,40,0.15)';
@@ -167,9 +167,13 @@ function drawMud(x, y, w, h){
   ctx.beginPath(); ctx.ellipse(x - w*0.2, y - h*0.1, w*0.15, h*0.15, 0, 0, Math.PI*2); ctx.fill();
 }
 function drawFish(x,y){
+  // original orange fish
   ctx.fillStyle = 'orange';
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-15, y-9); ctx.lineTo(x-15, y+9); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(x+9, y, 9, 0, Math.PI*2); ctx.fill();
+  // tail triangle
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-10, y-6); ctx.lineTo(x-10, y+6); ctx.closePath(); ctx.fill();
+  // body circle
+  ctx.beginPath(); ctx.arc(x+6, y, 6, 0, Math.PI*2); ctx.fill();
+  // eye
   ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8, y-1, 1.5, 0, Math.PI*2); ctx.fill();
 }
 function drawStar(cx, cy, spikes, innerR, outerR, rot){
@@ -190,39 +194,32 @@ function drawStar(cx, cy, spikes, innerR, outerR, rot){
   ctx.closePath();
   ctx.fill();
 }
-function drawGoldenFish(x, y){
-  // Body
+function drawGoldenFish(x,y){
+  // original golden fish with tail triangle and round body + sparkle
   ctx.fillStyle = 'gold';
-  ctx.beginPath();
-  ctx.ellipse(x, y, 10, 6, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // tail triangle
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-12, y-7); ctx.lineTo(x-22, y+17); ctx.closePath(); ctx.fill();
+  // body circle
+  ctx.beginPath(); ctx.arc(x+7, y, 7, 0, Math.PI*2); ctx.fill();
+  // eye
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+9, y-1, 1.6, 0, Math.PI*2); ctx.fill();
 
-  // Tail
-  ctx.beginPath();
-  ctx.moveTo(x - 10, y);
-  ctx.lineTo(x - 16, y - 6);
-  ctx.lineTo(x - 16, y + 6);
-  ctx.closePath();
-  ctx.fill();
-
-  // Eye
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.arc(x + 4, y - 1, 1.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Glow effect
+  // gold glow and sparkle
   const t = performance.now() * 0.005;
   const pulse = 0.5 + 0.5 * Math.sin(t);
   ctx.save();
   ctx.globalAlpha = 0.35 + 0.45 * pulse;
-  const g = ctx.createRadialGradient(x, y, 0, x, y, 20 + 4*pulse);
+  const g = ctx.createRadialGradient(x+6, y, 0, x+6, y, 24 + 6*pulse);
   g.addColorStop(0, 'rgba(255,215,0,0.9)');
   g.addColorStop(1, 'rgba(255,215,0,0)');
   ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.arc(x, y, 20 + 4*pulse, 0, Math.PI * 2);
+  ctx.arc(x+6, y, 24 + 6*pulse, 0, Math.PI*2);
   ctx.fill();
+  ctx.translate(x+6, y-10);
+  ctx.rotate(t * 0.2);
+  ctx.fillStyle = 'rgba(255,255,200,0.9)';
+  drawStar(0, 0, 5, 2 + 0.6*pulse, 5 + 1.2*pulse, 0);
   ctx.restore();
 }
 function drawCat(x, y, w, h){
@@ -286,17 +283,16 @@ function spawnPickup(){
   lastFishLane = lane;
 
   const lx = lanesX();
-  const goldenChance = (1/15) * 1.4; // a bit more golden fish
+  const goldenChance = (1/15) * 1.1; // a bit more golden fish
   const golden = Math.random() < goldenChance;
   pickups.push({x: lx[lane], y: spawnY, w: 30, h: 16, golden});
 }
 
+// Sizes and player position
+const CAT_W = 20, CAT_H = 30; // 50 percent smaller
+const PLAYER_Y = () => Math.min(H - 240, H * 0.64); // set a bit lower per feedback
+
 // Update and draw
-const CAT_W = 20, CAT_H = 30;
-
-/* Move the cat higher so fingers do not cover it */
-const PLAYER_Y = () => Math.min(H - 180, H * 0.64);
-
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
   roadSpeed = Math.min(maxSpeed, (roadSpeed + accel) * Math.pow(1.00000002, meters));
@@ -364,13 +360,18 @@ function draw(){
 function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff';
-  ctx.font = '12px system-ui, sans-serif';
-  const sub = 'Tap, swipe, or use arrows to start';
-  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 90);
+  // Title smaller, two words
+  ctx.font = '18px system-ui, sans-serif';
+  const title = 'Cat Dash';
+  ctx.fillText(title, (W - ctx.measureText(title).width)/2, 90);
+
   ctx.font = '16px system-ui, sans-serif';
+  const sub = 'Tap, swipe, or use arrows to start';
+  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 120);
+
   const lines = ['Aim: Reach a high score', 'by collecting as many', 'fish as you can'];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 150 + i*18));
-  drawBoard(40, 210);
+  drawBoard(24, 210);
 }
 
 // Control
@@ -399,7 +400,7 @@ function loop(ts){
 let keyLock = false;
 document.addEventListener('keydown', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
-  if (keyLock) return; // simple debounce to avoid repeats jumping
+  if (keyLock) return; // debounce to avoid key repeat jumps
   if (e.key === 'ArrowLeft'){
     if (currentLane > 0) currentLane--;
     keyLock = true;
