@@ -20,7 +20,7 @@
     touch-action: none;
   }
 
-  /* Mobile lane buttons sit over lanes 1 and 3 */
+  /* Mobile lane buttons positioned roughly over lanes 1 and 3 */
   .controls {
     position: fixed;
     inset: 0;
@@ -41,7 +41,6 @@
   }
   .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
 
-  /* Hide buttons on wider screens */
   @media (min-width: 900px) {
     .controls { display: none; }
   }
@@ -50,10 +49,10 @@
 <body>
 <canvas id="gameCanvas"></canvas>
 
-<!-- Buttons that sit over lane 1 and lane 3 -->
+<!-- Buttons over lane 1 and lane 3 that nudge one lane each press -->
 <div id="controls" class="controls">
-  <button id="btnLane1" class="laneBtn" aria-label="Lane 1">◀</button>
-  <button id="btnLane3" class="laneBtn" aria-label="Lane 3">▶</button>
+  <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
+  <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
 </div>
 
 <script>
@@ -72,8 +71,7 @@ function positionButtons(){
   const btn3 = document.getElementById('btnLane3');
   const lx = lanesX();
 
-  // Place buttons centered over lane 1 and lane 3
-  // Keep them low on screen but not covering the cat
+  // keep low but clear of the cat
   const y = H - Math.min(120, H * 0.12);
 
   btn1.style.left = lx[0] + 'px';
@@ -276,7 +274,7 @@ function spawnPickup(){
   lastFishLane = lane;
 
   const lx = lanesX();
-  const goldenChance = (1/15) * 1.1; // 10 percent more golden fish
+  const goldenChance = (1/15) * 1.1; // a bit more golden fish
   const golden = Math.random() < goldenChance;
   pickups.push({x: lx[lane], y: spawnY, w: 30, h: 16, golden});
 }
@@ -284,9 +282,8 @@ function spawnPickup(){
 // Update and draw
 const CAT_W = 40, CAT_H = 60;
 
-/* Move the cat higher so fingers do not cover it.
-   About two thirds down the screen on phones. */
-const PLAYER_Y = () => Math.min(H - 260, H * 0.64);
+/* Move the cat higher so fingers do not cover it */
+const PLAYER_Y = () => Math.min(H - 320, H * 0.58);
 
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
@@ -386,12 +383,20 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-// Keyboard
+// Keyboard: nudge one lane per keydown
+let keyLock = false;
 document.addEventListener('keydown', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
-  if (e.key === 'ArrowLeft' && currentLane > 0) currentLane--;
-  else if (e.key === 'ArrowRight' && currentLane < 2) currentLane++;
+  if (keyLock) return; // simple debounce to avoid repeats jumping
+  if (e.key === 'ArrowLeft'){
+    if (currentLane > 0) currentLane--;
+    keyLock = true;
+  } else if (e.key === 'ArrowRight'){
+    if (currentLane < 2) currentLane++;
+    keyLock = true;
+  }
 });
+document.addEventListener('keyup', e=>{ if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyLock = false; });
 
 // Touch on canvas
 let touchStartX = null;
@@ -407,29 +412,27 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-// Lane buttons
+// Lane buttons now nudge one lane per tap
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
 
-function toLane(i){
-  if (!gameRunning){ resetGame(); gameRunning = true; }
-  currentLane = i;
-}
+function nudgeLeft(){ if (!gameRunning){ resetGame(); gameRunning = true; } if (currentLane > 0) currentLane--; }
+function nudgeRight(){ if (!gameRunning){ resetGame(); gameRunning = true; } if (currentLane < 2) currentLane++; }
+
 ['click','touchstart'].forEach(evt=>{
-  btn1.addEventListener(evt, e=>{ e.preventDefault(); toLane(0); }, {passive: false});
-  btn3.addEventListener(evt, e=>{ e.preventDefault(); toLane(2); }, {passive: false});
+  btn1.addEventListener(evt, e=>{ e.preventDefault(); nudgeLeft(); }, {passive: false});
+  btn3.addEventListener(evt, e=>{ e.preventDefault(); nudgeRight(); }, {passive: false});
 });
 
-// Also allow simple tap left or right to nudge one lane
+// Tap anywhere to nudge toward tap side
 canvas.addEventListener('click', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; return; }
   const x = e.clientX;
   const center = lanesX()[currentLane];
-  if (x < center && currentLane > 0) currentLane--;
-  else if (x > center && currentLane < 2) currentLane++;
+  if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
 });
 
-// Go
+// Start
 requestAnimationFrame(loop);
 </script>
 </body>
