@@ -41,6 +41,7 @@
   }
   .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
 
+  /* Hide buttons on larger screens */
   @media (min-width: 900px) {
     .controls { display: none; }
   }
@@ -167,7 +168,7 @@ function drawMud(x, y, w, h){
   ctx.beginPath(); ctx.ellipse(x - w*0.2, y - h*0.1, w*0.15, h*0.15, 0, 0, Math.PI*2); ctx.fill();
 }
 
-// shared fish helper so shapes always match
+// Shared fish helper so shapes always match
 function drawFishShape(x, y, scale, bodyColor, withGlow){
   const tail = 10 * scale;
   const tailH = 6 * scale;
@@ -229,11 +230,12 @@ function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
 }
 
-// Spawning
+// Spawning & placement rules
 const SPAWN_BUFFER_Y = 120;
 function laneIsFree(x, y){
-  return !enemies.some(e => Math.abs(e.x - x) < 1 && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
-      && !pickups.some(p => Math.abs(p.x - x) < 1 && Math.abs(p.y - y) < SPAWN_BUFFER_Y);
+  // strictly same lane (by lane X) and vertically separated by buffer
+  return !enemies.some(e => e.x === x && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
+      && !pickups.some(p => p.x === x && Math.abs(p.y - y) < SPAWN_BUFFER_Y);
 }
 function pickFreeLane(spawnY){
   const lx = lanesX();
@@ -258,15 +260,16 @@ function spawnEnemy(){
 function spawnPickup(){
   const spawnY = -40;
 
-  // pick a lane that is free around this Y
+  // (A) keep rows clean: no object (enemy or pickup) near same Y across ANY lane
+  const sameYEnemy  = enemies.some(e => Math.abs(e.y - spawnY) < SPAWN_BUFFER_Y);
+  const sameYPickup = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
+  if (sameYEnemy || sameYPickup) return;
+
+  // (B) pick a lane that is free around this Y
   let lane = pickFreeLane(spawnY);
   if (lane == null) return;
 
-  // do not allow two pickups at the same Y across any lanes
-  const tooClose = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
-  if (tooClose) return;
-
-  // avoid same lane twice in a row
+  // (C) avoid same lane twice in a row for variety
   if (lane === lastFishLane){
     const otherLanes = [0,1,2].filter(l => l !== lastFishLane);
     if (otherLanes.length) lane = otherLanes[Math.floor(Math.random()*otherLanes.length)];
@@ -274,7 +277,7 @@ function spawnPickup(){
   lastFishLane = lane;
 
   const lx = lanesX();
-  const goldenChance = 0.25; // show golden fish more often
+  const goldenChance = 0.25; // 25% chance to make them easy to spot
   const golden = Math.random() < goldenChance;
 
   // hitbox matches visual scale
@@ -287,7 +290,7 @@ function spawnPickup(){
 
 // Sizes and player position
 const CAT_W = 20, CAT_H = 30; // half size
-const PLAYER_Y = () => Math.min(H - 240, H * 0.64); // a bit lower so thumbs do not cover
+const PLAYER_Y = () => Math.min(H - 240, H * 0.64); // lower so thumbs don’t cover
 
 // Update and draw
 function update(dt){
