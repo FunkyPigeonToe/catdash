@@ -72,7 +72,7 @@ function positionButtons(){
   const lx = lanesX();
 
   // keep low but clear of the cat
-  const y = H - Math.min(120, H * 0.12);
+  const y = H - Math.min(80, H * 0.8);
 
   btn1.style.left = lx[0] + 'px';
   btn1.style.top  = y + 'px';
@@ -274,7 +274,7 @@ function spawnPickup(){
   lastFishLane = lane;
 
   const lx = lanesX();
-  const goldenChance = (1/15) * 1.1; // a bit more golden fish
+  const goldenChance = (1/15) * 1.4; // a bit more golden fish
   const golden = Math.random() < goldenChance;
   pickups.push({x: lx[lane], y: spawnY, w: 30, h: 16, golden});
 }
@@ -283,7 +283,7 @@ function spawnPickup(){
 const CAT_W = 40, CAT_H = 60;
 
 /* Move the cat higher so fingers do not cover it */
-const PLAYER_Y = () => Math.min(H - 280, H * 0.58);
+const PLAYER_Y = () => Math.min(H - 260, H * 0.58);
 
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
