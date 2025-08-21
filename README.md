@@ -102,14 +102,37 @@ let spawnTimer = 0;
 let last = undefined;
 let graceTimer = 0;
 
-/* 20 percent slower speeds */
-let roadSpeed = 256;   // 320 × 0.8
-let maxSpeed  = 800;   // 1000 × 0.8
+/* Slower speeds, cumulative 20% down from the last already-slowed version */
+let roadSpeed = 205;   // was 256
+let maxSpeed  = 640;   // was 800
 
 const baseAccel = 0.6;
 let slipTimer = 0, slipOffset = 0;
 
-// Leaderboard
+/* ==== SECRET SHIELD CHEAT ==== */
+let shieldCharges = 0;                  // how many tree hits are ignored
+const COMBO_WINDOW_MS = 180;            // both buttons within this window
+let lastBtn1Time = -1, lastBtn3Time = -1;
+let shieldFlashTimer = 0;               // brief visual feedback on activate
+
+function tryActivateShield(fromBtn){
+  const now = performance.now();
+  if (fromBtn === 1){
+    if (now - lastBtn3Time <= COMBO_WINDOW_MS && shieldCharges === 0){
+      shieldCharges = 2;                // two trees in a row
+      shieldFlashTimer = 0.6;
+    }
+    lastBtn1Time = now;
+  } else {
+    if (now - lastBtn1Time <= COMBO_WINDOW_MS && shieldCharges === 0){
+      shieldCharges = 2;
+      shieldFlashTimer = 0.6;
+    }
+    lastBtn3Time = now;
+  }
+}
+
+/* ===== Leaderboard ===== */
 const BOARD_KEY = 'cat_leaderboard';
 function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); } catch { return []; } }
 function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
@@ -144,7 +167,7 @@ function drawBoard(x, y){
   }
 }
 
-// Artwork
+/* ===== Artwork ===== */
 function drawBackground(){
   ctx.fillStyle = '#5e9d45'; ctx.fillRect(0,0,W,H);
   ctx.fillStyle = 'rgba(40,90,40,0.15)';
@@ -231,7 +254,7 @@ function drawCat(x, y, w, h){
   ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
 }
 
-// Spawning and placement rules
+/* ===== Spawning and placement rules ===== */
 const SPAWN_BUFFER_Y = 70;
 
 function laneIsFree(x, y){
@@ -293,11 +316,11 @@ function spawnPickup(){
   pickups.push({x: lx[lane], y: spawnY, w, h, golden});
 }
 
-// Sizes and player position
+/* ===== Sizes and player position ===== */
 const CAT_W = 20, CAT_H = 30;
 const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_AND_BUTTON_OFFSET);
 
-// Update and draw
+/* ===== Update and draw ===== */
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
   roadSpeed = Math.min(maxSpeed, (roadSpeed + accel) * Math.pow(1.00000002, meters));
@@ -306,12 +329,12 @@ function update(dt){
     slipOffset = Math.sin(performance.now()/40) * 4;
   } else slipOffset = 0;
 
-  // faster cadence for spawns
+  // faster cadence for spawns, with a tilt toward more pickups
   spawnTimer += dt;
   if (spawnTimer > 0.6){
     spawnTimer = 0;
-    if (Math.random() < 0.82) spawnEnemy(); else spawnPickup();
-    if (Math.random() < 0.20) spawnPickup();
+    if (Math.random() < 0.70) spawnEnemy(); else spawnPickup();
+    if (Math.random() < 0.35) spawnPickup();
   }
 
   enemies.forEach(e => e.y += roadSpeed*dt);
@@ -324,19 +347,18 @@ function update(dt){
   const pw = CAT_W - 4;
   const ph = CAT_H - 2;
 
-  // grace at start to avoid cheap deaths
   const collisionsActive = graceTimer <= 0;
 
   if (collisionsActive){
     for (let i=0; i<enemies.length; i++){
       const e = enemies[i];
 
-      // match hitbox tighter for trees
+      // tighter tree hitbox
       let ew = e.w;
       let eh = e.h;
       if (e.type === 'tree'){
-        ew *= 0.6; // narrower than the drawn canopy
-        eh *= 0.8; // a bit shorter
+        ew *= 0.6;
+        eh *= 0.8;
       }
 
       if (Math.abs(e.x - px) < (ew + pw)/2 && Math.abs(e.y - py) < (eh + ph)/2){
@@ -346,7 +368,13 @@ function update(dt){
           score = Math.max(0, score - 2);
           slipTimer = 0.6;
         } else {
-          endGame();
+          // TREE collision: check shield cheat
+          if (shieldCharges > 0){
+            enemies.splice(i,1);  // clear the tree
+            shieldCharges--;      // consume a charge
+          } else {
+            endGame();
+          }
         }
         break;
       }
@@ -371,6 +399,9 @@ function update(dt){
   meters += (roadSpeed * dt) / 120;
   fuel -= dt * 2;
   if (fuel <= 0) endGame();
+
+  // cheat flash timer
+  if (shieldFlashTimer > 0) shieldFlashTimer = Math.max(0, shieldFlashTimer - dt);
 }
 
 function drawHUD(){
@@ -378,6 +409,23 @@ function drawHUD(){
   ctx.fillText('Score: '  + score, 10, 22);
   ctx.fillText('Energy: ' + Math.round(fuel), 10, 42);
   ctx.fillText('Meters: ' + Math.round(meters), 10, 62);
+
+  // Shield indicator top right
+  const txt = shieldCharges > 0 ? `Shield x${shieldCharges}` : '';
+  if (txt){
+    const w = ctx.measureText(txt).width + 12;
+    const x = W - w - 10;
+    const y = 12;
+    if (shieldFlashTimer > 0){
+      ctx.save();
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(performance.now()/80);
+      ctx.fillStyle = '#ffd54f';
+      ctx.fillRect(x - 4, y - 2, w + 8, 22);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#fff';
+    ctx.fillText(txt, x, 28);
+  }
 }
 function draw(){
   drawBackground();
@@ -390,7 +438,7 @@ function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff';
 
-  // smaller title block to free play space
+  // compact title block
   ctx.font = '16px system-ui, sans-serif';
   const title = 'Cat Dash';
   ctx.fillText(title, (W - ctx.measureText(title).width)/2, 56);
@@ -405,7 +453,7 @@ function drawMenu(){
   drawBoard(24, 160);
 }
 
-// Control
+/* ===== Control ===== */
 function endGame(){
   gameRunning = false;
   maybeRecordScore(score);
@@ -416,22 +464,20 @@ function resetGame(){
   score = 0;
   fuel = 100;
   meters = 0;
-  roadSpeed = 256;
+  roadSpeed = 205;
   currentLane = 1;
   spawnTimer = 0;
   graceTimer = 0.75;
-  last = undefined; // next frame will set a clean baseline
+  last = undefined;
+  shieldCharges = 0;               // cheat must be rearmed each run
+  shieldFlashTimer = 0;
+  lastBtn1Time = lastBtn3Time = -1;
 }
 function loop(ts){
-  // baseline last time
   if (last === undefined) last = ts;
-
   let dt = (ts - last) / 1000;
-
-  // clamp dt to avoid spikes on tab resume or lag
   if (!Number.isFinite(dt) || dt < 0) dt = 0;
-  dt = Math.min(dt, 0.05); // cap to 50 ms
-
+  dt = Math.min(dt, 0.05);
   last = ts;
 
   ctx.clearRect(0,0,W,H);
@@ -485,8 +531,16 @@ function nudgeLeft(){ if (!gameRunning){ resetGame(); gameRunning = true; } if (
 function nudgeRight(){ if (!gameRunning){ resetGame(); gameRunning = true; } if (currentLane < 2) currentLane++; }
 
 ['click','touchstart'].forEach(evt=>{
-  btn1.addEventListener(evt, e=>{ e.preventDefault(); nudgeLeft(); }, {passive: false});
-  btn3.addEventListener(evt, e=>{ e.preventDefault(); nudgeRight(); }, {passive: false});
+  btn1.addEventListener(evt, e=>{
+    e.preventDefault();
+    tryActivateShield(1); // check combo
+    nudgeLeft();
+  }, {passive: false});
+  btn3.addEventListener(evt, e=>{
+    e.preventDefault();
+    tryActivateShield(3); // check combo
+    nudgeRight();
+  }, {passive: false});
 });
 
 // Tap anywhere
