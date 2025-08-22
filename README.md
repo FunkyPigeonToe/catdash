@@ -353,28 +353,54 @@ function drawBird(x, y, scale, golden){
   if (golden) drawAdditiveGlow(x, y, 20*scale, 0.85);
 }
 
+/* >>> Improved Lizard (more lizard-like) <<< */
 function drawLizard(x, y, scale, golden){
-  const t = performance.now()*0.006, sway = Math.sin(t + x*0.03)*1.5*scale;
-  const body = golden ? '#ffd54f' : '#66cc66';
-  const spot = golden ? '#ffe082' : '#4caf50';
+  const t = performance.now()*0.006;
+  const sway = Math.sin(t + x*0.03)*1.5*scale;
+  const body = golden ? '#ffd54f' : '#5cb85c';
+  const belly = golden ? '#ffe082' : '#4cae4c';
+
   withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
+    // main body (long + slim)
     ctx.fillStyle = body;
-    ctx.beginPath(); ctx.ellipse(x, y+sway, 12*scale, 5.5*scale, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x+9*scale, y-0.5*scale+sway, 5*scale, 4*scale, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(x-12*scale, y+sway);
-    ctx.quadraticCurveTo(x-20*scale, y+4*scale+sway, x-24*scale, y+1*scale+sway);
-    ctx.quadraticCurveTo(x-19*scale, y-2*scale+sway, x-12*scale, y+sway);
+    ctx.ellipse(x, y+sway, 16*scale, 6*scale, 0, 0, Math.PI*2);
     ctx.fill();
-    ctx.fillStyle = spot;
-    for (let i=-1;i<=1;i+=2){
-      ctx.fillRect(x-2*scale, y+5*scale+sway, 3*scale*i, 2*scale);
-      ctx.fillRect(x+6*scale, y+4*scale+sway, 3*scale*i, 2*scale);
-    }
+
+    // tail (tapered)
+    ctx.beginPath();
+    ctx.moveTo(x-16*scale, y+sway);
+    ctx.quadraticCurveTo(x-26*scale, y+3*scale+sway, x-30*scale, y+sway);
+    ctx.lineTo(x-24*scale, y-2*scale+sway);
+    ctx.closePath();
+    ctx.fill();
+
+    // head (slightly triangular)
+    ctx.beginPath();
+    ctx.ellipse(x+14*scale, y-1*scale+sway, 6*scale, 5*scale, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // belly stripe
+    ctx.fillStyle = belly;
+    ctx.fillRect(x-6*scale, y-2*scale+sway, 12*scale, 4*scale);
+
+    // little legs
+    ctx.strokeStyle = body;
+    ctx.lineWidth = 2*scale;
+    ctx.beginPath();
+    ctx.moveTo(x-4*scale, y+5*scale+sway); ctx.lineTo(x-8*scale, y+9*scale+sway);
+    ctx.moveTo(x+4*scale, y+5*scale+sway); ctx.lineTo(x+8*scale, y+9*scale+sway);
+    ctx.moveTo(x-4*scale, y-5*scale+sway); ctx.lineTo(x-8*scale, y-9*scale+sway);
+    ctx.moveTo(x+4*scale, y-5*scale+sway); ctx.lineTo(x+8*scale, y-9*scale+sway);
+    ctx.stroke();
+
+    // eyes
     ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.arc(x+11*scale, y-1*scale+sway, 1.2*scale, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+17*scale, y-2*scale+sway, 1.4*scale, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+12*scale, y-2*scale+sway, 1.4*scale, 0, Math.PI*2); ctx.fill();
   });
-  if (golden) drawAdditiveGlow(x, y, 22*scale, 0.85);
+
+  if (golden) drawAdditiveGlow(x, y, 24*scale, 0.85);
 }
 
 /* Golden Chicken (always golden, rare, big reward, now +1 shield) */
@@ -481,26 +507,68 @@ function spawnPickup(){
   pickups.push({type, x: lx[lane], y: spawnY, w, h, scale, golden});
 }
 
-/* ===== Cat ===== */
+/* ===== Cat (more cat-like) ===== */
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
+    // body (slightly taller oval)
     ctx.fillStyle = '#d2691e';
-    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // head
+    const headR = h*0.36;
+    const hx = x, hy = y - h*0.78;
+    ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
+
+    // ears
+    ctx.beginPath();
+    ctx.moveTo(hx-headR*0.6,hy-headR*0.15);
+    ctx.lineTo(hx-headR*0.25,hy-headR*1.0);
+    ctx.lineTo(hx-0,hy-headR*0.15);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hx+headR*0.6,hy-headR*0.15);
+    ctx.lineTo(hx+headR*0.25,hy-headR*1.0);
+    ctx.lineTo(hx+0,hy-headR*0.15);
+    ctx.closePath(); ctx.fill();
+
+    // belly patch
     ctx.fillStyle = '#a0522d';
-    ctx.beginPath(); ctx.ellipse(x, y, w/2.5, h/2.5, 0, 0, Math.PI*2); ctx.fill();
-    const headR = h*0.25, hx=x, hy=y - h*0.55;
-    ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#a0522d'; ctx.beginPath(); ctx.arc(hx,hy,headR*0.75,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#d2691e';
-    ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(hx+headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // eyes
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(hx-headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx+headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+
+    // whiskers
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(hx- headR*0.55, hy);   ctx.lineTo(hx- headR*1.1, hy-2);
+    ctx.moveTo(hx- headR*0.55, hy+4); ctx.lineTo(hx- headR*1.1, hy+6);
+    ctx.moveTo(hx- headR*0.55, hy-4); ctx.lineTo(hx- headR*1.1, hy-6);
+    ctx.moveTo(hx+ headR*0.55, hy);   ctx.lineTo(hx+ headR*1.1, hy-2);
+    ctx.moveTo(hx+ headR*0.55, hy+4); ctx.lineTo(hx+ headR*1.1, hy+6);
+    ctx.moveTo(hx+ headR*0.55, hy-4); ctx.lineTo(hx+ headR*1.1, hy-6);
+    ctx.stroke();
+
+    // tail (curved)
+    ctx.beginPath();
+    ctx.moveTo(x+w/2.2, y);
+    ctx.quadraticCurveTo(x+w/1.5, y-h/2, x+w/2.5, y-h);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#d2691e';
+    ctx.stroke();
   });
+
+  // thin outline around body ellipse for pop
   strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
-    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2);
+    ctx.beginPath(); ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
   });
 }
 
