@@ -19,6 +19,7 @@
     background: #6dbb4a;
     touch-action: none;
   }
+
   .controls {
     position: fixed;
     inset: 0;
@@ -105,7 +106,6 @@ let currentLane = 1;
 let enemies = [];
 let pickups = [];
 let particles = [];
-let announcements = []; // {text, timer}
 let score = 0;
 let fuel = 100;
 let meters = 0;
@@ -127,7 +127,7 @@ let cheatArmTimerMs = 0;
 let cheatCharges = 0;
 let cheatRearmLock = false; // must fully release both buttons before re-arming
 const CHEAT_HOLD_TIME_MS = 50;
-let cheatToastTimer = 0;
+let cheatToastTimer = 0;    // UI toast for "+1" feedback
 let cheatToastText = '';
 
 function updateCheat(dt){
@@ -135,67 +135,21 @@ function updateCheat(dt){
   if (bothDown && !cheatRearmLock && cheatCharges === 0){
     cheatArmTimerMs += dt * 1000;
     if (cheatArmTimerMs >= CHEAT_HOLD_TIME_MS){
-      cheatCharges = 2;
-      cheatRearmLock = true;
-      addAnnounce('Shield armed x2', 1.1);
+      cheatCharges = 2;           // arm
+      cheatRearmLock = true;      // prevent immediate rearm
+      cheatToastText = 'Shield armed x2';
+      cheatToastTimer = 1.0;
     }
   } else {
     cheatArmTimerMs = 0;
   }
+  // When both buttons are released, allow re-arm next time (only if no current charges)
   if (!btn1Down && !btn3Down && cheatCharges === 0){
     cheatRearmLock = false;
   }
 }
 
-/* ===== Skins (Alt Characters) ===== */
-const SKINS = [
-  { name: 'Cat',     base:'#d2691e', patch:'#a0522d', tail:'#d2691e' , unlock:0 },
-  { name: 'Fox',     base:'#e57300', patch:'#bf5f00', tail:'#ffb74d' , unlock:50 },
-  { name: 'Rabbit',  base:'#cfd8dc', patch:'#90a4ae', tail:'#cfd8dc' , unlock:100 },
-  { name: 'Squirrel',base:'#8d6e63', patch:'#6d4c41', tail:'#a1887f' , unlock:200 },
-];
-let currentSkinIndex = 0;
-
-function isSkinUnlocked(i){ return scoreBest() >= SKINS[i].unlock; }
-const BEST_KEY = 'cat_best_score';
-function scoreBest(){ try{ return +localStorage.getItem(BEST_KEY) || 0; }catch{ return 0; } }
-function saveBest(sc){ try{ const b = scoreBest(); if (sc > b) localStorage.setItem(BEST_KEY, sc|0); }catch{} }
-
-function cycleSkin(){
-  // only when not running
-  if (gameRunning) return;
-  let tries = 0;
-  do {
-    currentSkinIndex = (currentSkinIndex + 1) % SKINS.length;
-    tries++;
-    if (tries > SKINS.length) break;
-  } while (!isSkinUnlocked(currentSkinIndex));
-}
-
-function drawSkinCharacter(colors, x, y, w, h){
-  // same geometry as before, but swap colors
-  const base = colors.base, patch = colors.patch;
-  withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-    ctx.fillStyle = base;
-    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = patch;
-    ctx.beginPath(); ctx.ellipse(x, y, w/2.5, h/2.5, 0, 0, Math.PI*2); ctx.fill();
-    const headR = h*0.25, hx=x, hy=y - h*0.55;
-    ctx.fillStyle = base; ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = patch; ctx.beginPath(); ctx.arc(hx,hy,headR*0.75,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = base;
-    ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(hx+headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = colors.tail; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
-  });
-  strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
-    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2);
-  });
-}
-
-/* ===== Leaderboard (unchanged core) ===== */
+/* ===== Leaderboard ===== */
 const BOARD_KEY = 'cat_leaderboard';
 function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); } catch { return []; } }
 function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
@@ -282,7 +236,7 @@ function drawHills(dt){
   });
 }
 
-/* ===== Background & NEW tree style ===== */
+/* ===== Background & rounded trees ===== */
 function drawBackgroundBase(){
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#64b24a'); g.addColorStop(1, '#4d9c3b');
@@ -302,72 +256,44 @@ function drawBackgroundBase(){
   }
 }
 
-/* New "soft pine" tree: layered rounded triangles + subtle rim */
+/* Rounder tree (clustered canopy + trunk) */
 function drawTree(x,y,w,h){
   withShadow('rgba(0,0,0,0.35)', 10, 4, ()=>{
     // trunk
     ctx.fillStyle = '#6d3f17';
-    const trunkW = w*0.22, trunkH = h*0.30;
-    ctx.fillRect(x - trunkW/2, y + h*0.20, trunkW, trunkH);
+    const trunkW = w*0.22, trunkH = h*0.45;
+    ctx.fillRect(x - trunkW/2, y + h*0.1, trunkW, trunkH);
 
-    // layered pine boughs
-    const layers = 3;
-    for (let i=0;i<layers;i++){
-      const topY = y - h*0.45 + i*h*0.22;
-      const halfW = w*(0.65 - i*0.16);
-      const color = i===0 ? '#2e7d32' : (i===1 ? '#297a2f' : '#246b29');
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(x, topY);
-      ctx.quadraticCurveTo(x - halfW, topY + h*0.22, x - halfW*0.2, topY + h*0.28);
-      ctx.lineTo(x + halfW*0.2, topY + h*0.28);
-      ctx.quadraticCurveTo(x + halfW, topY + h*0.22, x, topY);
-      ctx.closePath(); ctx.fill();
-    }
-  });
-  // thin rim
-  strokeAround('rgba(0,0,0,0.28)', 1.2, ()=>{
-    ctx.beginPath();
-    ctx.moveTo(x, y - h*0.45);
-    ctx.lineTo(x - w*0.55, y - h*0.23);
-    ctx.moveTo(x, y - h*0.45);
-    ctx.lineTo(x + w*0.55, y - h*0.23);
+    // canopy blobs (rounded)
+    const cx = x, cy = y - h*0.10;
+    const rBig = h*0.30, rSide = h*0.22, rTop = h*0.18;
+    ctx.fillStyle = '#2e7d32';
+    ctx.beginPath(); ctx.arc(cx, cy, rBig, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx - w*0.28, cy + h*0.02, rSide, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + w*0.28, cy + h*0.02, rSide, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy - h*0.22, rTop, 0, Math.PI*2); ctx.fill();
+
+    // subtle rim
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, rBig, 0, Math.PI*2); ctx.stroke();
   });
 }
 
-/* Other hazards */
-function drawRock(x,y,w,h){
-  withShadow('rgba(0,0,0,0.35)', 8, 3, ()=>{
-    ctx.fillStyle = '#7f8c8d';
-    ctx.beginPath();
-    ctx.moveTo(x - w*0.45, y + h*0.15);
-    ctx.lineTo(x - w*0.25, y - h*0.25);
-    ctx.lineTo(x + w*0.15, y - h*0.28);
-    ctx.lineTo(x + w*0.45, y + h*0.05);
-    ctx.lineTo(x + w*0.25, y + h*0.30);
-    ctx.lineTo(x - w*0.35, y + h*0.28);
-    ctx.closePath(); ctx.fill();
-  });
-}
-function drawBush(x,y,w,h){
+/* Mud */
+function drawMud(x, y, w, h){
   withShadow('rgba(0,0,0,0.3)', 8, 3, ()=>{
-    const c = ['#2e7d32','#2a6f2d','#266629'];
-    for (let i=0;i<3;i++){
-      ctx.fillStyle = c[i];
-      ctx.beginPath(); ctx.arc(x - w*0.3 + i*w*0.3, y, h*0.35 + i*1.5, 0, Math.PI*2); ctx.fill();
-    }
+    const g = ctx.createRadialGradient(x, y, 2, x, y, Math.max(w,h));
+    g.addColorStop(0, '#6a4a3a'); g.addColorStop(1, '#3e2723');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, w*0.5, h*0.5, 0, 0, Math.PI*2); ctx.fill();
   });
-}
-function drawLog(x,y,w,h){
-  withShadow('rgba(0,0,0,0.35)', 10, 4, ()=>{
-    ctx.fillStyle = '#8d6e63';
-    ctx.beginPath(); ctx.ellipse(x, y, w*0.5, h*0.35, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#5d4037';
-    ctx.beginPath(); ctx.arc(x - w*0.45, y, h*0.28, 0, Math.PI*2); ctx.fill();
+  strokeAround('rgba(0,0,0,0.35)', 1.2, ()=>{
+    ctx.beginPath(); ctx.ellipse(x, y, w*0.5, h*0.5, 0, 0, Math.PI*2);
   });
 }
 
 /* ===== Land pickups: mouse, bird, lizard, golden chicken ===== */
+/* Additive, fixed-radius glow to avoid screen brightness pulsing */
 function drawAdditiveGlow(x, y, radius, centerAlpha=0.9){
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -379,7 +305,7 @@ function drawAdditiveGlow(x, y, radius, centerAlpha=0.9){
   ctx.restore();
 }
 
-/* Stylized critters */
+/* Drawing helpers for pickups – stylized & rounded */
 function drawMouse(x, y, scale, golden){
   const t = performance.now()*0.006, wiggle = Math.sin(t + x*0.01)*1.2*scale;
   const body = golden ? '#ffd54f' : '#c7a17a';
@@ -451,30 +377,38 @@ function drawLizard(x, y, scale, golden){
   if (golden) drawAdditiveGlow(x, y, 22*scale, 0.85);
 }
 
-/* Golden Chicken (always golden, +1 shield) */
+/* Golden Chicken (always golden, rare, big reward, now +1 shield) */
 function drawChicken(x, y, scale){
   const bob = Math.sin(performance.now()*0.004 + x*0.01) * 1.0 * scale;
   withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
+    // body
     ctx.fillStyle = '#ffe082';
     ctx.beginPath(); ctx.ellipse(x, y+bob, 12*scale, 9*scale, 0, 0, Math.PI*2); ctx.fill();
+    // head
     ctx.beginPath(); ctx.arc(x+9*scale, y-5*scale+bob, 5*scale, 0, Math.PI*2); ctx.fill();
+    // beak
     ctx.fillStyle = '#ffb300';
     ctx.beginPath(); ctx.moveTo(x+14*scale, y-5*scale+bob);
     ctx.lineTo(x+18*scale, y-4*scale+bob);
     ctx.lineTo(x+14*scale, y-2.5*scale+bob);
     ctx.closePath(); ctx.fill();
+    // comb
     ctx.fillStyle = '#e53935';
     ctx.beginPath(); ctx.arc(x+8*scale, y-9*scale+bob, 2.1*scale, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(x+10.8*scale, y-9.4*scale+bob, 1.8*scale, 0, Math.PI*2); ctx.fill();
+    // wing
     ctx.fillStyle = '#ffd54f';
     ctx.beginPath(); ctx.ellipse(x-3*scale, y-1*scale+bob, 7*scale, 5*scale, -0.7, 0, Math.PI*2); ctx.fill();
+    // eye
     ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+8*scale, y-6*scale+bob, 1.4*scale, 0, Math.PI*2); ctx.fill();
+    // legs
     ctx.strokeStyle = '#ffb300'; ctx.lineWidth = 1.3*scale;
     ctx.beginPath();
     ctx.moveTo(x-2*scale, y+9*scale+bob); ctx.lineTo(x-2*scale, y+12*scale+bob);
     ctx.moveTo(x+1*scale, y+9*scale+bob); ctx.lineTo(x+1*scale, y+12*scale+bob);
     ctx.stroke();
   });
+  // subtle additive gold aura (fixed, no pulsing)
   drawAdditiveGlow(x, y, 24*scale, 0.9);
 }
 
@@ -482,7 +416,7 @@ function drawPickup(p){
   if (p.type === 'mouse')      drawMouse(p.x, p.y, p.scale, p.golden);
   else if (p.type === 'bird')  drawBird(p.x, p.y, p.scale, p.golden);
   else if (p.type === 'lizard')drawLizard(p.x, p.y, p.scale, p.golden);
-  else                         drawChicken(p.x, p.y, p.scale);
+  else                         drawChicken(p.x, p.y, p.scale); // golden chicken
 }
 
 /* ===== Spawning and placement rules ===== */
@@ -503,65 +437,19 @@ function spawnEnemy(){
   const lane = pickFreeLane(-60);
   if (lane == null) return;
   const lx = lanesX();
-  // Mix in new hazards
-  const r = Math.random();
-  let type = 'tree';
-  if (r < 0.25) type = 'rock';
-  else if (r < 0.45) type = 'bush';
-  else if (r < 0.60) type = 'log';
-  // tree remains most frequent
-  const base = { x: lx[lane], y: -50, w: 40, h: 70, type:'tree' };
-  let e;
-  if (type==='rock')   e = {type, x: lx[lane], y: -36, w: 44, h: 28};
-  else if (type==='bush') e = {type, x: lx[lane], y: -42, w: 60, h: 30};
-  else if (type==='log')  e = {type, x: lx[lane], y: -40, w: 66, h: 26};
-  else e = base;
-  enemies.push(e);
+  const type = Math.random() < 0.55 ? 'tree' : 'mud';
+  enemies.push(
+    type==='tree'
+      ? {type, x: lx[lane], y: -50, w: 40, h: 70}
+      : {type, x: lx[lane], y: -40, w: 56, h: 24}
+  );
 }
-
 function laneHasAnyEnemy(laneIndex){
   const lx = lanesX(); const x = lx[laneIndex];
   return enemies.some(e => e.x === x);
 }
 
-// Coin trail (3 in a line)
-function maybeSpawnTrail(){
-  const chance = 0.22;
-  if (Math.random() > chance) return false;
-  const spawnY0 = -40;
-  const lane = pickFreeLane(spawnY0);
-  if (lane == null) return false;
-  const lx = lanesX();
-  const gap = 120;
-  const typePick = ()=> {
-    const r = Math.random();
-    if (r < 0.40) return 'mouse';
-    if (r < 0.80) return 'bird';
-    if (r < 0.95) return 'lizard';
-    return 'chicken';
-  };
-  for (let i=0;i<3;i++){
-    const y = spawnY0 - i*gap;
-    if (!laneIsFree(lx[lane], y)) return false;
-  }
-  for (let i=0;i<3;i++){
-    const y = spawnY0 - i*gap;
-    const type = typePick();
-    let golden=false, scale=1;
-    if (type==='chicken'){ golden=true; scale=1.35; }
-    else if (type==='mouse'){ golden=Math.random()<0.25; scale= golden?1.2:1.0; }
-    else if (type==='bird'){ golden=Math.random()<0.25; scale= golden?1.25:1.05; }
-    else { golden=Math.random()<0.25; scale= golden?1.25:1.1; }
-    const baseW = type==='bird' ? 30 : type==='mouse' ? 34 : type==='lizard' ? 36 : 38;
-    const baseH = type==='bird' ? 18 : type==='mouse' ? 18 : type==='lizard' ? 16 : 22;
-    pickups.push({type, x: lx[lane], y, w: baseW*scale, h: baseH*scale, scale, golden});
-  }
-  return true;
-}
-
 function spawnPickup(){
-  if (maybeSpawnTrail()) return;
-
   const spawnY = -40;
   const sameYEnemy  = enemies.some(e => Math.abs(e.y - spawnY) < SPAWN_BUFFER_Y);
   const sameYPickup = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
@@ -576,13 +464,15 @@ function spawnPickup(){
   lane = (withoutLast.length ? withoutLast : candidateLanes)[Math.floor(Math.random()* (withoutLast.length ? withoutLast.length : candidateLanes.length))];
   lastPickupLane = lane;
 
+  // Choose pickup type: mice & birds common, lizard less common, golden chicken rare
   const r = Math.random();
   let type, golden=false, scale=1;
   if (r < 0.40){ type='mouse';   golden = Math.random()<0.25; scale = golden?1.2:1.0; }
   else if (r < 0.80){ type='bird';   golden = Math.random()<0.25; scale = golden?1.25:1.05; }
   else if (r < 0.95){ type='lizard'; golden = Math.random()<0.25; scale = golden?1.25:1.1; }
-  else { type='chicken'; golden=true; scale=1.35; }
+  else { type='chicken'; golden=true; scale=1.35; } // always golden
 
+  // Hitboxes roughly matching visuals
   const baseW = type==='bird' ? 30 : type==='mouse' ? 34 : type==='lizard' ? 36 : 38;
   const baseH = type==='bird' ? 18 : type==='mouse' ? 18 : type==='lizard' ? 16 : 22;
   const w = baseW * scale;
@@ -591,13 +481,30 @@ function spawnPickup(){
   pickups.push({type, x: lx[lane], y: spawnY, w, h, scale, golden});
 }
 
-/* ===== Character ===== */
+/* ===== Cat ===== */
 const CAT_W = 20, CAT_H = 30;
-function drawCharacter(x, y, w, h){
-  drawSkinCharacter(SKINS[currentSkinIndex], x, y, w, h);
+function drawCat(x, y, w, h){
+  withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
+    ctx.fillStyle = '#d2691e';
+    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#a0522d';
+    ctx.beginPath(); ctx.ellipse(x, y, w/2.5, h/2.5, 0, 0, Math.PI*2); ctx.fill();
+    const headR = h*0.25, hx=x, hy=y - h*0.55;
+    ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#a0522d'; ctx.beginPath(); ctx.arc(hx,hy,headR*0.75,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#d2691e';
+    ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx+headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
+  });
+  strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
+    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2);
+  });
 }
 
-/* ===== Particles & Announcements ===== */
+/* ===== Particles (sparkle burst on pickup) ===== */
 function spawnSparkles(x, y, baseColor){
   const n = 12;
   for (let i=0;i<n;i++){
@@ -634,39 +541,6 @@ function drawParticles(){
   });
 }
 
-function addAnnounce(text, time=1.0){
-  announcements.push({text, timer: time});
-}
-function drawAnnouncements(){
-  for (let i=announcements.length-1; i>=0; i--){
-    const a = announcements[i];
-    const life = a.timer;
-    const alpha = Math.min(1, life/0.3); // fade in
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.font = '18px system-ui, sans-serif';
-    const tw = ctx.measureText(a.text).width;
-    const x = (W - tw)/2;
-    const y = 44 + (announcements.length-1-i)*28;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(x - 12, y - 18, tw + 24, 28);
-    ctx.fillStyle = '#ffd54f';
-    ctx.fillText(a.text, x, y);
-    ctx.restore();
-  }
-}
-
-function updateAnnouncements(dt){
-  for (let i=announcements.length-1; i>=0; i--){
-    announcements[i].timer -= dt;
-    if (announcements[i].timer <= 0) announcements.splice(i,1);
-  }
-}
-
-/* ===== Combo tracking for announcer ===== */
-let pickupStreak = 0;
-let nextScoreMilestone = 50;
-
 /* ===== Update & Draw ===== */
 const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_AND_BUTTON_OFFSET);
 
@@ -702,16 +576,11 @@ function update(dt){
   if (collisionsActive){
     for (let i=0; i<enemies.length; i++){
       const e = enemies[i];
-      // per-type hitbox tweaks
-      let ew=e.w, eh=e.h;
-      if (e.type === 'tree'){ ew *= 0.58; eh *= 0.78; }
-      if (e.type === 'rock'){ ew *= 0.75; eh *= 0.75; }
-      if (e.type === 'bush'){ ew *= 0.70; eh *= 0.65; }
-      if (e.type === 'log'){  ew *= 0.80; eh *= 0.70; }
+      let ew = e.w, eh = e.h;
+      if (e.type === 'tree'){ ew *= 0.6; eh *= 0.8; }
 
       if (Math.abs(e.x - px) < (ew + pw)/2 && Math.abs(e.y - py) < (eh + ph)/2){
-        pickupStreak = 0; // break combo
-        if (e.type === 'mud'){ // legacy mud still possible
+        if (e.type === 'mud'){
           enemies.splice(i,1);
           fuel = Math.max(0, fuel - 10);
           score = Math.max(0, score - 2);
@@ -731,14 +600,13 @@ function update(dt){
     const p = pickups[i];
     if (Math.abs(p.x - px) < (p.w + pw)/2 && Math.abs(p.y - py) < (p.h + ph)/2){
       pickups.splice(i,1);
-      pickupStreak++;
-      if (pickupStreak>=3) addAnnounce(`Combo x${pickupStreak}!`, 0.9);
-
       if (p.type === 'chicken'){
+        // Big reward + Shield +1 (capped at 2)
         fuel = Math.min(100, fuel + 25);
         score += 15;
         cheatCharges = Math.min(2, cheatCharges + 1);
-        addAnnounce('Lucky Chicken!', 1.2);
+        cheatToastText = 'Shield +1';
+        cheatToastTimer = 1.2;
         spawnSparkles(px, py, 'rgba(255,230,140,0.95)');
       } else if (p.type === 'lizard'){
         fuel = Math.min(100, fuel + (p.golden ? 22 : 12));
@@ -753,18 +621,14 @@ function update(dt){
         score += (p.golden ? 10 : 3);
         spawnSparkles(px, py, 'rgba(255,230,150,0.95)');
       }
-
-      // score milestone announcer
-      if (score >= nextScoreMilestone){
-        addAnnounce(`Score ${nextScoreMilestone}!`, 1.0);
-        nextScoreMilestone += 50;
-      }
       break;
     }
   }
 
   updateParticles(dt);
-  updateAnnouncements(dt);
+
+  // update toast timer
+  if (cheatToastTimer > 0) cheatToastTimer = Math.max(0, cheatToastTimer - dt);
 
   meters += (roadSpeed * dt) / 120;
   fuel -= dt * 2;
@@ -784,8 +648,27 @@ function drawHUD(){
     ctx.fillStyle = '#fff';
     ctx.fillText(txt, x, 28);
   }
+
+  // toast (center-top)
+  if (cheatToastTimer > 0){
+    const a = Math.min(1, cheatToastTimer / 0.3); // quick fade in
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = '18px system-ui, sans-serif';
+    const t = cheatToastText || '';
+    const tw = ctx.measureText(t).width;
+    const tx = (W - tw)/2;
+    const ty = 44;
+    // soft panel
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(tx - 12, ty - 18, tw + 24, 28);
+    ctx.fillStyle = '#ffd54f';
+    ctx.fillText(t, tx, ty);
+    ctx.restore();
+  }
 }
 
+/* Gentle vignette overlay */
 function drawVignette(){
   const g = ctx.createRadialGradient(W/2, H*0.58, Math.min(W,H)*0.25, W/2, H*0.58, Math.max(W,H)*0.75);
   g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -796,19 +679,12 @@ function drawVignette(){
 
 function draw(dt){
   drawBackgroundBase();
-  drawHills(dt);
-  enemies.forEach(e => {
-    if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h);
-    else if (e.type==='rock') drawRock(e.x,e.y,e.w,e.h);
-    else if (e.type==='bush') drawBush(e.x,e.y,e.w,e.h);
-    else if (e.type==='log')  drawLog(e.x,e.y,e.w,e.h);
-    else drawMud(e.x,e.y,e.w,e.h); // fallback
-  });
+  drawHills(dt); // parallax under lanes
+  enemies.forEach(e => { if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
   pickups.forEach(drawPickup);
-  drawCharacter(lanesX()[currentLane] + slipOffset, PLAYER_Y(), CAT_W, CAT_H);
+  drawCat(lanesX()[currentLane] + slipOffset, PLAYER_Y(), CAT_W, CAT_H);
   drawParticles();
   drawHUD();
-  drawAnnouncements();
   drawVignette();
 }
 
@@ -822,28 +698,13 @@ function drawMenu(){
   ctx.fillText(title, (W - ctx.measureText(title).width)/2, 56);
 
   ctx.font = '14px system-ui, sans-serif';
-  const sub = 'Tap, swipe, arrows — press C or tap top-right to change character';
+  const sub = 'Tap, swipe, or use arrows to start';
   ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 78);
 
-  const lines = ['Aim: Reach a high score', 'collect golden critters', 'avoid hazards'];
+  const lines = ['Aim: Reach a high score', 'by collecting as many', 'golden critters as you can'];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 98 + i*16));
 
-  // Skin display with locks
-  const y0 = 140;
-  ctx.font = '14px system-ui, sans-serif';
-  let x = 24;
-  SKINS.forEach((s, i)=>{
-    const unlocked = isSkinUnlocked(i);
-    const label = unlocked ? s.name : `${s.name} 🔒${s.unlock}`;
-    ctx.globalAlpha = (i===currentSkinIndex && unlocked) ? 1 : 0.7;
-    ctx.fillText(label, x, y0);
-    // tiny avatar
-    drawSkinCharacter(s, x+40, y0+26, 16, 24);
-    ctx.globalAlpha = 1;
-    x += 120;
-  });
-
-  drawBoard(24, y0 + 64);
+  drawBoard(24, 160);
   drawVignette();
 }
 
@@ -851,13 +712,11 @@ function drawMenu(){
 function endGame(){
   gameRunning = false;
   maybeRecordScore(score);
-  saveBest(score);
 }
 function resetGame(){
   enemies = [];
   pickups = [];
   particles = [];
-  announcements = [];
   score = 0;
   fuel = 100;
   meters = 0;
@@ -869,10 +728,9 @@ function resetGame(){
   cheatArmTimerMs = 0;
   cheatCharges = 0;
   cheatRearmLock = false;
-  pickupStreak = 0;
-  nextScoreMilestone = 50;
+  cheatToastTimer = 0;
+  cheatToastText = '';
 }
-
 function loop(ts){
   if (last === undefined) last = ts;
   let dt = (ts - last) / 1000;
@@ -895,11 +753,7 @@ function loop(ts){
 /* Keyboard */
 let keyLock = false;
 document.addEventListener('keydown', e=>{
-  if (!gameRunning){
-    if (e.key.toLowerCase() === 'c'){ cycleSkin(); return; }
-    // start on any other key
-    resetGame(); gameRunning = true; return;
-  }
+  if (!gameRunning){ resetGame(); gameRunning = true; }
   if (keyLock) return;
   if (e.key === 'ArrowLeft'){
     if (currentLane > 0) currentLane--;
@@ -916,12 +770,8 @@ document.addEventListener('keyup', e=>{
 /* Touch on canvas */
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
-  // top-right 100x100 area cycles skins when not running
-  const t = e.touches[0];
-  if (!gameRunning && t.clientX > W-100 && t.clientY < 120){ cycleSkin(); return; }
-
   if (!gameRunning){ resetGame(); gameRunning = true; }
-  touchStartX = t.clientX;
+  touchStartX = e.touches[0].clientX;
 }, {passive: true});
 canvas.addEventListener('touchmove', e=>{
   if (touchStartX === null) return;
@@ -931,7 +781,7 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-/* Lane buttons — pointer events for hold state */
+/* Lane buttons — use pointer events so we can track hold state */
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
 
@@ -952,13 +802,9 @@ function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down
   btn3.addEventListener(evt, onPointerUpBtn3, {passive:false});
 });
 
-/* Click to start or cycle skin area */
+/* Tap anywhere */
 canvas.addEventListener('click', e=>{
-  if (!gameRunning){
-    // allow clicking top-right to cycle skin
-    if (e.clientX > W-100 && e.clientY < 120){ cycleSkin(); return; }
-    resetGame(); gameRunning = true; return;
-  }
+  if (!gameRunning){ resetGame(); gameRunning = true; return; }
   const x = e.clientX;
   const center = lanesX()[currentLane];
   if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
