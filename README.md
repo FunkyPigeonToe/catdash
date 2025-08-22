@@ -16,7 +16,7 @@
   canvas {
     display: block;
     margin: 0 auto;
-    background: #6dbb4a;
+    background: #6dbb4a; /* static, no animated background */
     touch-action: none;
   }
 
@@ -114,7 +114,7 @@ let spawnTimer = 0;
 let last = undefined;
 let graceTimer = 0;
 
-/* Speed (unchanged) */
+/* Speed */
 let roadSpeed = 226;
 let maxSpeed  = 704;
 
@@ -203,50 +203,20 @@ function strokeAround(strokeStyle = 'rgba(0,0,0,0.35)', lineWidth = 2, drawPathF
   ctx.restore();
 }
 
-/* ===== Parallax background (distant hills) ===== */
-const hills = [];
-function initHills(){
-  hills.length = 0;
-  const rows = 3;
-  for (let r=0; r<rows; r++){
-    const baseY = -H * (r*0.6);
-    const amp = 20 + r*8;
-    const color = `rgba(20,60,20,${0.08 + r*0.05})`;
-    hills.push({ y: baseY, amp, color, speedMul: 0.25 + r*0.08, phase: Math.random()*Math.PI*2 });
-  }
-}
-initHills();
-
-function drawHills(dt){
-  hills.forEach(h=>{
-    h.y += roadSpeed * dt * h.speedMul;
-    if (h.y > H + 60) h.y -= H * 2;
-
-    ctx.fillStyle = h.color;
-    ctx.beginPath();
-    const cycles = 6;
-    for (let i=0;i<=cycles;i++){
-      const x = (i/cycles) * W;
-      const y = h.y + Math.sin(h.phase + i*0.8) * h.amp;
-      if (i===0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
-    ctx.fill();
-  });
-}
-
-/* ===== Background & rounded trees ===== */
+/* ===== Static Background (no motion) ===== */
 function drawBackgroundBase(){
+  // soft grass gradient (static)
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#64b24a'); g.addColorStop(1, '#4d9c3b');
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
 
+  // subtle grass texture
   ctx.fillStyle = 'rgba(40,90,40,0.10)';
   for (let y=0; y<H; y+=40){
     for (let x=((y/40)%2===0?0:20); x<W; x+=40){ ctx.fillRect(x,y,10,10); }
   }
 
+  // dirt tracks for each lane
   const trailW = W/6; const lx = lanesX();
   for (let i=0;i<3;i++){
     const rg = ctx.createLinearGradient(0, 0, 0, H);
@@ -256,27 +226,51 @@ function drawBackgroundBase(){
   }
 }
 
-/* Rounder tree (clustered canopy + trunk) */
+/* ===== New Cartoony Tree ===== */
 function drawTree(x,y,w,h){
   withShadow('rgba(0,0,0,0.35)', 10, 4, ()=>{
-    // trunk
+    // rounded trunk
+    const trunkW = w*0.28, trunkH = h*0.48;
+    const trunkX = x - trunkW/2, trunkY = y + h*0.12;
     ctx.fillStyle = '#6d3f17';
-    const trunkW = w*0.22, trunkH = h*0.45;
-    ctx.fillRect(x - trunkW/2, y + h*0.1, trunkW, trunkH);
+    ctx.beginPath();
+    const r = trunkW*0.35;
+    // rounded-rect trunk
+    ctx.moveTo(trunkX + r, trunkY);
+    ctx.lineTo(trunkX + trunkW - r, trunkY);
+    ctx.quadraticCurveTo(trunkX + trunkW, trunkY, trunkX + trunkW, trunkY + r);
+    ctx.lineTo(trunkX + trunkW, trunkY + trunkH - r);
+    ctx.quadraticCurveTo(trunkX + trunkW, trunkY + trunkH, trunkX + trunkW - r, trunkY + trunkH);
+    ctx.lineTo(trunkX + r, trunkY + trunkH);
+    ctx.quadraticCurveTo(trunkX, trunkY + trunkH, trunkX, trunkY + trunkH - r);
+    ctx.lineTo(trunkX, trunkY + r);
+    ctx.quadraticCurveTo(trunkX, trunkY, trunkX + r, trunkY);
+    ctx.closePath();
+    ctx.fill();
 
-    // canopy blobs (rounded)
-    const cx = x, cy = y - h*0.10;
-    const rBig = h*0.30, rSide = h*0.22, rTop = h*0.18;
-    ctx.fillStyle = '#2e7d32';
-    ctx.beginPath(); ctx.arc(cx, cy, rBig, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx - w*0.28, cy + h*0.02, rSide, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + w*0.28, cy + h*0.02, rSide, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx, cy - h*0.22, rTop, 0, Math.PI*2); ctx.fill();
+    // puffy canopy (3 layers) with highlight
+    const cx = x, cy = y - h*0.06;
+    const cMain = '#2e7d32';
+    const cMid  = '#2f8c34';
+    const cLight= '#399c3a';
 
-    // subtle rim
+    // back blobs
+    ctx.fillStyle = cMid;
+    ctx.beginPath(); ctx.arc(cx - w*0.28, cy + h*0.02, h*0.25, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + w*0.28, cy + h*0.02, h*0.25, 0, Math.PI*2); ctx.fill();
+
+    // main blob
+    ctx.fillStyle = cMain;
+    ctx.beginPath(); ctx.arc(cx, cy, h*0.32, 0, Math.PI*2); ctx.fill();
+
+    // top highlight blob
+    ctx.fillStyle = cLight;
+    ctx.beginPath(); ctx.arc(cx, cy - h*0.22, h*0.18, 0, Math.PI*2); ctx.fill();
+
+    // subtle outline around main canopy
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(cx, cy, rBig, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, h*0.32, 0, Math.PI*2); ctx.stroke();
   });
 }
 
@@ -292,7 +286,7 @@ function drawMud(x, y, w, h){
   });
 }
 
-/* ===== Land pickups: mouse, bird, lizard, golden chicken ===== */
+/* ===== Pickups (mouse, bird, lizard, chicken) ===== */
 /* Additive, fixed-radius glow to avoid screen brightness pulsing */
 function drawAdditiveGlow(x, y, radius, centerAlpha=0.9){
   ctx.save();
@@ -305,7 +299,6 @@ function drawAdditiveGlow(x, y, radius, centerAlpha=0.9){
   ctx.restore();
 }
 
-/* Drawing helpers for pickups – stylized & rounded */
 function drawMouse(x, y, scale, golden){
   const t = performance.now()*0.006, wiggle = Math.sin(t + x*0.01)*1.2*scale;
   const body = golden ? '#ffd54f' : '#c7a17a';
@@ -353,7 +346,7 @@ function drawBird(x, y, scale, golden){
   if (golden) drawAdditiveGlow(x, y, 20*scale, 0.85);
 }
 
-/* >>> Improved Lizard (more lizard-like) <<< */
+/* Improved Lizard */
 function drawLizard(x, y, scale, golden){
   const t = performance.now()*0.006;
   const sway = Math.sin(t + x*0.03)*1.5*scale;
@@ -361,13 +354,13 @@ function drawLizard(x, y, scale, golden){
   const belly = golden ? '#ffe082' : '#4cae4c';
 
   withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
-    // main body (long + slim)
+    // body
     ctx.fillStyle = body;
     ctx.beginPath();
     ctx.ellipse(x, y+sway, 16*scale, 6*scale, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // tail (tapered)
+    // tail
     ctx.beginPath();
     ctx.moveTo(x-16*scale, y+sway);
     ctx.quadraticCurveTo(x-26*scale, y+3*scale+sway, x-30*scale, y+sway);
@@ -375,7 +368,7 @@ function drawLizard(x, y, scale, golden){
     ctx.closePath();
     ctx.fill();
 
-    // head (slightly triangular)
+    // head
     ctx.beginPath();
     ctx.ellipse(x+14*scale, y-1*scale+sway, 6*scale, 5*scale, 0, 0, Math.PI*2);
     ctx.fill();
@@ -384,7 +377,7 @@ function drawLizard(x, y, scale, golden){
     ctx.fillStyle = belly;
     ctx.fillRect(x-6*scale, y-2*scale+sway, 12*scale, 4*scale);
 
-    // little legs
+    // legs
     ctx.strokeStyle = body;
     ctx.lineWidth = 2*scale;
     ctx.beginPath();
@@ -403,7 +396,7 @@ function drawLizard(x, y, scale, golden){
   if (golden) drawAdditiveGlow(x, y, 24*scale, 0.85);
 }
 
-/* Golden Chicken (always golden, rare, big reward, now +1 shield) */
+/* Golden Chicken (always golden, rare, big reward, +1 shield) */
 function drawChicken(x, y, scale){
   const bob = Math.sin(performance.now()*0.004 + x*0.01) * 1.0 * scale;
   withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
@@ -434,7 +427,6 @@ function drawChicken(x, y, scale){
     ctx.moveTo(x+1*scale, y+9*scale+bob); ctx.lineTo(x+1*scale, y+12*scale+bob);
     ctx.stroke();
   });
-  // subtle additive gold aura (fixed, no pulsing)
   drawAdditiveGlow(x, y, 24*scale, 0.9);
 }
 
@@ -511,7 +503,7 @@ function spawnPickup(){
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-    // body (slightly taller oval)
+    // body
     ctx.fillStyle = '#d2691e';
     ctx.beginPath();
     ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
@@ -557,7 +549,7 @@ function drawCat(x, y, w, h){
     ctx.moveTo(hx+ headR*0.55, hy-4); ctx.lineTo(hx+ headR*1.1, hy-6);
     ctx.stroke();
 
-    // tail (curved)
+    // tail
     ctx.beginPath();
     ctx.moveTo(x+w/2.2, y);
     ctx.quadraticCurveTo(x+w/1.5, y-h/2, x+w/2.5, y-h);
@@ -566,7 +558,6 @@ function drawCat(x, y, w, h){
     ctx.stroke();
   });
 
-  // thin outline around body ellipse for pop
   strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
     ctx.beginPath(); ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
   });
@@ -695,7 +686,7 @@ function update(dt){
 
   updateParticles(dt);
 
-  // update toast timer
+  // toast timer
   if (cheatToastTimer > 0) cheatToastTimer = Math.max(0, cheatToastTimer - dt);
 
   meters += (roadSpeed * dt) / 120;
@@ -736,7 +727,7 @@ function drawHUD(){
   }
 }
 
-/* Gentle vignette overlay */
+/* Static vignette */
 function drawVignette(){
   const g = ctx.createRadialGradient(W/2, H*0.58, Math.min(W,H)*0.25, W/2, H*0.58, Math.max(W,H)*0.75);
   g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -745,9 +736,9 @@ function drawVignette(){
   ctx.fillRect(0,0,W,H);
 }
 
-function draw(dt){
+function draw(){
   drawBackgroundBase();
-  drawHills(dt); // parallax under lanes
+  // (No drawHills – removed moving background)
   enemies.forEach(e => { if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
   pickups.forEach(drawPickup);
   drawCat(lanesX()[currentLane] + slipOffset, PLAYER_Y(), CAT_W, CAT_H);
@@ -758,7 +749,6 @@ function draw(dt){
 
 function drawMenu(){
   drawBackgroundBase();
-  drawHills(0);
   ctx.fillStyle = '#fff';
 
   ctx.font = '16px system-ui, sans-serif';
@@ -811,7 +801,7 @@ function loop(ts){
   if (gameRunning){
     if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
     update(dt);
-    draw(dt);
+    draw();
   } else {
     drawMenu();
   }
