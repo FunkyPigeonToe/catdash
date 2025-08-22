@@ -55,12 +55,23 @@
 
 <script>
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 
 let W = window.innerWidth;
 let H = window.innerHeight;
-canvas.width = W;
-canvas.height = H;
+
+/* High definition canvas setup */
+function setHDCanvas(){
+  const DPR = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width  = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); // draw in CSS pixels
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+}
+setHDCanvas();
 
 function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 
@@ -85,11 +96,11 @@ positionButtons();
 window.addEventListener('resize', () => {
   W = window.innerWidth;
   H = window.innerHeight;
-  canvas.width = W;
-  canvas.height = H;
+  setHDCanvas();
   positionButtons();
 });
 
+/* State */
 let gameRunning = false;
 let currentLane = 1;
 let enemies = [];
@@ -102,24 +113,24 @@ let spawnTimer = 0;
 let last = undefined;
 let graceTimer = 0;
 
-/* Slower speeds, cumulative 20% down from the last already-slowed version */
-let roadSpeed = 205;   // was 256
-let maxSpeed  = 640;   // was 800
+/* Speed about ten percent faster than the last build */
+let roadSpeed = 226;  // was 205
+let maxSpeed  = 704;  // was 640
 
 const baseAccel = 0.6;
 let slipTimer = 0, slipOffset = 0;
 
-/* ==== SECRET SHIELD CHEAT ==== */
-let shieldCharges = 0;                  // how many tree hits are ignored
-const COMBO_WINDOW_MS = 180;            // both buttons within this window
+/* Secret shield cheat */
+let shieldCharges = 0;
+const COMBO_WINDOW_MS = 180;
 let lastBtn1Time = -1, lastBtn3Time = -1;
-let shieldFlashTimer = 0;               // brief visual feedback on activate
+let shieldFlashTimer = 0;
 
 function tryActivateShield(fromBtn){
   const now = performance.now();
   if (fromBtn === 1){
     if (now - lastBtn3Time <= COMBO_WINDOW_MS && shieldCharges === 0){
-      shieldCharges = 2;                // two trees in a row
+      shieldCharges = 2;
       shieldFlashTimer = 0.6;
     }
     lastBtn1Time = now;
@@ -132,7 +143,7 @@ function tryActivateShield(fromBtn){
   }
 }
 
-/* ===== Leaderboard ===== */
+/* Leaderboard */
 const BOARD_KEY = 'cat_leaderboard';
 function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); } catch { return []; } }
 function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
@@ -167,35 +178,78 @@ function drawBoard(x, y){
   }
 }
 
-/* ===== Artwork ===== */
+/* Artwork helpers */
+function withShadow(color = 'rgba(0,0,0,0.35)', blur = 8, offsetY = 3, drawFn){
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = offsetY;
+  drawFn();
+  ctx.restore();
+}
+function strokeAround(strokeStyle = 'rgba(0,0,0,0.35)', lineWidth = 2, drawPathFn){
+  ctx.save();
+  ctx.lineWidth = lineWidth;
+  ctx.strokeStyle = strokeStyle;
+  drawPathFn();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* Background with soft gradient and lane highlight */
 function drawBackground(){
-  ctx.fillStyle = '#5e9d45'; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle = 'rgba(40,90,40,0.15)';
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#64b24a');
+  g.addColorStop(1, '#4d9c3b');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  ctx.fillStyle = 'rgba(40,90,40,0.12)';
   for (let y=0; y<H; y+=40){
     for (let x=((y/40)%2===0?0:20); x<W; x+=40){ ctx.fillRect(x,y,10,10); }
   }
+
   const trailW = W/6;
   const lx = lanesX();
   for (let i=0;i<3;i++){
-    ctx.fillStyle = '#7a5b45';
+    const rg = ctx.createLinearGradient(0, 0, 0, H);
+    rg.addColorStop(0, '#8b684f');
+    rg.addColorStop(1, '#6f523f');
+    ctx.fillStyle = rg;
     ctx.fillRect(lx[i]-trailW/2, 0, trailW, H);
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillRect(lx[i]-1, 0, 2, H);
   }
 }
 function drawTree(x,y,w,h){
-  ctx.fillStyle = '#6d3f17'; ctx.fillRect(x - w*0.12, y + h*0.1, w*0.24, h*0.45);
-  ctx.fillStyle = '#1b5e20'; ctx.beginPath(); ctx.moveTo(x, y - h*0.45); ctx.lineTo(x - w*0.65, y + h*0.25); ctx.lineTo(x + w*0.65, y + h*0.25); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.moveTo(x, y - h*0.25); ctx.lineTo(x - w*0.5, y + h*0.4); ctx.lineTo(x + w*0.5, y + h*0.4); ctx.closePath(); ctx.fill();
+  withShadow('rgba(0,0,0,0.35)', 10, 4, ()=>{
+    ctx.fillStyle = '#6d3f17';
+    ctx.fillRect(x - w*0.12, y + h*0.1, w*0.24, h*0.45);
+    ctx.fillStyle = '#1b5e20';
+    ctx.beginPath(); ctx.moveTo(x, y - h*0.45); ctx.lineTo(x - w*0.65, y + h*0.25); ctx.lineTo(x + w*0.65, y + h*0.25); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#2e7d32';
+    ctx.beginPath(); ctx.moveTo(x, y - h*0.25); ctx.lineTo(x - w*0.5, y + h*0.4); ctx.lineTo(x + w*0.5, y + h*0.4); ctx.closePath(); ctx.fill();
+  });
+  strokeAround('rgba(0,0,0,0.4)', 1.5, ()=>{
+    ctx.beginPath();
+    ctx.moveTo(x, y - h*0.45); ctx.lineTo(x - w*0.65, y + h*0.25); ctx.lineTo(x + w*0.65, y + h*0.25); ctx.closePath();
+  });
 }
 function drawMud(x, y, w, h){
-  ctx.fillStyle = '#5b3a29';
-  ctx.beginPath(); ctx.ellipse(x, y, w*0.5, h*0.5, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#3e2723';
-  ctx.beginPath(); ctx.ellipse(x - w*0.2, y - h*0.1, w*0.15, h*0.15, 0, 0, Math.PI*2); ctx.fill();
+  withShadow('rgba(0,0,0,0.3)', 8, 3, ()=>{
+    const g = ctx.createRadialGradient(x, y, 2, x, y, Math.max(w,h));
+    g.addColorStop(0, '#6a4a3a');
+    g.addColorStop(1, '#3e2723');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(x, y, w*0.5, h*0.5, 0, 0, Math.PI*2); ctx.fill();
+  });
+  strokeAround('rgba(0,0,0,0.35)', 1.2, ()=>{
+    ctx.beginPath(); ctx.ellipse(x, y, w*0.5, h*0.5, 0, 0, Math.PI*2);
+  });
 }
 
-// Shared fish helper so shapes always match
+/* Fish */
 function drawFishShape(x, y, scale, bodyColor, withGlow){
   const tail = 10 * scale;
   const tailH = 6 * scale;
@@ -206,57 +260,68 @@ function drawFishShape(x, y, scale, bodyColor, withGlow){
     const t = performance.now() * 0.005;
     const pulse = 0.5 + 0.5 * Math.sin(t);
     ctx.save();
-    ctx.globalAlpha = 0.35 + 0.45 * pulse;
-    const g = ctx.createRadialGradient(x + bodyR, y, 0, x + bodyR, y, 20 * scale + 6 * pulse);
+    ctx.globalAlpha = 0.4 + 0.4 * pulse;
+    const g = ctx.createRadialGradient(x + bodyR, y, 0, x + bodyR, y, 22 * scale + 6 * pulse);
     g.addColorStop(0, 'rgba(255,215,0,0.95)');
     g.addColorStop(1, 'rgba(255,215,0,0)');
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(x + bodyR, y, 20 * scale + 6 * pulse, 0, Math.PI * 2);
+    ctx.arc(x + bodyR, y, 22 * scale + 6 * pulse, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  ctx.fillStyle = bodyColor;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x - tail, y - tailH);
-  ctx.lineTo(x - tail, y + tailH);
-  ctx.closePath();
-  ctx.fill();
+  withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - tail, y - tailH);
+    ctx.lineTo(x - tail, y + tailH);
+    ctx.closePath();
+    ctx.fill();
 
-  ctx.beginPath();
-  ctx.arc(x + bodyR, y, bodyR, 0, Math.PI * 2);
-  ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + bodyR, y, bodyR, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  strokeAround('rgba(0,0,0,0.45)', 1, ()=>{
+    ctx.beginPath();
+    ctx.arc(x + bodyR, y, bodyR, 0, Math.PI * 2);
+  });
 
   ctx.fillStyle = '#000';
   ctx.beginPath();
   ctx.arc(x + bodyR + 2 * scale, y - 1 * scale, eyeR, 0, Math.PI * 2);
   ctx.fill();
 }
+function drawFish(x,y){ drawFishShape(x, y, 1, '#ff9800', false); }
+function drawGoldenFish(x,y){ drawFishShape(x, y, 2, '#ffd700', true); }
 
-function drawFish(x,y){ drawFishShape(x, y, 1, 'orange', false); }
-function drawGoldenFish(x,y){ drawFishShape(x, y, 2, 'gold', true); }
-
+/* Cat */
 function drawCat(x, y, w, h){
-  ctx.fillStyle = '#d2691e';
-  ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#a0522d';
-  ctx.beginPath(); ctx.ellipse(x, y, w/2.5, h/2.5, 0, 0, Math.PI*2); ctx.fill();
-  const headR = h*0.25, hx=x, hy=y - h*0.55;
-  ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#a0522d'; ctx.beginPath(); ctx.arc(hx,hy,headR*0.75,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#d2691e';
-  ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(hx+headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
+  withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
+    ctx.fillStyle = '#d2691e';
+    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#a0522d';
+    ctx.beginPath(); ctx.ellipse(x, y, w/2.5, h/2.5, 0, 0, Math.PI*2); ctx.fill();
+    const headR = h*0.25, hx=x, hy=y - h*0.55;
+    ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#a0522d'; ctx.beginPath(); ctx.arc(hx,hy,headR*0.75,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#d2691e';
+    ctx.beginPath(); ctx.moveTo(hx-headR*0.8,hy-headR*0.2); ctx.lineTo(hx-headR*0.3,hy-headR*1.1); ctx.lineTo(hx-headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx+headR*0.8,hy-headR*0.2); ctx.lineTo(hx+headR*0.3,hy-headR*1.1); ctx.lineTo(hx+headR*0.05,hy-headR*0.2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(hx-headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx+headR*0.4, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#d2691e'; ctx.beginPath(); ctx.ellipse(x + w/2.2, y, w/6, h/3, 0, 0, Math.PI*2); ctx.fill();
+  });
+  strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
+    ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2);
+  });
 }
 
-/* ===== Spawning and placement rules ===== */
+/* Spawning and placement rules */
 const SPAWN_BUFFER_Y = 70;
-
 function laneIsFree(x, y){
   return !enemies.some(e => e.x === x && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
       && !pickups.some(p => p.x === x && Math.abs(p.y - y) < SPAWN_BUFFER_Y);
@@ -280,23 +345,18 @@ function spawnEnemy(){
       : {type, x: lx[lane], y: -40, w: 56, h: 24}
   );
 }
-
-// lane wide check so fish never mix with trees or mud
 function laneHasAnyEnemy(laneIndex){
   const lx = lanesX();
   const x = lx[laneIndex];
   return enemies.some(e => e.x === x);
 }
-
 function spawnPickup(){
   const spawnY = -40;
-
   const sameYEnemy  = enemies.some(e => Math.abs(e.y - spawnY) < SPAWN_BUFFER_Y);
   const sameYPickup = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
   if (sameYEnemy || sameYPickup) return;
 
   const lx = lanesX();
-
   let candidateLanes = [0,1,2].filter(i => laneIsFree(lx[i], spawnY) && !laneHasAnyEnemy(i));
   if (!candidateLanes.length) return;
 
@@ -316,11 +376,11 @@ function spawnPickup(){
   pickups.push({x: lx[lane], y: spawnY, w, h, golden});
 }
 
-/* ===== Sizes and player position ===== */
+/* Sizes and player position */
 const CAT_W = 20, CAT_H = 30;
 const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_AND_BUTTON_OFFSET);
 
-/* ===== Update and draw ===== */
+/* Update and draw */
 function update(dt){
   const accel = baseAccel * (1 - Math.min(1, roadSpeed / maxSpeed));
   roadSpeed = Math.min(maxSpeed, (roadSpeed + accel) * Math.pow(1.00000002, meters));
@@ -329,7 +389,6 @@ function update(dt){
     slipOffset = Math.sin(performance.now()/40) * 4;
   } else slipOffset = 0;
 
-  // faster cadence for spawns, with a tilt toward more pickups
   spawnTimer += dt;
   if (spawnTimer > 0.6){
     spawnTimer = 0;
@@ -353,7 +412,7 @@ function update(dt){
     for (let i=0; i<enemies.length; i++){
       const e = enemies[i];
 
-      // tighter tree hitbox
+      // slimmer hitbox for trees
       let ew = e.w;
       let eh = e.h;
       if (e.type === 'tree'){
@@ -368,10 +427,9 @@ function update(dt){
           score = Math.max(0, score - 2);
           slipTimer = 0.6;
         } else {
-          // TREE collision: check shield cheat
           if (shieldCharges > 0){
-            enemies.splice(i,1);  // clear the tree
-            shieldCharges--;      // consume a charge
+            enemies.splice(i,1);
+            shieldCharges--;
           } else {
             endGame();
           }
@@ -400,7 +458,6 @@ function update(dt){
   fuel -= dt * 2;
   if (fuel <= 0) endGame();
 
-  // cheat flash timer
   if (shieldFlashTimer > 0) shieldFlashTimer = Math.max(0, shieldFlashTimer - dt);
 }
 
@@ -410,7 +467,6 @@ function drawHUD(){
   ctx.fillText('Energy: ' + Math.round(fuel), 10, 42);
   ctx.fillText('Meters: ' + Math.round(meters), 10, 62);
 
-  // Shield indicator top right
   const txt = shieldCharges > 0 ? `Shield x${shieldCharges}` : '';
   if (txt){
     const w = ctx.measureText(txt).width + 12;
@@ -438,7 +494,6 @@ function drawMenu(){
   drawBackground();
   ctx.fillStyle = '#fff';
 
-  // compact title block
   ctx.font = '16px system-ui, sans-serif';
   const title = 'Cat Dash';
   ctx.fillText(title, (W - ctx.measureText(title).width)/2, 56);
@@ -453,7 +508,7 @@ function drawMenu(){
   drawBoard(24, 160);
 }
 
-/* ===== Control ===== */
+/* Control */
 function endGame(){
   gameRunning = false;
   maybeRecordScore(score);
@@ -464,12 +519,12 @@ function resetGame(){
   score = 0;
   fuel = 100;
   meters = 0;
-  roadSpeed = 205;
+  roadSpeed = 226;
   currentLane = 1;
   spawnTimer = 0;
   graceTimer = 0.75;
   last = undefined;
-  shieldCharges = 0;               // cheat must be rearmed each run
+  shieldCharges = 0;
   shieldFlashTimer = 0;
   lastBtn1Time = lastBtn3Time = -1;
 }
@@ -492,7 +547,7 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-// Keyboard
+/* Keyboard */
 let keyLock = false;
 document.addEventListener('keydown', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
@@ -509,7 +564,7 @@ document.addEventListener('keyup', e=>{
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyLock = false;
 });
 
-// Touch on canvas
+/* Touch on canvas */
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
@@ -523,7 +578,7 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-// Lane buttons
+/* Lane buttons */
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
 
@@ -533,17 +588,17 @@ function nudgeRight(){ if (!gameRunning){ resetGame(); gameRunning = true; } if 
 ['click','touchstart'].forEach(evt=>{
   btn1.addEventListener(evt, e=>{
     e.preventDefault();
-    tryActivateShield(1); // check combo
+    tryActivateShield(1);
     nudgeLeft();
   }, {passive: false});
   btn3.addEventListener(evt, e=>{
     e.preventDefault();
-    tryActivateShield(3); // check combo
+    tryActivateShield(3);
     nudgeRight();
   }, {passive: false});
 });
 
-// Tap anywhere
+/* Tap anywhere */
 canvas.addEventListener('click', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; return; }
   const x = e.clientX;
@@ -551,7 +606,7 @@ canvas.addEventListener('click', e=>{
   if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
 });
 
-// Start
+/* Start */
 requestAnimationFrame(loop);
 </script>
 </body>
