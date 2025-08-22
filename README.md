@@ -499,45 +499,46 @@ function spawnPickup(){
   pickups.push({type, x: lx[lane], y: spawnY, w, h, scale, golden});
 }
 
-/* ===== Cat (more cat-like) ===== */
+/* ===== Cat (more cat-like, new tapered wagging tail) ===== */
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-    // body
+    // --- body ---
     ctx.fillStyle = '#d2691e';
     ctx.beginPath();
     ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // head
+    // --- head ---
     const headR = h*0.36;
     const hx = x, hy = y - h*0.78;
     ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
 
-    // ears
+    // --- ears ---
     ctx.beginPath();
     ctx.moveTo(hx-headR*0.6,hy-headR*0.15);
     ctx.lineTo(hx-headR*0.25,hy-headR*1.0);
-    ctx.lineTo(hx-0,hy-headR*0.15);
+    ctx.lineTo(hx,hy-headR*0.15);
     ctx.closePath(); ctx.fill();
+
     ctx.beginPath();
     ctx.moveTo(hx+headR*0.6,hy-headR*0.15);
     ctx.lineTo(hx+headR*0.25,hy-headR*1.0);
-    ctx.lineTo(hx+0,hy-headR*0.15);
+    ctx.lineTo(hx,hy-headR*0.15);
     ctx.closePath(); ctx.fill();
 
-    // belly patch
+    // --- belly patch ---
     ctx.fillStyle = '#a0522d';
     ctx.beginPath();
     ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // eyes
+    // --- eyes ---
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(hx-headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(hx+headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
 
-    // whiskers
+    // --- whiskers ---
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -549,19 +550,45 @@ function drawCat(x, y, w, h){
     ctx.moveTo(hx+ headR*0.55, hy-4); ctx.lineTo(hx+ headR*1.1, hy-6);
     ctx.stroke();
 
-    // tail
+    // --- tapered, wagging tail (S-curve made from overlapping circles) ---
+    const anchorX = x + w/2.25;     // where tail attaches to body
+    const anchorY = y - h*0.12;
+    const len     = h * 1.0;        // tail length
+    const baseR   = Math.max(3, h*0.11); // base radius
+    const tNow    = performance.now()*0.004;
+    const wagAmp  = h * 0.08;       // wag amplitude
+
+    ctx.fillStyle = '#d2691e';
+    ctx.lineWidth = 1;
+
+    // build a smooth S-curve with tapering radius
+    const segments = 12; // more = smoother
+    for (let i = 0; i <= segments; i++){
+      const u  = i / segments;                   // 0..1 along tail
+      const r  = baseR * (1 - 0.78*u);           // taper
+      // centerline: mostly up, with subtle side wag and S-bend
+      const bend  = Math.sin(u*1.8 + tNow)*0.6;  // S-shape along the length
+      const px = anchorX + (wagAmp * 0.25) * bend * (1 - u) + 2*u; // slight right drift
+      const py = anchorY - u*len + Math.sin(tNow + u*2.2) * 1.2;   // tiny vertical jiggle
+
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // darker tip for definition
+    ctx.fillStyle = '#a0522d';
     ctx.beginPath();
-    ctx.moveTo(x+w/2.2, y);
-    ctx.quadraticCurveTo(x+w/1.5, y-h/2, x+w/2.5, y-h);
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = '#d2691e';
-    ctx.stroke();
+    ctx.arc(anchorX + (wagAmp*0.25)*Math.sin(1.8 + tNow) + 2, anchorY - len, baseR*0.22, 0, Math.PI*2);
+    ctx.fill();
   });
 
+  // thin outline around body ellipse for pop (kept from before)
   strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
     ctx.beginPath(); ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
   });
 }
+
 
 /* ===== Particles (sparkle burst on pickup) ===== */
 function spawnSparkles(x, y, baseColor){
