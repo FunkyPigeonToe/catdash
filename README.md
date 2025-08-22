@@ -19,7 +19,6 @@
     background: #6dbb4a;
     touch-action: none;
   }
-
   .controls {
     position: fixed;
     inset: 0;
@@ -105,6 +104,7 @@ let gameRunning = false;
 let currentLane = 1;
 let enemies = [];
 let pickups = [];
+let particles = [];
 let score = 0;
 let fuel = 100;
 let meters = 0;
@@ -120,7 +120,7 @@ let maxSpeed  = 704;
 const baseAccel = 0.6;
 let slipTimer = 0, slipOffset = 0;
 
-/* Secret shield cheat: double-press lane buttons */
+/* Secret shield cheat: double-press lane buttons (gives 2 tree ignores) */
 let shieldCharges = 0;
 const COMBO_WINDOW_MS = 180;
 let lastBtn1Time = -1, lastBtn3Time = -1;
@@ -227,7 +227,7 @@ function drawHills(dt){
   });
 }
 
-/* ===== Background & props ===== */
+/* ===== Background & rounded trees ===== */
 function drawBackgroundBase(){
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#64b24a'); g.addColorStop(1, '#4d9c3b');
@@ -246,17 +246,32 @@ function drawBackgroundBase(){
     ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(lx[i]-1, 0, 2, H);
   }
 }
+
+/* Rounder tree (clustered canopy + trunk) */
 function drawTree(x,y,w,h){
   withShadow('rgba(0,0,0,0.35)', 10, 4, ()=>{
-    ctx.fillStyle = '#6d3f17'; ctx.fillRect(x - w*0.12, y + h*0.1, w*0.24, h*0.45);
-    ctx.fillStyle = '#1b5e20'; ctx.beginPath(); ctx.moveTo(x, y - h*0.45); ctx.lineTo(x - w*0.65, y + h*0.25); ctx.lineTo(x + w*0.65, y + h*0.25); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#2e7d32'; ctx.beginPath(); ctx.moveTo(x, y - h*0.25); ctx.lineTo(x - w*0.5, y + h*0.4); ctx.lineTo(x + w*0.5, y + h*0.4); ctx.closePath(); ctx.fill();
-  });
-  strokeAround('rgba(0,0,0,0.4)', 1.5, ()=>{
-    ctx.beginPath();
-    ctx.moveTo(x, y - h*0.45); ctx.lineTo(x - w*0.65, y + h*0.25); ctx.lineTo(x + w*0.65, y + h*0.25); ctx.closePath();
+    // trunk
+    ctx.fillStyle = '#6d3f17';
+    const trunkW = w*0.22, trunkH = h*0.45;
+    ctx.fillRect(x - trunkW/2, y + h*0.1, trunkW, trunkH);
+
+    // canopy blobs (rounded)
+    const cx = x, cy = y - h*0.10;
+    const rBig = h*0.30, rSide = h*0.22, rTop = h*0.18;
+    ctx.fillStyle = '#2e7d32';
+    ctx.beginPath(); ctx.arc(cx, cy, rBig, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx - w*0.28, cy + h*0.02, rSide, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + w*0.28, cy + h*0.02, rSide, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy - h*0.22, rTop, 0, Math.PI*2); ctx.fill();
+
+    // subtle highlight rim
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, rBig, 0, Math.PI*2); ctx.stroke();
   });
 }
+
+/* Mud */
 function drawMud(x, y, w, h){
   withShadow('rgba(0,0,0,0.3)', 8, 3, ()=>{
     const g = ctx.createRadialGradient(x, y, 2, x, y, Math.max(w,h));
@@ -268,89 +283,121 @@ function drawMud(x, y, w, h){
   });
 }
 
-/* ===== Fish (more “fish-like”) ===== */
-function drawFishShape(x, y, scale, hue, isGolden){
-  const t = performance.now() * 0.004;
-  const sway = Math.sin(t + x * 0.02) * (1.5 * scale);
-  const tailSway = Math.sin(t * 1.6 + x * 0.03) * (4 * scale);
-
-  const bodyLen = 18 * scale;
-  const bodyH   = 10 * scale;
-  const tailLen = 12 * scale;
-  const finLen  = 7  * scale;
-
-  const grad = ctx.createLinearGradient(x - bodyLen/2, y, x + bodyLen/2, y);
-  if (isGolden){ grad.addColorStop(0, '#ffec8b'); grad.addColorStop(1, '#ffd54f'); }
-  else { grad.addColorStop(0, `hsl(${hue}, 85%, 60%)`); grad.addColorStop(1, `hsl(${hue}, 85%, 45%)`); }
-
+/* ===== Land pickups: mice, birds, lizards ===== */
+/* Drawing helpers for pickups – all a bit stylized & rounded */
+function drawMouse(x, y, scale, golden){
+  const t = performance.now()*0.006, wiggle = Math.sin(t + x*0.01)*1.2*scale;
+  const body = golden ? '#ffd54f' : '#c7a17a';
+  const ear   = golden ? '#ffe082' : '#d7b894';
   withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
-    // Tail
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(x + bodyLen/2 - 2, y + sway);
-    ctx.lineTo(x + bodyLen/2 + tailLen, y - 4*scale + tailSway);
-    ctx.lineTo(x + bodyLen/2 + tailLen, y + 4*scale + tailSway);
-    ctx.closePath();
-    ctx.fill();
-
-    // Body (capsule)
-    ctx.beginPath();
-    ctx.moveTo(x - bodyLen/2, y - bodyH/2 + sway);
-    ctx.quadraticCurveTo(x, y - bodyH/2 - 1 + sway, x + bodyLen/2, y + sway);
-    ctx.quadraticCurveTo(x, y + bodyH/2 + 1 + sway, x - bodyLen/2, y + bodyH/2 + sway);
-    ctx.closePath();
-    ctx.fill();
-
-    // Dorsal fin
-    ctx.beginPath();
-    ctx.moveTo(x - bodyLen*0.1, y - bodyH*0.6 + sway);
-    ctx.lineTo(x + finLen*0.1, y - bodyH*1.05 + sway);
-    ctx.lineTo(x + finLen*0.6, y - bodyH*0.4 + sway);
-    ctx.closePath();
-    ctx.fill();
-
-    // Ventral fin
-    ctx.beginPath();
-    ctx.moveTo(x - bodyLen*0.05, y + bodyH*0.55 + sway);
-    ctx.lineTo(x + finLen*0.5,  y + bodyH*0.95 + sway);
-    ctx.lineTo(x + finLen*0.1,  y + bodyH*0.45 + sway);
-    ctx.closePath();
-    ctx.fill();
-
-    // Pectoral fin
-    ctx.beginPath();
-    ctx.moveTo(x - bodyLen*0.2, y + sway);
-    ctx.lineTo(x - bodyLen*0.05, y + 3*scale + sway);
-    ctx.lineTo(x - bodyLen*0.35, y + 1.5*scale + sway);
-    ctx.closePath();
-    ctx.fill();
+    // body (capsule)
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(x, y+wiggle, 12*scale, 7*scale, 0, 0, Math.PI*2); ctx.fill();
+    // head
+    ctx.beginPath(); ctx.ellipse(x+9*scale, y-1*scale+wiggle, 6*scale, 5*scale, 0, 0, Math.PI*2); ctx.fill();
+    // ears
+    ctx.fillStyle = ear;
+    ctx.beginPath(); ctx.arc(x+12*scale, y-5*scale+wiggle, 2.8*scale, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+7.5*scale, y-6*scale+wiggle, 2.2*scale, 0, Math.PI*2); ctx.fill();
+    // tail
+    ctx.strokeStyle = golden ? '#ffe082' : '#b78963';
+    ctx.lineWidth = 1.4*scale;
+    ctx.beginPath(); ctx.moveTo(x-12*scale, y+2*scale+wiggle);
+    ctx.quadraticCurveTo(x-18*scale, y+6*scale+wiggle, x-22*scale, y+3*scale+wiggle);
+    ctx.stroke();
+    // eye
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(x+11*scale, y-2*scale+wiggle, 1.4*scale, 0, Math.PI*2); ctx.fill();
   });
-
-  strokeAround('rgba(0,0,0,0.45)', 1, ()=>{
-    ctx.beginPath();
-    ctx.ellipse(x, y + sway, bodyLen*0.45, bodyH*0.42, 0, 0, Math.PI*2);
-  });
-
-  const eyeX = x - bodyLen*0.28;
-  const eyeY = y - bodyH*0.1 + sway;
-  ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.arc(eyeX, eyeY, 1.8 * scale, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.beginPath(); ctx.arc(eyeX + 0.7*scale, eyeY - 0.6*scale, 0.7*scale, 0, Math.PI*2); ctx.fill();
-
-  if (isGolden){
+  if (golden){
     ctx.save();
-    ctx.globalAlpha = 0.5 + 0.35 * Math.sin(t*2);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, 24 * scale);
-    g.addColorStop(0, 'rgba(255,215,0,0.8)');
-    g.addColorStop(1, 'rgba(255,215,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(x, y, 24 * scale, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 0.4 + 0.3*Math.sin(performance.now()*0.008);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 22*scale);
+    g.addColorStop(0,'rgba(255,215,0,0.9)'); g.addColorStop(1,'rgba(255,215,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 22*scale, 0, Math.PI*2); ctx.fill();
     ctx.restore();
   }
 }
-function drawFish(x,y){ drawFishShape(x, y, 1, 28, false); }
-function drawGoldenFish(x,y){ drawFishShape(x, y, 1.6, 50, true); }
+
+function drawBird(x, y, scale, golden){
+  const t = performance.now()*0.004, bob = Math.sin(t + x*0.02)*1.2*scale;
+  const body = golden ? '#ffe066' : '#66a9ff';
+  withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
+    // body
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(x, y+bob, 10*scale, 7*scale, 0, 0, Math.PI*2); ctx.fill();
+    // head
+    ctx.beginPath(); ctx.arc(x+7*scale, y-3*scale+bob, 4*scale, 0, Math.PI*2); ctx.fill();
+    // wing
+    ctx.fillStyle = golden ? '#ffd54f' : '#4f94f5';
+    ctx.beginPath(); ctx.ellipse(x-3*scale, y+1*scale+bob, 6*scale, 4*scale, -0.7, 0, Math.PI*2); ctx.fill();
+    // beak
+    ctx.fillStyle = golden ? '#ffca28' : '#ffb300';
+    ctx.beginPath(); ctx.moveTo(x+11*scale, y-3*scale+bob);
+    ctx.lineTo(x+15*scale, y-1*scale+bob);
+    ctx.lineTo(x+11*scale, y-1*scale+bob);
+    ctx.closePath(); ctx.fill();
+    // eye
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x+6*scale, y-4*scale+bob, 1.2*scale, 0, Math.PI*2); ctx.fill();
+    // tiny legs
+    ctx.strokeStyle = golden ? '#ffb300' : '#cc7a00';
+    ctx.lineWidth = 1.2*scale;
+    ctx.beginPath();
+    ctx.moveTo(x-2*scale, y+7*scale+bob); ctx.lineTo(x-2*scale, y+9.5*scale+bob);
+    ctx.moveTo(x+1*scale, y+7*scale+bob); ctx.lineTo(x+1*scale, y+9.5*scale+bob);
+    ctx.stroke();
+  });
+  if (golden){
+    ctx.save();
+    ctx.globalAlpha = 0.4 + 0.3*Math.sin(performance.now()*0.01);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 20*scale);
+    g.addColorStop(0,'rgba(255,215,0,0.9)'); g.addColorStop(1,'rgba(255,215,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 20*scale, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawLizard(x, y, scale, golden){
+  const t = performance.now()*0.006, sway = Math.sin(t + x*0.03)*1.5*scale;
+  const body = golden ? '#ffd54f' : '#66cc66';
+  const spot = golden ? '#ffe082' : '#4caf50';
+  withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
+    // body
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(x, y+sway, 12*scale, 5.5*scale, 0, 0, Math.PI*2); ctx.fill();
+    // head
+    ctx.beginPath(); ctx.ellipse(x+9*scale, y-0.5*scale+sway, 5*scale, 4*scale, 0, 0, Math.PI*2); ctx.fill();
+    // tail
+    ctx.beginPath();
+    ctx.moveTo(x-12*scale, y+sway);
+    ctx.quadraticCurveTo(x-20*scale, y+4*scale+sway, x-24*scale, y+1*scale+sway);
+    ctx.quadraticCurveTo(x-19*scale, y-2*scale+sway, x-12*scale, y+sway);
+    ctx.fill();
+    // legs (simple)
+    ctx.fillStyle = spot;
+    for (let i=-1;i<=1;i+=2){
+      ctx.fillRect(x-2*scale, y+5*scale+sway, 3*scale*i, 2*scale);
+      ctx.fillRect(x+6*scale, y+4*scale+sway, 3*scale*i, 2*scale);
+    }
+    // eye
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(x+11*scale, y-1*scale+sway, 1.2*scale, 0, Math.PI*2); ctx.fill();
+  });
+  if (golden){
+    ctx.save();
+    ctx.globalAlpha = 0.4 + 0.3*Math.sin(performance.now()*0.012);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 22*scale);
+    g.addColorStop(0,'rgba(255,215,0,0.9)'); g.addColorStop(1,'rgba(255,215,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 22*scale, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawPickup(p){
+  if (p.type === 'mouse')   drawMouse(p.x, p.y, p.scale, p.golden);
+  else if (p.type === 'bird') drawBird(p.x, p.y, p.scale, p.golden);
+  else drawLizard(p.x, p.y, p.scale, p.golden);
+}
 
 /* ===== Spawning and placement rules ===== */
 const SPAWN_BUFFER_Y = 70;
@@ -364,7 +411,7 @@ function pickFreeLane(spawnY){
   if (!candidates.length) return null;
   return candidates[Math.floor(Math.random()*candidates.length)];
 }
-let lastFishLane = null;
+let lastPickupLane = null;
 
 function spawnEnemy(){
   const lane = pickFreeLane(-60);
@@ -377,12 +424,16 @@ function spawnEnemy(){
       : {type, x: lx[lane], y: -40, w: 56, h: 24}
   );
 }
+
+// keep pickups out of lanes that currently have enemies anywhere (same behavior as before)
 function laneHasAnyEnemy(laneIndex){
   const lx = lanesX(); const x = lx[laneIndex];
   return enemies.some(e => e.x === x);
 }
+
 function spawnPickup(){
   const spawnY = -40;
+
   const sameYEnemy  = enemies.some(e => Math.abs(e.y - spawnY) < SPAWN_BUFFER_Y);
   const sameYPickup = pickups.some(p => Math.abs(p.y - spawnY) < SPAWN_BUFFER_Y);
   if (sameYEnemy || sameYPickup) return;
@@ -392,19 +443,26 @@ function spawnPickup(){
   if (!candidateLanes.length) return;
 
   let lane;
-  const withoutLast = candidateLanes.filter(l => l !== lastFishLane);
-  if (withoutLast.length) lane = withoutLast[Math.floor(Math.random()*withoutLast.length)];
-  else lane = candidateLanes[Math.floor(Math.random()*candidateLanes.length)];
-  lastFishLane = lane;
+  const withoutLast = candidateLanes.filter(l => l !== lastPickupLane);
+  lane = (withoutLast.length ? withoutLast : candidateLanes)[Math.floor(Math.random()* (withoutLast.length ? withoutLast.length : candidateLanes.length))];
+  lastPickupLane = lane;
 
-  const goldenChance = 0.25;
-  const golden = Math.random() < goldenChance;
+  // Choose pickup type: mice & birds common, lizard rare
+  const r = Math.random();
+  const type = r < 0.45 ? 'mouse' : (r < 0.90 ? 'bird' : 'lizard');
+  const golden = Math.random() < 0.25;
+  let scale = 1;
+  if (type === 'bird') scale = golden ? 1.25 : 1.05;
+  if (type === 'mouse') scale = golden ? 1.2 : 1.0;
+  if (type === 'lizard') scale = golden ? 1.25 : 1.1;
 
-  const scale  = golden ? 1.6 : 1;
-  const w = 34 * scale;
-  const h = 18 * scale;
+  // Hitboxes roughly matching visuals
+  const baseW = type === 'bird' ? 30 : (type === 'mouse' ? 34 : 36);
+  const baseH = type === 'bird' ? 18 : (type === 'mouse' ? 18 : 16);
+  const w = baseW * scale;
+  const h = baseH * scale;
 
-  pickups.push({x: lx[lane], y: spawnY, w, h, golden});
+  pickups.push({type, x: lx[lane], y: spawnY, w, h, scale, golden});
 }
 
 /* ===== Cat ===== */
@@ -427,6 +485,43 @@ function drawCat(x, y, w, h){
   });
   strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
     ctx.beginPath(); ctx.ellipse(x, y, w/2, h/2, 0, 0, Math.PI*2);
+  });
+}
+
+/* ===== Particles (sparkle burst on pickup) ===== */
+function spawnSparkles(x, y, baseColor){
+  const n = 12;
+  for (let i=0;i<n;i++){
+    const ang = (Math.PI*2) * (i/n) + Math.random()*0.4;
+    const spd = 60 + Math.random()*110;
+    particles.push({
+      x, y,
+      vx: Math.cos(ang)*spd,
+      vy: Math.sin(ang)*spd - 40,
+      life: 0.6 + Math.random()*0.4,
+      age: 0,
+      color: baseColor
+    });
+  }
+}
+function updateParticles(dt){
+  for (let i=particles.length-1; i>=0; i--){
+    const p = particles[i];
+    p.age += dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 80 * dt; // gravity-ish
+    if (p.age >= p.life) particles.splice(i,1);
+  }
+}
+function drawParticles(){
+  particles.forEach(p=>{
+    const a = Math.max(0, 1 - p.age / p.life);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 2 + 1.2*a, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
   });
 }
 
@@ -464,10 +559,9 @@ function update(dt){
     for (let i=0; i<enemies.length; i++){
       const e = enemies[i];
 
-      // slimmer hitbox for trees
-      let ew = e.w;
-      let eh = e.h;
-      if (e.type === 'tree'){ ew *= 0.6; eh *= 0.8; }
+      // slimmer hitbox for trees (and a touch shorter)
+      let ew = e.w * (e.type === 'tree' ? 0.6 : 1);
+      let eh = e.h * (e.type === 'tree' ? 0.8 : 1);
 
       if (Math.abs(e.x - px) < (ew + pw)/2 && Math.abs(e.y - py) < (eh + ph)/2){
         if (e.type === 'mud'){
@@ -490,11 +584,25 @@ function update(dt){
     const p = pickups[i];
     if (Math.abs(p.x - px) < (p.w + pw)/2 && Math.abs(p.y - py) < (p.h + ph)/2){
       pickups.splice(i,1);
-      if (p.golden){ fuel = Math.min(100, fuel + 20); score += 10; }
-      else { fuel = Math.min(100, fuel + 10); score += 3; }
+      // rewards tuned per type; golden gives more
+      if (p.type === 'lizard'){
+        fuel = Math.min(100, fuel + (p.golden ? 22 : 12));
+        score += (p.golden ? 12 : 5);
+        spawnSparkles(px, py, 'rgba(180,255,120,0.95)');
+      } else if (p.type === 'bird'){
+        fuel = Math.min(100, fuel + (p.golden ? 20 : 10));
+        score += (p.golden ? 10 : 3);
+        spawnSparkles(px, py, 'rgba(180,210,255,0.95)');
+      } else { // mouse
+        fuel = Math.min(100, fuel + (p.golden ? 20 : 10));
+        score += (p.golden ? 10 : 3);
+        spawnSparkles(px, py, 'rgba(255,230,150,0.95)');
+      }
       break;
     }
   }
+
+  updateParticles(dt);
 
   meters += (roadSpeed * dt) / 120;
   fuel -= dt * 2;
@@ -538,8 +646,9 @@ function draw(dt){
   drawBackgroundBase();
   drawHills(dt); // parallax under lanes
   enemies.forEach(e => { if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
-  pickups.forEach(p => p.golden ? drawGoldenFish(p.x,p.y) : drawFish(p.x,p.y));
+  pickups.forEach(drawPickup);
   drawCat(lanesX()[currentLane] + slipOffset, PLAYER_Y(), CAT_W, CAT_H);
+  drawParticles();
   drawHUD();
   drawVignette();
 }
@@ -557,7 +666,7 @@ function drawMenu(){
   const sub = 'Tap, swipe, or use arrows to start';
   ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 78);
 
-  const lines = ['Aim: Reach a high score', 'by collecting as many', 'fish as you can'];
+  const lines = ['Aim: Reach a high score', 'by collecting as many', 'golden critters as you can'];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 98 + i*16));
 
   drawBoard(24, 160);
@@ -572,6 +681,7 @@ function endGame(){
 function resetGame(){
   enemies = [];
   pickups = [];
+  particles = [];
   score = 0;
   fuel = 100;
   meters = 0;
