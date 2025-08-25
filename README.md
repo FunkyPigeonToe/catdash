@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -16,10 +17,11 @@
   canvas {
     display: block;
     margin: 0 auto;
-    background: #6dbb4a; /* static, no animated background */
+    background: #6dbb4a; /* static grass background (no moving hills) */
     touch-action: none;
   }
 
+  /* Mobile lane buttons over lanes 1 and 3 */
   .controls {
     position: fixed;
     inset: 0;
@@ -40,21 +42,109 @@
   }
   .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
 
+  /* Hide buttons on larger screens */
   @media (min-width: 900px) {
     .controls { display: none; }
   }
 </style>
+
+<!-- Supabase client (global leaderboard) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 
+<!-- Buttons over lane 1 and lane 3 that nudge one lane per press -->
 <div id="controls" class="controls">
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
 </div>
 
 <script>
-/* ===== Setup & HD Canvas ===== */
+/* =========================
+   Supabase (Global Scores)
+   ========================= */
+const SUPABASE_URL  = 'https://fvcvrhaxxpsientgggnx.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y3ZyaGF4eHBzaWVudGdnZ254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwODczMzYsImV4cCI6MjA3MTY2MzMzNn0.5wTxwGVJDa3gnS61gaDq00xSFGUMEQ0Pda6tJo4VK-A';
+
+let supabaseClient = null;
+let leaderboardCache = [];
+let leaderboardLoading = false;
+
+async function initSupabase(){
+  try{
+    if (window.supabase && SUPABASE_URL && SUPABASE_ANON){
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+        auth: { persistSession: false }
+      });
+    }
+  } catch(e){ console.warn('Supabase init failed', e); }
+  await refreshLeaderboard();
+}
+async function refreshLeaderboard(){
+  leaderboardLoading = true;
+  if (!supabaseClient){
+    leaderboardCache = [];
+    leaderboardLoading = false;
+    return;
+  }
+  const { data, error } = await supabaseClient
+    .from('scores')
+    .select('name, score, created_at')
+    .order('score', { ascending: false })
+    .limit(10);
+  if (!error){
+    leaderboardCache = (data || []).map(r => ({
+      name: (r.name || 'CAT').slice(0,10),
+      score: r.score|0,
+      date: (r.created_at || '').slice(0,10)
+    }));
+  } else {
+    console.warn('Leaderboard load error:', error);
+    leaderboardCache = [];
+  }
+  leaderboardLoading = false;
+}
+async function submitScore(name, sc){
+  if (!supabaseClient) return;
+  const cleanName = (name || 'CAT').trim().slice(0,10) || 'CAT';
+  const cleanScore = Math.max(0, sc|0);
+  const { error } = await supabaseClient
+    .from('scores')
+    .insert({ name: cleanName, score: cleanScore });
+  if (error) console.warn('Score submit error:', error);
+}
+async function maybeRecordScore(sc){
+  if (!Number.isFinite(sc) || sc <= 0) return;
+  let name = prompt('New high score! Enter name or initials', 'CAT');
+  if (!name) name = 'CAT';
+  await submitScore(name, sc);
+  await refreshLeaderboard();
+}
+function drawBoard(x, y){
+  ctx.fillStyle = '#fff';
+  ctx.font = '18px system-ui, sans-serif';
+  ctx.fillText('Global Leaderboard Top 10', x, y);
+  ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
+  if (leaderboardLoading){
+    ctx.fillText('Loading…', x, y+22);
+    return;
+  }
+  const board = leaderboardCache || [];
+  if (board.length === 0){
+    ctx.fillText('No scores yet. Be the first!', x, y+22);
+    return;
+  }
+  for (let i=0; i<board.length && i<10; i++){
+    const e = board[i];
+    const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(4,' ')}  ${e.date}`;
+    ctx.fillText(line, x, y + 22 + i*18);
+  }
+}
+
+/* =========================
+   Setup & HD Canvas
+   ========================= */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 
@@ -100,7 +190,9 @@ window.addEventListener('resize', () => {
   positionButtons();
 });
 
-/* ===== State ===== */
+/* =========================
+   State
+   ========================= */
 let gameRunning = false;
 let currentLane = 1;
 let enemies = [];
@@ -114,7 +206,7 @@ let spawnTimer = 0;
 let last = undefined;
 let graceTimer = 0;
 
-/* Speed */
+/* Speed (your tuned values) */
 let roadSpeed = 226;
 let maxSpeed  = 704;
 
@@ -127,7 +219,7 @@ let cheatArmTimerMs = 0;
 let cheatCharges = 0;
 let cheatRearmLock = false; // must fully release both buttons before re-arming
 const CHEAT_HOLD_TIME_MS = 50;
-let cheatToastTimer = 0;    // UI toast for "+1" feedback
+let cheatToastTimer = 0;    // UI toast for feedback
 let cheatToastText = '';
 
 function updateCheat(dt){
@@ -143,48 +235,14 @@ function updateCheat(dt){
   } else {
     cheatArmTimerMs = 0;
   }
-  // When both buttons are released, allow re-arm next time (only if no current charges)
   if (!btn1Down && !btn3Down && cheatCharges === 0){
     cheatRearmLock = false;
   }
 }
 
-/* ===== Leaderboard ===== */
-const BOARD_KEY = 'cat_leaderboard';
-function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); } catch { return []; } }
-function saveBoard(b){ localStorage.setItem(BOARD_KEY, JSON.stringify(b)); }
-function addScore(name, sc){
-  const board = loadBoard();
-  board.push({ name: (name||'CAT').slice(0,10), score: sc|0, date: new Date().toISOString().slice(0,10) });
-  board.sort((a,b)=> b.score - a.score);
-  saveBoard(board.slice(0,10));
-}
-function maybeRecordScore(sc){
-  const board = loadBoard();
-  const qualifies = (board.length < 10) || (sc > board[board.length-1].score);
-  if (!qualifies || sc <= 0) return;
-  let name = prompt('New high score. Enter name or initials', 'CAT');
-  if (!name) name = 'CAT';
-  addScore(name.trim().slice(0,10), sc);
-}
-function drawBoard(x, y){
-  const board = loadBoard();
-  ctx.fillStyle = '#fff';
-  ctx.font = '18px system-ui, sans-serif';
-  ctx.fillText('Leaderboard Top 10', x, y);
-  ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
-  if (board.length === 0){
-    ctx.fillText('No scores yet. Be the first', x, y+22);
-    return;
-  }
-  for (let i=0; i<board.length && i<10; i++){
-    const e = board[i];
-    const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(4,' ')}  ${e.date}`;
-    ctx.fillText(line, x, y + 22 + i*18);
-  }
-}
-
-/* ===== Visual helpers ===== */
+/* =========================
+   Visual helpers
+   ========================= */
 function withShadow(color = 'rgba(0,0,0,0.35)', blur = 8, offsetY = 3, drawFn){
   ctx.save();
   ctx.shadowColor = color;
@@ -203,7 +261,9 @@ function strokeAround(strokeStyle = 'rgba(0,0,0,0.35)', lineWidth = 2, drawPathF
   ctx.restore();
 }
 
-/* ===== Static Background (no motion) ===== */
+/* =========================
+   Static Background (no motion)
+   ========================= */
 function drawBackgroundBase(){
   // soft grass gradient (static)
   const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -226,7 +286,9 @@ function drawBackgroundBase(){
   }
 }
 
-/* ===== New Cartoony Tree ===== */
+/* =========================
+   Cartoony Trees & Mud
+   ========================= */
 function drawTree(x,y,w,h){
   withShadow('rgba(0,0,0,0.35)', 10, 4, ()=>{
     // rounded trunk
@@ -273,8 +335,6 @@ function drawTree(x,y,w,h){
     ctx.beginPath(); ctx.arc(cx, cy, h*0.32, 0, Math.PI*2); ctx.stroke();
   });
 }
-
-/* Mud */
 function drawMud(x, y, w, h){
   withShadow('rgba(0,0,0,0.3)', 8, 3, ()=>{
     const g = ctx.createRadialGradient(x, y, 2, x, y, Math.max(w,h));
@@ -286,8 +346,9 @@ function drawMud(x, y, w, h){
   });
 }
 
-/* ===== Pickups (mouse, bird, lizard, chicken) ===== */
-/* Additive, fixed-radius glow to avoid screen brightness pulsing */
+/* =========================
+   Pickups (mouse, bird, lizard, chicken)
+   ========================= */
 function drawAdditiveGlow(x, y, radius, centerAlpha=0.9){
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -298,7 +359,6 @@ function drawAdditiveGlow(x, y, radius, centerAlpha=0.9){
   ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
-
 function drawMouse(x, y, scale, golden){
   const t = performance.now()*0.006, wiggle = Math.sin(t + x*0.01)*1.2*scale;
   const body = golden ? '#ffd54f' : '#c7a17a';
@@ -320,7 +380,6 @@ function drawMouse(x, y, scale, golden){
   });
   if (golden) drawAdditiveGlow(x, y, 22*scale, 0.85);
 }
-
 function drawBird(x, y, scale, golden){
   const t = performance.now()*0.004, bob = Math.sin(t + x*0.02)*1.2*scale;
   const body = golden ? '#ffe066' : '#66a9ff';
@@ -345,8 +404,6 @@ function drawBird(x, y, scale, golden){
   });
   if (golden) drawAdditiveGlow(x, y, 20*scale, 0.85);
 }
-
-/* Improved Lizard */
 function drawLizard(x, y, scale, golden){
   const t = performance.now()*0.006;
   const sway = Math.sin(t + x*0.03)*1.5*scale;
@@ -395,8 +452,6 @@ function drawLizard(x, y, scale, golden){
 
   if (golden) drawAdditiveGlow(x, y, 24*scale, 0.85);
 }
-
-/* Golden Chicken (always golden, rare, big reward, +1 shield) */
 function drawChicken(x, y, scale){
   const bob = Math.sin(performance.now()*0.004 + x*0.01) * 1.0 * scale;
   withShadow('rgba(0,0,0,0.25)', 6, 2, ()=>{
@@ -427,9 +482,9 @@ function drawChicken(x, y, scale){
     ctx.moveTo(x+1*scale, y+9*scale+bob); ctx.lineTo(x+1*scale, y+12*scale+bob);
     ctx.stroke();
   });
+  // subtle fixed gold aura
   drawAdditiveGlow(x, y, 24*scale, 0.9);
 }
-
 function drawPickup(p){
   if (p.type === 'mouse')      drawMouse(p.x, p.y, p.scale, p.golden);
   else if (p.type === 'bird')  drawBird(p.x, p.y, p.scale, p.golden);
@@ -437,7 +492,9 @@ function drawPickup(p){
   else                         drawChicken(p.x, p.y, p.scale); // golden chicken
 }
 
-/* ===== Spawning and placement rules ===== */
+/* =========================
+   Spawning & placement
+   ========================= */
 const SPAWN_BUFFER_Y = 70;
 function laneIsFree(x, y){
   return !enemies.some(e => e.x === x && Math.abs(e.y - y) < SPAWN_BUFFER_Y)
@@ -466,7 +523,6 @@ function laneHasAnyEnemy(laneIndex){
   const lx = lanesX(); const x = lx[laneIndex];
   return enemies.some(e => e.x === x);
 }
-
 function spawnPickup(){
   const spawnY = -40;
   const sameYEnemy  = enemies.some(e => Math.abs(e.y - spawnY) < SPAWN_BUFFER_Y);
@@ -499,12 +555,13 @@ function spawnPickup(){
   pickups.push({type, x: lx[lane], y: spawnY, w, h, scale, golden});
 }
 
-/* ===== Cat (tail now behind body) ===== */
+/* =========================
+   Cat (tail behind body)
+   ========================= */
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-
-    // --- tapered wagging tail (drawn first, so it's behind body) ---
+    // --- tapered wagging tail (draw first so it's behind) ---
     const anchorX = x + w/2.25;     // attach to back-right of body
     const anchorY = y - h*0.12;
     const len     = h * 1.0;
@@ -525,7 +582,6 @@ function drawCat(x, y, w, h){
       ctx.arc(px, py, r, 0, Math.PI*2);
       ctx.fill();
     }
-
     // darker tip
     ctx.fillStyle = '#a0522d';
     ctx.beginPath();
@@ -556,18 +612,18 @@ function drawCat(x, y, w, h){
     ctx.lineTo(hx,hy-headR*0.15);
     ctx.closePath(); ctx.fill();
 
-    // --- belly patch ---
+    // belly patch
     ctx.fillStyle = '#a0522d';
     ctx.beginPath();
     ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // --- eyes ---
+    // eyes
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(hx-headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(hx+headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
 
-    // --- whiskers ---
+    // whiskers
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -580,13 +636,15 @@ function drawCat(x, y, w, h){
     ctx.stroke();
   });
 
-  // outline around body ellipse
+  // thin outline around body ellipse for pop
   strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
     ctx.beginPath(); ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
   });
 }
 
-/* ===== Particles (sparkle burst on pickup) ===== */
+/* =========================
+   Particles (pickups sparkle)
+   ========================= */
 function spawnSparkles(x, y, baseColor){
   const n = 12;
   for (let i=0;i<n;i++){
@@ -623,7 +681,52 @@ function drawParticles(){
   });
 }
 
-/* ===== Update & Draw ===== */
+/* =========================
+   HUD & Vignette
+   ========================= */
+function drawHUD(){
+  ctx.fillStyle = '#fff'; ctx.font = '16px system-ui, sans-serif';
+  ctx.fillText('Score: '  + score, 10, 22);
+  ctx.fillText('Energy: ' + Math.round(fuel), 10, 42);
+  ctx.fillText('Meters: ' + Math.round(meters), 10, 62);
+
+  const txt = cheatCharges > 0 ? `Shield x${cheatCharges}` : '';
+  if (txt){
+    const w = ctx.measureText(txt).width + 12;
+    const x = W - w - 10;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(txt, x, 28);
+  }
+
+  // toast (center-top)
+  if (cheatToastTimer > 0){
+    const a = Math.min(1, cheatToastTimer / 0.3); // quick fade in
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = '18px system-ui, sans-serif';
+    const t = cheatToastText || '';
+    const tw = ctx.measureText(t).width;
+    const tx = (W - tw)/2;
+    const ty = 44;
+    // soft panel
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(tx - 12, ty - 18, tw + 24, 28);
+    ctx.fillStyle = '#ffd54f';
+    ctx.fillText(t, tx, ty);
+    ctx.restore();
+  }
+}
+function drawVignette(){
+  const g = ctx.createRadialGradient(W/2, H*0.58, Math.min(W,H)*0.25, W/2, H*0.58, Math.max(W,H)*0.75);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+}
+
+/* =========================
+   Update & Draw
+   ========================= */
 const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_AND_BUTTON_OFFSET);
 
 function update(dt){
@@ -659,7 +762,7 @@ function update(dt){
     for (let i=0; i<enemies.length; i++){
       const e = enemies[i];
       let ew = e.w, eh = e.h;
-      if (e.type === 'tree'){ ew *= 0.6; eh *= 0.8; }
+      if (e.type === 'tree'){ ew *= 0.6; eh *= 0.8; } // tighter than art to avoid unfair hits
 
       if (Math.abs(e.x - px) < (ew + pw)/2 && Math.abs(e.y - py) < (eh + ph)/2){
         if (e.type === 'mud'){
@@ -709,7 +812,7 @@ function update(dt){
 
   updateParticles(dt);
 
-  // toast timer
+  // update toast timer
   if (cheatToastTimer > 0) cheatToastTimer = Math.max(0, cheatToastTimer - dt);
 
   meters += (roadSpeed * dt) / 120;
@@ -717,51 +820,8 @@ function update(dt){
   if (fuel <= 0) endGame();
 }
 
-function drawHUD(){
-  ctx.fillStyle = '#fff'; ctx.font = '16px system-ui, sans-serif';
-  ctx.fillText('Score: '  + score, 10, 22);
-  ctx.fillText('Energy: ' + Math.round(fuel), 10, 42);
-  ctx.fillText('Meters: ' + Math.round(meters), 10, 62);
-
-  const txt = cheatCharges > 0 ? `Shield x${cheatCharges}` : '';
-  if (txt){
-    const w = ctx.measureText(txt).width + 12;
-    const x = W - w - 10;
-    ctx.fillStyle = '#fff';
-    ctx.fillText(txt, x, 28);
-  }
-
-  // toast (center-top)
-  if (cheatToastTimer > 0){
-    const a = Math.min(1, cheatToastTimer / 0.3); // quick fade in
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.font = '18px system-ui, sans-serif';
-    const t = cheatToastText || '';
-    const tw = ctx.measureText(t).width;
-    const tx = (W - tw)/2;
-    const ty = 44;
-    // soft panel
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(tx - 12, ty - 18, tw + 24, 28);
-    ctx.fillStyle = '#ffd54f';
-    ctx.fillText(t, tx, ty);
-    ctx.restore();
-  }
-}
-
-/* Static vignette */
-function drawVignette(){
-  const g = ctx.createRadialGradient(W/2, H*0.58, Math.min(W,H)*0.25, W/2, H*0.58, Math.max(W,H)*0.75);
-  g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, 'rgba(0,0,0,0.35)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,W,H);
-}
-
 function draw(){
   drawBackgroundBase();
-  // (No drawHills – removed moving background)
   enemies.forEach(e => { if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
   pickups.forEach(drawPickup);
   drawCat(lanesX()[currentLane] + slipOffset, PLAYER_Y(), CAT_W, CAT_H);
@@ -789,7 +849,9 @@ function drawMenu(){
   drawVignette();
 }
 
-/* ===== Control ===== */
+/* =========================
+   Control
+   ========================= */
 function endGame(){
   gameRunning = false;
   maybeRecordScore(score);
@@ -804,7 +866,7 @@ function resetGame(){
   roadSpeed = 226;
   currentLane = 1;
   spawnTimer = 0;
-  graceTimer = 0.75;
+  graceTimer = 0.75; // spawn grace to avoid insta-hit
   last = undefined;
   cheatArmTimerMs = 0;
   cheatCharges = 0;
@@ -812,6 +874,7 @@ function resetGame(){
   cheatToastTimer = 0;
   cheatToastText = '';
 }
+
 function loop(ts){
   if (last === undefined) last = ts;
   let dt = (ts - last) / 1000;
@@ -831,7 +894,7 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-/* Keyboard */
+/* Keyboard: nudge one lane per keydown with simple debounce */
 let keyLock = false;
 document.addEventListener('keydown', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; }
@@ -862,7 +925,7 @@ canvas.addEventListener('touchmove', e=>{
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-/* Lane buttons — use pointer events so we can track hold state */
+/* Lane buttons — pointer events so we can track hold state */
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
 
@@ -883,7 +946,7 @@ function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down
   btn3.addEventListener(evt, onPointerUpBtn3, {passive:false});
 });
 
-/* Tap anywhere */
+/* Tap anywhere to nudge toward tap side */
 canvas.addEventListener('click', e=>{
   if (!gameRunning){ resetGame(); gameRunning = true; return; }
   const x = e.clientX;
@@ -891,7 +954,8 @@ canvas.addEventListener('click', e=>{
   if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
 });
 
-/* Start */
+/* Boot */
+initSupabase();
 requestAnimationFrame(loop);
 </script>
 </body>
