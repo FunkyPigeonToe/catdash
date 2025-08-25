@@ -61,7 +61,7 @@
 
 <script>
 /* =========================
-   Supabase (Global Scores)
+   Supabase (Strict: highscores table, 1 row per name)
    ========================= */
 const SUPABASE_URL  = 'https://fvcvrhaxxpsientgggnx.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y3ZyaGF4eHBzaWVudGdnZ254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwODczMzYsImV4cCI6MjA3MTY2MzMzNn0.5wTxwGVJDa3gnS61gaDq00xSFGUMEQ0Pda6tJo4VK-A';
@@ -80,50 +80,95 @@ async function initSupabase(){
   } catch(e){ console.warn('Supabase init failed', e); }
   await refreshLeaderboard();
 }
-async function refreshLeaderboard(){
-  leaderboardLoading = true;
-  if (!supabaseClient){
-    leaderboardCache = [];
-    leaderboardLoading = false;
-    return;
-  }
-  const { data, error } = await supabaseClient
-    .from('scores')
-    .select('name, score, created_at')
-    .order('score', { ascending: false })
-    .limit(10);
-  if (!error){
-    leaderboardCache = (data || []).map(r => ({
-      name: (r.name || 'CAT').slice(0,10),
-      score: r.score|0,
-      date: (r.created_at || '').slice(0,10)
-    }));
-  } else {
-    console.warn('Leaderboard load error:', error);
-    leaderboardCache = [];
-  }
-  leaderboardLoading = false;
-}
+
+/* Strict submit: UPSERT into highscores (best score per name) */
 async function submitScore(name, sc){
   if (!supabaseClient) return;
   const cleanName = (name || 'CAT').trim().slice(0,10) || 'CAT';
   const cleanScore = Math.max(0, sc|0);
-  const { error } = await supabaseClient
-    .from('scores')
-    .insert({ name: cleanName, score: cleanScore });
-  if (error) console.warn('Score submit error:', error);
+
+  // Fetch existing score to keep the best
+  const { data: existing, error: selErr } = await supabaseClient
+    .from('highscores')
+    .select('score')
+    .eq('name', cleanName)
+    .maybeSingle();
+
+  const best = existing && typeof existing.score === 'number'
+    ? Math.max(existing.score|0, cleanScore)
+    : cleanScore;
+
+  const { error: upErr } = await supabaseClient
+    .from('highscores')
+    .upsert(
+      { name: cleanName, score: best, updated_at: new Date().toISOString() },
+      { onConflict: 'name' }
+    );
+  if (upErr){
+    console.warn('Highscore upsert error:', upErr);
+  }
 }
+
+/* Leaderboard: prefer highscores (strict). Fallback to grouped scores if highscores missing. */
+async function refreshLeaderboard(){
+  leaderboardLoading = true;
+  leaderboardCache = [];
+  if (!supabaseClient){ leaderboardLoading = false; return; }
+
+  // Try strict table first
+  let ok = false;
+  try{
+    const { data, error } = await supabaseClient
+      .from('highscores')
+      .select('name, score, updated_at')
+      .order('score', { ascending: false })
+      .limit(10);
+
+    if (!error){
+      leaderboardCache = (data || []).map(r => ({
+        name: (r.name || 'CAT').slice(0,10),
+        score: r.score|0,
+        date: (r.updated_at || '').slice(0,10)
+      }));
+      ok = true;
+    }
+  }catch(e){ /* ignore and fallback */ }
+
+  if (!ok){
+    // Fallback: aggregate old scores table to best per name (if present)
+    try{
+      const { data, error } = await supabaseClient
+        .from('scores')
+        .select('name, score:max(score)')
+        .group('name')
+        .order('score', { ascending: false })
+        .limit(10);
+      if (!error){
+        leaderboardCache = (data || []).map(r => ({
+          name: (r.name || 'CAT').slice(0,10),
+          score: r.score|0,
+          date: ''
+        }));
+      }
+    }catch(e){ console.warn('Fallback leaderboard error:', e); }
+  }
+
+  leaderboardLoading = false;
+}
+
+/* Prompt each time (you asked for strict best-per-name, not one-time entry) */
 async function maybeRecordScore(sc){
   if (!Number.isFinite(sc) || sc <= 0) return;
-  let name = prompt('New high score! Enter name or initials', 'CAT');
+  let name = prompt('Enter your name or initials', 'CAT');
   if (!name) name = 'CAT';
   await submitScore(name, sc);
   await refreshLeaderboard();
 }
+
 function drawBoard(x, y){
   ctx.fillStyle = '#fff';
   ctx.font = '18px system-ui, sans-serif';
-  ctx.fillText('Global Leaderboard Top 10', x, y);
+  ctx.fillText('Global Highscores (Best per Name)', x, y);
   ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
   if (leaderboardLoading){
     ctx.fillText('Loading…', x, y+22);
@@ -136,7 +181,7 @@ function drawBoard(x, y){
   }
   for (let i=0; i<board.length && i<10; i++){
     const e = board[i];
-    const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(4,' ')}  ${e.date}`;
+    const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(5,' ')}  ${e.date||''}`;
     ctx.fillText(line, x, y + 22 + i*18);
   }
 }
@@ -537,7 +582,7 @@ function spawnPickup(){
   lane = (withoutLast.length ? withoutLast : candidateLanes)[Math.floor(Math.random()* (withoutLast.length ? withoutLast.length : candidateLanes.length))];
   lastPickupLane = lane;
 
-  // Choose pickup type: mice & birds common, lizard less common, golden chicken rare
+  // Choose pickup type: mice & birds common, lizard less, golden chicken rare
   const r = Math.random();
   let type, golden=false, scale=1;
   if (r < 0.40){ type='mouse';   golden = Math.random()<0.25; scale = golden?1.2:1.0; }
