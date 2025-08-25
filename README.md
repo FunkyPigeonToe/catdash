@@ -61,7 +61,7 @@
 
 <script>
 /* =========================
-   Supabase (Strict: highscores table, 1 row per name)
+   Supabase (Strict highscores: 1 row per name)
    ========================= */
 const SUPABASE_URL  = 'https://fvcvrhaxxpsientgggnx.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y3ZyaGF4eHBzaWVudGdnZ254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwODczMzYsImV4cCI6MjA3MTY2MzMzNn0.5wTxwGVJDa3gnS61gaDq00xSFGUMEQ0Pda6tJo4VK-A';
@@ -81,14 +81,32 @@ async function initSupabase(){
   await refreshLeaderboard();
 }
 
+/* ===== Player name (one-time entry, stored locally) ===== */
+function getPlayerName(){
+  const raw = localStorage.getItem('catdash_player_name');
+  return raw ? raw.trim().slice(0, 10) : null;
+}
+function setPlayerName(name){
+  const clean = (name || 'CAT').trim().slice(0, 10) || 'CAT';
+  localStorage.setItem('catdash_player_name', clean);
+  return clean;
+}
+function ensurePlayerName(){
+  let n = getPlayerName();
+  if (!n){
+    n = setPlayerName(prompt('Enter your name or initials', 'CAT') || 'CAT');
+  }
+  return n;
+}
+
 /* Strict submit: UPSERT into highscores (best score per name) */
 async function submitScore(name, sc){
   if (!supabaseClient) return;
   const cleanName = (name || 'CAT').trim().slice(0,10) || 'CAT';
   const cleanScore = Math.max(0, sc|0);
 
-  // Fetch existing score to keep the best
-  const { data: existing, error: selErr } = await supabaseClient
+  // Get current high to keep the best
+  const { data: existing } = await supabaseClient
     .from('highscores')
     .select('score')
     .eq('name', cleanName)
@@ -104,18 +122,15 @@ async function submitScore(name, sc){
       { name: cleanName, score: best, updated_at: new Date().toISOString() },
       { onConflict: 'name' }
     );
-  if (upErr){
-    console.warn('Highscore upsert error:', upErr);
-  }
+  if (upErr) console.warn('Highscore upsert error:', upErr);
 }
 
-/* Leaderboard: prefer highscores (strict). Fallback to grouped scores if highscores missing. */
+/* Leaderboard: read highscores (strict). Fallback aggregates if needed. */
 async function refreshLeaderboard(){
   leaderboardLoading = true;
   leaderboardCache = [];
   if (!supabaseClient){ leaderboardLoading = false; return; }
 
-  // Try strict table first
   let ok = false;
   try{
     const { data, error } = await supabaseClient
@@ -123,7 +138,6 @@ async function refreshLeaderboard(){
       .select('name, score, updated_at')
       .order('score', { ascending: false })
       .limit(10);
-
     if (!error){
       leaderboardCache = (data || []).map(r => ({
         name: (r.name || 'CAT').slice(0,10),
@@ -132,35 +146,31 @@ async function refreshLeaderboard(){
       }));
       ok = true;
     }
-  }catch(e){ /* ignore and fallback */ }
+  }catch(e){ /* ignore */ }
 
   if (!ok){
-    // Fallback: aggregate old scores table to best per name (if present)
     try{
-      const { data, error } = await supabaseClient
+      const { data } = await supabaseClient
         .from('scores')
         .select('name, score:max(score)')
         .group('name')
         .order('score', { ascending: false })
         .limit(10);
-      if (!error){
-        leaderboardCache = (data || []).map(r => ({
-          name: (r.name || 'CAT').slice(0,10),
-          score: r.score|0,
-          date: ''
-        }));
-      }
+      leaderboardCache = (data || []).map(r => ({
+        name: (r.name || 'CAT').slice(0,10),
+        score: r.score|0,
+        date: ''
+      }));
     }catch(e){ console.warn('Fallback leaderboard error:', e); }
   }
 
   leaderboardLoading = false;
 }
 
-/* Prompt each time (you asked for strict best-per-name, not one-time entry) */
+/* Record score (uses saved name; only prompts once) */
 async function maybeRecordScore(sc){
   if (!Number.isFinite(sc) || sc <= 0) return;
-  let name = prompt('Enter your name or initials', 'CAT');
-  if (!name) name = 'CAT';
+  const name = ensurePlayerName();
   await submitScore(name, sc);
   await refreshLeaderboard();
 }
@@ -886,8 +896,16 @@ function drawMenu(){
   const sub = 'Tap, swipe, or use arrows to start';
   ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 78);
 
+  // show saved player name + hint to change
+  const player = getPlayerName();
+  if (player){
+    const who = `Player: ${player}  (press N to change)`;
+    ctx.fillText(who, (W - ctx.measureText(who).width)/2, 98);
+  }
+
+  const linesY = player ? 116 : 98;
   const lines = ['Aim: Reach a high score', 'by collecting as many', 'golden critters as you can'];
-  lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 98 + i*16));
+  lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, linesY + i*16));
 
   drawBoard(24, 160);
   drawVignette();
@@ -938,9 +956,17 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-/* Keyboard: nudge one lane per keydown with simple debounce */
+/* Keyboard: nudge lanes + change name on menu with 'N' */
 let keyLock = false;
 document.addEventListener('keydown', e=>{
+  // Change saved name while on menu
+  if (!gameRunning && (e.key === 'n' || e.key === 'N')){
+    const current = getPlayerName() || 'CAT';
+    const next = prompt('Change name or initials', current);
+    if (next !== null) setPlayerName(next);
+    return;
+  }
+
   if (!gameRunning){ resetGame(); gameRunning = true; }
   if (keyLock) return;
   if (e.key === 'ArrowLeft'){
