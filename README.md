@@ -701,9 +701,9 @@ function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
     // --- Tail (behind) ---
     const tailLength = h * 1.2;
-    const tailWidth  = w * 0.22;
+    const tailWidth  = w * 1.8;
     const baseX = x - w/2.2;        // attach left-rear of body
-    const baseY = y + h*1.8;
+    const baseY = y + h*0.12;
     const wag = Math.sin(performance.now()*0.005) * 6;
 
     ctx.fillStyle = '#a0522d'; // darker so it looks behind
