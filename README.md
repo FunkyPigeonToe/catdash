@@ -699,33 +699,24 @@ function spawnPickup(){
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-    // --- Tail (behind, clearly wagging + tapered) ---
-    const tailLen   = h * 1.25;           // overall length
-    const tailBaseW = w * 0.22;           // base thickness
-    const baseX = x - w/1.6;              // attach to left/back of body ellipse
-    const baseY = y + h*0.05;             // mid-height of body
-    const t = performance.now() * 0.008;  // animation time
-    const wagAmp = h * 0.12;              // visible wag amplitude
+    // --- Tail (behind) ---
+    const tailLength = h * 1.2;
+    const tailWidth  = w * 0.22;
+    const baseX = x - w/2;        // attach left-rear of body
+    const baseY = y + h*0.05;
+    const wag = Math.sin(performance.now()*0.005) * 6;
 
-    ctx.strokeStyle = '#a0522d';          // darker = behind
+    ctx.fillStyle = '#a0522d'; // darker so it looks behind
+    ctx.beginPath();
+    ctx.moveTo(baseX, baseY);
+    ctx.quadraticCurveTo(baseX - tailLength*0.4, baseY + wag,
+                         baseX - tailLength*0.7, baseY - tailLength*0.5);
+    ctx.quadraticCurveTo(baseX - tailLength*0.3, baseY - tailLength*0.9,
+                         baseX, baseY - tailLength);
+    ctx.lineWidth = tailWidth;
     ctx.lineCap = 'round';
-
-    // Draw as many short segments, each with its own thickness
-    const N = 16;                          // segments
-    let prevX = baseX, prevY = baseY;
-    for (let i = 1; i <= N; i++){
-      const u  = i / N;                    // 0..1 along tail
-      const k  = 1 - u;                    // for tapering
-      const px = baseX - u * tailLen * 0.95;
-      const py = baseY - u * tailLen * 0.65
-               + Math.sin(t + u * 7.0) * wagAmp * (0.3 + 0.7*k); // more wag near the tip
-      ctx.lineWidth = Math.max(1, tailBaseW * (0.25 + 0.75*k));
-      ctx.beginPath();
-      ctx.moveTo(prevX, prevY);
-      ctx.lineTo(px, py);
-      ctx.stroke();
-      prevX = px; prevY = py;
-    }
+    ctx.strokeStyle = '#a0522d';
+    ctx.stroke();
 
     // --- Body ---
     ctx.fillStyle = '#d2691e';
