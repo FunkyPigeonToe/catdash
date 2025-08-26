@@ -10,7 +10,7 @@
     background: #333;
     color: #fff;
     font-family: system-ui, sans-serif;
-    height: 100%;
+    height: 100dvh;              /* dynamic viewport height to avoid top gap */
     overflow: hidden;
   }
   canvas {
@@ -18,6 +18,12 @@
     margin: 0 auto;
     background: #6dbb4a; /* static fallback */
     touch-action: none;
+
+    /* Android/GPU stability hints */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform;
   }
 
   /* Mobile lane buttons */
@@ -132,7 +138,7 @@ async function refreshLeaderboard(){
       .from('highscores')
       .select('name, score, updated_at')
       .order('score', { ascending: false })
-      .limit(20); // ← increased to 20
+      .limit(20);
     if (!error){
       leaderboardCache = (data || []).map(r => ({
         name: (r.name || 'CAT').slice(0,10),
@@ -178,13 +184,23 @@ function changePlayerName(){
 }
 
 /* =========================
-   Canvas setup (HD, offscreen layers)
+   Canvas setup (HD + visualViewport + offscreen)
    ========================= */
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+const ctx = canvas.getContext('2d', {
+  alpha: false,
+  desynchronized: true,
+  willReadFrequently: false
+});
 
-let W = window.innerWidth;
-let H = window.innerHeight;
+/* visual viewport helper (no wasted top space) */
+function getViewportSize(){
+  const vv = window.visualViewport;
+  if (vv) return { w: Math.floor(vv.width), h: Math.floor(vv.height) };
+  return { w: Math.floor(window.innerWidth), h: Math.floor(window.innerHeight) };
+}
+
+let { w: W, h: H } = getViewportSize();
 let DPR = 1;
 
 function setHDCanvas(){
@@ -201,7 +217,7 @@ setHDCanvas();
 
 function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 
-/* Offscreen: static grass + lanes */
+/* Offscreen: static grass + lanes + flowers */
 let off_bg = document.createElement('canvas');
 let off_bg_ctx = off_bg.getContext('2d', { alpha:false });
 let off_flowers = document.createElement('canvas');
@@ -240,11 +256,11 @@ prerenderGrassAndTracks();
 
 /* Flowers: palettes rotate every 400m */
 const flowerPalettes = [
-  ['#ff6b6b','#ff8ea1','#ffb3b3'],     // poppy/pink
-  ['#6ba8ff','#8ec5ff','#b3d4ff'],     // bluebells
-  ['#ffe066','#ffd43b','#fab005'],     // daisies
-  ['#f8f9fa','#e9ecef','#dee2e6'],     // lilies/white
-  ['#b197fc','#d0bfff','#9775fa']      // lavender
+  ['#ff6b6b','#ff8ea1','#ffb3b3'],
+  ['#6ba8ff','#8ec5ff','#b3d4ff'],
+  ['#ffe066','#ffd43b','#fab005'],
+  ['#f8f9fa','#e9ecef','#dee2e6'],
+  ['#b197fc','#d0bfff','#9775fa']
 ];
 let currentPaletteIndex = 0;
 let lastFlowerPaletteMeters = 0;
@@ -253,12 +269,10 @@ function prerenderFlowers(paletteIndex){
   off_flowers_ctx.clearRect(0,0,W,H);
   const colors = flowerPalettes[(paletteIndex % flowerPalettes.length + flowerPalettes.length) % flowerPalettes.length];
 
-  // scatter density relative to screen size
-  const count = Math.floor((W*H) / 16000); // tuned density
+  const count = Math.floor((W*H) / 16000);
   for (let i=0; i<count; i++){
     const x = Math.random()*W;
     const y = Math.random()*H;
-    // avoid dirt tracks middle (just a bit)
     const lx = lanesX();
     const trailW = W/6;
     const nearLane = lx.some(cx => Math.abs(x - cx) < trailW/2 - 6);
@@ -267,7 +281,6 @@ function prerenderFlowers(paletteIndex){
     const c = colors[Math.floor(Math.random()*colors.length)];
     off_flowers_ctx.fillStyle = c;
 
-    // Draw tiny flower (dot + cross)
     if (Math.random() < 0.5){
       off_flowers_ctx.beginPath(); off_flowers_ctx.arc(x, y, 1.4, 0, Math.PI*2); off_flowers_ctx.fill();
     } else {
@@ -278,7 +291,7 @@ function prerenderFlowers(paletteIndex){
 }
 prerenderFlowers(currentPaletteIndex);
 
-/* Shared vertical offset */
+/* Shared vertical offset (cat + buttons) */
 const CAT_AND_BUTTON_OFFSET = 50;
 
 function positionButtons(){
@@ -294,15 +307,21 @@ function positionButtons(){
 }
 positionButtons();
 
-window.addEventListener('resize', () => {
-  W = window.innerWidth;
-  H = window.innerHeight;
+/* Handle resize + visual viewport changes */
+function handleResize(){
+  const s = getViewportSize();
+  W = s.w; H = s.h;
   setHDCanvas();
   resizeOffscreens();
   prerenderGrassAndTracks();
   prerenderFlowers(currentPaletteIndex);
   positionButtons();
-});
+}
+window.addEventListener('resize', handleResize, { passive: true });
+if (window.visualViewport){
+  window.visualViewport.addEventListener('resize', handleResize, { passive: true });
+  window.visualViewport.addEventListener('scroll', handleResize, { passive: true });
+}
 
 /* =========================
    Game state
@@ -353,7 +372,6 @@ function ensureAudio(){
 function unlockAudio(){
   if (unlockedAudio) return;
   ensureAudio();
-  // create a silent buffer to unlock on iOS/Android
   const b = ac.createBuffer(1, 1, 22050);
   const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0);
   unlockedAudio = true;
@@ -382,7 +400,7 @@ function playChime(){
   if (!ac) return;
   const g = envGain(0.35, 0.005, 0.3);
   const o = ac.createOscillator(); o.type='sine';
-  const m = ac.createOscillator(); m.type='sine'; // slight vibrato
+  const m = ac.createOscillator(); m.type='sine';
   const mg = ac.createGain(); mg.gain.value = 6;
   m.connect(mg); mg.connect(o.frequency);
   o.frequency.value = 880;
@@ -443,7 +461,7 @@ function strokeAround(strokeStyle = 'rgba(0,0,0,0.35)', lineWidth = 2, drawPathF
 }
 
 /* =========================
-   Static background draw (blit offscreen)
+   Static background blit
    ========================= */
 function blitBackground(){
   ctx.drawImage(off_bg, 0, 0, off_bg.width/DPR, off_bg.height/DPR);
@@ -612,12 +630,6 @@ function drawChicken(x, y, scale){
   });
   drawAdditiveGlow(x, y, 24*scale, 0.9);
 }
-function drawPickup(p){
-  if (p.type === 'mouse')      drawMouse(p.x, p.y, p.scale, p.golden), playMeow();
-  else if (p.type === 'bird')  drawBird(p.x, p.y, p.scale, p.golden), playMeow();
-  else if (p.type === 'lizard')drawLizard(p.x, p.y, p.scale, p.golden), playMeow();
-  else                         drawChicken(p.x, p.y, p.scale), playChime();
-}
 
 /* =========================
    Spawning & placement
@@ -665,7 +677,6 @@ function spawnPickup(){
   lane = (withoutLast.length ? withoutLast : candidateLanes)[Math.floor(Math.random()*(withoutLast.length?withoutLast.length:candidateLanes.length))];
   lastPickupLane = lane;
 
-  // Dash mode bumps golden chicken chance
   const inDash = dashActive;
   const r = Math.random();
   let type, golden=false, scale=1;
@@ -708,6 +719,7 @@ function drawCat(x, y, w, h){
       ctx.arc(px, py, r, 0, Math.PI*2);
       ctx.fill();
     }
+
     // Body
     ctx.fillStyle = '#d2691e';
     ctx.beginPath();
@@ -838,7 +850,6 @@ function drawVignette(){
 }
 function drawDashOverlay(){
   if (!dashActive) return;
-  // subtle warm tint + streaks
   ctx.save();
   ctx.globalAlpha = 0.18;
   ctx.fillStyle = '#ff9800';
@@ -944,7 +955,6 @@ function update(dt){
       const e = enemies[i];
       let ew = e.w, eh = e.h;
       if (e.type === 'tree'){ ew *= 0.6; eh *= 0.8; }
-
       if (Math.abs(e.x - px) < (ew + pw)/2 && Math.abs(e.y - py) < (eh + ph)/2){
         if (e.type === 'mud'){
           enemies.splice(i,1);
@@ -971,8 +981,6 @@ function update(dt){
     const p = pickups[i];
     if (Math.abs(p.x - px) < (p.w + pw)/2 && Math.abs(p.y - py) < (p.h + ph)/2){
       pickups.splice(i,1);
-
-      // base rewards
       let addFuel=0, addScore=0, sparkle='rgba(255,230,150,0.95)';
       if (p.type === 'chicken'){
         addFuel = 25; addScore = 15; sparkle='rgba(255,230,140,0.95)';
@@ -980,17 +988,20 @@ function update(dt){
         cheatToastText = 'Shield +1';
         cheatToastTimer = 1.2;
         goldenCountForDash++;
-        // auto-dash when 3 golden critters collected
         if (goldenCountForDash >= 3){ goldenCountForDash = 0; startDash(); }
+        playChime();
       } else if (p.type === 'lizard'){
         addFuel = p.golden ? 22 : 12; addScore = p.golden ? 12 : 5; sparkle='rgba(180,255,120,0.95)';
         if (p.golden){ goldenCountForDash++; if (goldenCountForDash >= 3){ goldenCountForDash = 0; startDash(); } }
+        playMeow();
       } else if (p.type === 'bird'){
         addFuel = p.golden ? 20 : 10; addScore = p.golden ? 10 : 3; sparkle='rgba(180,210,255,0.95)';
         if (p.golden){ goldenCountForDash++; if (goldenCountForDash >= 3){ goldenCountForDash = 0; startDash(); } }
+        playMeow();
       } else { // mouse
         addFuel = p.golden ? 20 : 10; addScore = p.golden ? 10 : 3; sparkle='rgba(255,230,150,0.95)';
         if (p.golden){ goldenCountForDash++; if (goldenCountForDash >= 3){ goldenCountForDash = 0; startDash(); } }
+        playMeow();
       }
 
       if (dashActive) addScore *= DASH_SCORE_MUL;
@@ -1016,7 +1027,12 @@ function update(dt){
 function draw(){
   blitBackground();
   enemies.forEach(e => { if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
-  pickups.forEach(drawPickup);
+  pickups.forEach(p=>{
+    if (p.type==='mouse') drawMouse(p.x,p.y,p.scale,p.golden);
+    else if (p.type==='bird') drawBird(p.x,p.y,p.scale,p.golden);
+    else if (p.type==='lizard') drawLizard(p.x,p.y,p.scale,p.golden);
+    else drawChicken(p.x,p.y,p.scale);
+  });
   drawCat(lanesX()[currentLane] + slipOffset, PLAYER_Y(), CAT_W, CAT_H);
   drawParticles();
   drawHUD();
@@ -1047,30 +1063,26 @@ function drawMenu(){
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, linesY + i*16));
 
   // Leaderboard (Top 20)
-  drawBoard(24, linesY + 70);
-  drawVignette();
-}
-
-function drawBoard(x, y){
   ctx.fillStyle = '#fff';
   ctx.font = '18px system-ui, sans-serif';
-  ctx.fillText('Global Highscores (Top 20, Best per Name)', x, y);
+  ctx.fillText('Global Highscores (Top 20, Best per Name)', 24, linesY + 70);
   ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
   if (leaderboardLoading){
-    ctx.fillText('Loading…', x, y+22);
-    return;
+    ctx.fillText('Loading…', 24, linesY + 92);
+  } else {
+    const board = leaderboardCache || [];
+    if (board.length === 0){
+      ctx.fillText('No scores yet. Be the first!', 24, linesY + 92);
+    } else {
+      const n = Math.min(20, board.length);
+      for (let i=0; i<n; i++){
+        const e = board[i];
+        const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(5,' ')}  ${e.date||''}`;
+        ctx.fillText(line, 24, linesY + 92 + 18*i);
+      }
+    }
   }
-  const board = leaderboardCache || [];
-  if (board.length === 0){
-    ctx.fillText('No scores yet. Be the first!', x, y+22);
-    return;
-  }
-  const n = Math.min(20, board.length);
-  for (let i=0; i<n; i++){
-    const e = board[i];
-    const line = `${String(i+1).padStart(2,' ')}. ${e.name.padEnd(10,' ')}  ${String(e.score).padStart(5,' ')}  ${e.date||''}`;
-    ctx.fillText(line, x, y + 22 + i*18);
-  }
+  drawVignette();
 }
 
 /* =========================
@@ -1100,7 +1112,6 @@ function resetGame(){
   dashActive = false;
   dashTimer = 0;
   goldenCountForDash = 0;
-  // reset flowers palette to start
   currentPaletteIndex = 0;
   lastFlowerPaletteMeters = 0;
   prerenderFlowers(currentPaletteIndex);
@@ -1113,11 +1124,7 @@ function loop(ts){
   dt = Math.min(dt, 0.05);
   last = ts;
 
-  // No per-frame clearRect of entire canvas (we blit) — helps flicker
-  ctx.save();
-  ctx.setTransform(1,0,0,1,0,0); // keep HD transform intact; we draw in draw()
-  ctx.restore();
-
+  // We blit offscreen buffers; no full-canvas clear per frame needed (helps Android)
   if (gameRunning){
     if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
     update(dt);
