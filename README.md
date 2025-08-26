@@ -699,39 +699,40 @@ function spawnPickup(){
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-    // Tail first (behind)
-    const anchorX = x + w/2.25;
-    const anchorY = y - h*0.12;
-    const len     = h * 1.0;
-    const baseR   = Math.max(3, h*0.11);
+
+    // ---- Tail (drawn FIRST so it's behind body) ----
+    const anchorX = x - w*0.9;     // start further back on the left side
+    const anchorY = y;             // mid-body height
+    const len     = h * 1.4;       // longer
+    const baseR   = h * 0.15;      // thicker at base
     const tNow    = performance.now()*0.004;
-    const wagAmp  = h * 0.08;
+    const wagAmp  = h * 0.25;      // bigger wag
 
     ctx.fillStyle = '#b85c1b'; // slightly darker so it reads behind
-    const segments = 12;
+    const segments = 14;
     for (let i = 0; i <= segments; i++){
       const u  = i / segments;
-      const r  = baseR * (1 - 0.78*u);
-      const bend  = Math.sin(u*1.8 + tNow)*0.6;
-      const px = anchorX + (wagAmp * 0.25) * bend * (1 - u) + 2*u;
-      const py = anchorY - u*len + Math.sin(tNow + u*2.2) * 1.2;
+      const r  = baseR * (1 - 0.8*u);  // taper
+      const wag = Math.sin(tNow + u*3) * wagAmp * (1-u);
+      const px = anchorX - u*len;      // extend leftwards
+      const py = anchorY + wag;
       ctx.beginPath();
       ctx.arc(px, py, r, 0, Math.PI*2);
       ctx.fill();
     }
 
-    // Body
+    // ---- Body ----
     ctx.fillStyle = '#d2691e';
     ctx.beginPath();
     ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // Head
+    // ---- Head ----
     const headR = h*0.36;
     const hx = x, hy = y - h*0.78;
     ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
 
-    // Ears
+    // ---- Ears ----
     ctx.beginPath();
     ctx.moveTo(hx-headR*0.6,hy-headR*0.15);
     ctx.lineTo(hx-headR*0.25,hy-headR*1.0);
@@ -743,18 +744,18 @@ function drawCat(x, y, w, h){
     ctx.lineTo(hx,hy-headR*0.15);
     ctx.closePath(); ctx.fill();
 
-    // Belly patch
+    // ---- Belly patch ----
     ctx.fillStyle = '#a0522d';
     ctx.beginPath();
     ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // Eyes
+    // ---- Eyes ----
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(hx-headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(hx+headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
 
-    // Whiskers
+    // ---- Whiskers ----
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(hx- headR*0.55, hy);   ctx.lineTo(hx- headR*1.1, hy-2);
@@ -770,7 +771,6 @@ function drawCat(x, y, w, h){
     ctx.beginPath(); ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
   });
 }
-
 /* =========================
    Particles
    ========================= */
