@@ -473,24 +473,35 @@ function drawChicken(x, y, scale){
   drawAdditiveGlow(x, y, 24*scale, 0.9);
 }
 function drawLightning(x, y, scale=1){
-  const s = 12*scale;
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(Math.sin(performance.now()*0.005)*0.05);
-  drawAdditiveGlow(0, 0, 28*scale, 0.9);
-  ctx.fillStyle = '#ffeb3b';
+  ctx.scale(scale, scale);
+
+  // yellow bolt fill
+  ctx.fillStyle = 'gold';
   ctx.beginPath();
-  ctx.moveTo(-0.2*s, -1.4*s);
-  ctx.lineTo(0.6*s, -0.4*s);
-  ctx.lineTo(0.1*s, -0.4*s);
-  ctx.lineTo(0.6*s, 1.2*s);
-  ctx.lineTo(-0.4*s, 0.2*s);
-  ctx.lineTo(0.1*s, 0.2*s);
+  ctx.moveTo(0, -15);
+  ctx.lineTo(8, 0);
+  ctx.lineTo(2, 0);
+  ctx.lineTo(12, 18);
+  ctx.lineTo(-2, 2);
+  ctx.lineTo(4, 2);
   ctx.closePath();
   ctx.fill();
+
+  // black outline to make it clearer
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = '#000';
+  ctx.stroke();
+
+  // subtle glow so it stands out more
+  ctx.shadowColor = 'rgba(255, 215, 0, 0.7)';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = 'gold';
+  ctx.fill();
+
   ctx.restore();
 }
-
 /* =========================
    Spawning & placement
    ========================= */
