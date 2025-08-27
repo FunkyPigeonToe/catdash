@@ -570,7 +570,7 @@ function drawCat(x, y, w, h){
 
     // anchor lower & slightly further back (rump)
     const baseX = x - bodyRx + tailBaseW * 0.45;
-    const baseY = y + bodyRy * 0.40;
+    const baseY = y + bodyRy * 0.55;
 
     ctx.strokeStyle = '#a0522d';
     ctx.lineCap='round'; ctx.lineJoin='round';
