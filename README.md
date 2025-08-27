@@ -900,8 +900,7 @@ function drawMenu(){
     'Avoid trees and mud (mud slips!)',
     '⚡ Lightning bolt = DASH (x2 score, faster)',
     'Skip it if you like it chill',
-    'Hold both lane buttons ≥ 50ms: Shield x2'
-  ];
+      ];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 100 + i*16));
 
   drawGlobalBoard(24, 190);
