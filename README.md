@@ -69,7 +69,7 @@
    ========================= */
 const SUPABASE_URL = 'https://fvcvrhaxxpsientgggnx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y3ZyaGF4eHBzaWVudGdnZ254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwODczMzYsImV4cCI6MjA3MTY2MzMzNn0.5wTxwGVJDa3gnS61gaDq00xSFGUMEQ0Pda6tJo4VK-A';
-const TABLE_NAME = 'scores'; // columns: name (text PK), best (int8), updated_at (timestamptz default now())
+const TABLE_NAME = 'highscores'; // ✅ name (PK), score (int/bigint), updated_at
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const NAME_KEY = 'catdash_name';
@@ -83,15 +83,16 @@ function getPlayerName(){
   }
   return n;
 }
-let globalBoard = [];   // [{name, best, updated_at}]
+
+let globalBoard = [];   // [{name, score, updated_at}]
 let lastBoardFetch = 0;
 
 async function fetchGlobalTop(limit=20){
   try{
     const { data, error } = await supa
       .from(TABLE_NAME)
-      .select('name,best,updated_at')
-      .order('best', { ascending: false })
+      .select('name,score,updated_at')
+      .order('score', { ascending: false })
       .limit(limit);
     if (error) throw error;
     globalBoard = Array.isArray(data) ? data : [];
@@ -100,16 +101,21 @@ async function fetchGlobalTop(limit=20){
     console.warn('Leaderboard fetch error:', err.message||err);
   }
 }
+
 async function submitBestIfHigher(name, score){
   try{
     const { data: existing, error: e1 } = await supa
       .from(TABLE_NAME)
-      .select('best')
+      .select('score')
       .eq('name', name)
       .single();
-    if (!e1 && existing && typeof existing.best === 'number' && score <= existing.best) return false;
 
-    const payload = { name, best: score, updated_at: new Date().toISOString() };
+    const prev = Number(existing?.score ?? 0);
+    if (!e1 && score <= prev) {
+      return false; // don’t update if score is lower or equal
+    }
+
+    const payload = { name, score, updated_at: new Date().toISOString() };
     const { error: e2 } = await supa
       .from(TABLE_NAME)
       .upsert(payload, { onConflict: 'name' });
@@ -197,7 +203,7 @@ let spawnTimer = 0;
 let last = undefined;
 let graceTimer = 0.75;
 
-let restartDelay = 0; // 🔒 delay before restart is allowed (seconds)
+let restartDelay = 0; // ⏱️ delay before restart is allowed (seconds)
 
 let roadSpeed = 226;
 let maxSpeed  = 704;
@@ -502,6 +508,7 @@ function drawLightning(x, y, scale=1){
 
   ctx.restore();
 }
+
 /* =========================
    Spawning & placement
    ========================= */
@@ -575,13 +582,13 @@ function drawCat(x, y, w, h){
 
     // --- Tail (draw first so it's behind) ---
     const tailLen   = h * 1.3;
-    const tailBaseW = Math.max(3, w * 0.30);   // wider
+    const tailBaseW = Math.max(3, w * 0.30);   // thickness
     const t         = performance.now() * 0.008;
     const wagAmp    = h * 0.12;
 
     // anchor lower & slightly further back (rump)
-    const baseX = x - bodyRx + tailBaseW * 0.8;
-    const baseY = y + bodyRy * 0.6;
+    const baseX = x - bodyRx + tailBaseW * 0.8; // move right/left by tweaking 0.8
+    const baseY = y + bodyRy * 0.60;            // move down/up by tweaking 0.60
 
     ctx.strokeStyle = '#a0522d';
     ctx.lineCap='round'; ctx.lineJoin='round';
@@ -768,7 +775,7 @@ function drawGlobalBoard(x, y){
   for (let i=0; i<globalBoard.length && i<20; i++){
     const e = globalBoard[i];
     const name = (e.name || '???').slice(0,12).padEnd(12, ' ');
-    const line = `${String(i+1).padStart(2,' ')}. ${name}  ${String(e.best||0).padStart(5,' ')}  ${String((e.updated_at||'').slice(0,10))}`;
+    const line = `${String(i+1).padStart(2,' ')}. ${name}  ${String(Number(e.score||0)).padStart(5,' ')}  ${String((e.updated_at||'').slice(0,10))}`;
     ctx.fillText(line, x, y + 22 + i*18);
   }
 }
@@ -946,7 +953,6 @@ function drawMenu(){
     'Avoid trees and mud (mud slips!)',
     '⚡ Lightning bolt = DASH (x2 score, faster)',
     'Skip it if you like it chill'
-    // (Cheat is secret; line removed)
   ];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 100 + i*16));
 
