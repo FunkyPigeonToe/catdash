@@ -154,7 +154,7 @@ function handleResize(){
   W = v.w; H = v.h;
   resizeCanvas();
   positionButtons();
-  initFlowerSpots(); // keep density balanced on orientation change
+  initFlowerSpots(); // re-balance on orientation change
 }
 window.addEventListener('resize', handleResize, { passive: true });
 if (window.visualViewport){
@@ -197,6 +197,8 @@ let spawnTimer = 0;
 let last = undefined;
 let graceTimer = 0.75;
 
+let restartDelay = 0; // 🔒 delay before restart is allowed (seconds)
+
 let roadSpeed = 226;
 let maxSpeed  = 704;
 const baseAccel = 0.6;
@@ -223,12 +225,14 @@ const FLOWER_COLORS = ['#ffec99','#ffd6e7','#c0ebff','#c3fda7','#ffd8a8','#eebef
 const flowerSpots = []; // static random positions
 function initFlowerSpots(){
   flowerSpots.length = 0;
-  const count = Math.max(80, Math.floor(W*H/12000)); // density
+  const count = Math.max(80, Math.floor(W*H/11000)); // density
   for (let i=0;i<count;i++){
     flowerSpots.push({
       x: Math.random()*W,
       y: Math.random()*H,
-      r: 1.3 + Math.random()*1.6
+      r: 1.2 + Math.random()*1.4,
+      rot: Math.random()*Math.PI*2,
+      stem: Math.random()<0.8
     });
   }
 }
@@ -253,34 +257,68 @@ function strokeAround(strokeStyle='rgba(0,0,0,0.35)', lineWidth=2, drawPathFn){
 /* =========================
    Background + Flowers + Trails
    ========================= */
+function drawBloom(x, y, size, color, rot){
+  // simple 5-petal bloom with soft center — inexpensive to draw
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(rot);
+  const petalR = size*2.1;
+  const centerR = size*1.1;
+
+  // petals
+  ctx.fillStyle = color;
+  for (let i=0;i<5;i++){
+    const ang = (i/5)*Math.PI*2;
+    ctx.beginPath();
+    ctx.ellipse(Math.cos(ang)*size*1.1, Math.sin(ang)*size*1.1, petalR*0.55, petalR*0.35, ang, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // center (soft)
+  const g = ctx.createRadialGradient(0,0,0,0,0,centerR);
+  g.addColorStop(0,'rgba(255,255,220,0.95)');
+  g.addColorStop(1,'rgba(255,255,220,0.2)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0,0,centerR,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
 function drawBackground(){
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#64b24a'); g.addColorStop(1, '#4d9c3b');
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
 
-  // Grid texture
+  // Subtle grid texture
   ctx.fillStyle = 'rgba(40,90,40,0.10)';
   for (let y=0; y<H; y+=40){
     for (let x=((y/40)%2===0?0:20); x<W; x+=40){ ctx.fillRect(x,y,10,10); }
   }
 
-  // Flowers
+  // Flowers — avoid lanes, draw stems + bloom
   const seg = Math.floor(meters / FLOWER_SEG_METERS) % FLOWER_COLORS.length;
   const color = FLOWER_COLORS[seg];
-  ctx.fillStyle = color;
+  const lx = lanesX();
+  const trailW = W/6;
+
   flowerSpots.forEach(f=>{
-    // avoid drawing on the trail lanes
-    const lx = lanesX();
-    const trailW = W/6;
     const inLane =
       (Math.abs(f.x - lx[0]) < trailW/2) ||
       (Math.abs(f.x - lx[1]) < trailW/2) ||
       (Math.abs(f.x - lx[2]) < trailW/2);
-    if (!inLane) { ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI*2); ctx.fill(); }
+    if (inLane) return;
+
+    // stem (optional)
+    if (f.stem){
+      ctx.strokeStyle = 'rgba(20,80,20,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(f.x, f.y+4);
+      ctx.lineTo(f.x, f.y+8);
+      ctx.stroke();
+    }
+    drawBloom(f.x, f.y, f.r, color, f.rot);
   });
 
   // Trails
-  const trailW = W/6; const lx = lanesX();
   for (let i=0;i<3;i++){
     const rg = ctx.createLinearGradient(0, 0, 0, H);
     rg.addColorStop(0, '#8b684f'); rg.addColorStop(1, '#6f523f');
@@ -517,38 +555,35 @@ function spawnPickup(){
 }
 
 /* =========================
-   Cat (tail behind, lower, thicker, wag)
+   Cat (tail behind, lower, wider, wag)
    ========================= */
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-    // Body metrics
     const bodyRx = w/1.6, bodyRy = h/1.15;
 
     // --- Tail (draw first so it's behind) ---
-    const tailLen   = h * 1.25;
-    const tailBaseW = Math.max(3, w * 0.26);        // thicker
+    const tailLen   = h * 1.3;
+    const tailBaseW = Math.max(3, w * 0.30);   // wider
     const t         = performance.now() * 0.008;
     const wagAmp    = h * 0.12;
 
-    // Anchor slightly INSIDE body at a LOWER position (butt, not hip)
-    const baseX = x - bodyRx + tailBaseW * 0.40;
-    const baseY = y + bodyRy * 0.25;
+    // anchor lower & slightly further back (rump)
+    const baseX = x - bodyRx + tailBaseW * 0.45;
+    const baseY = y + bodyRy * 0.40;
 
     ctx.strokeStyle = '#a0522d';
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineCap='round'; ctx.lineJoin='round';
 
-    const N = 16;
-    let prevX = baseX, prevY = baseY;
-    for (let i = 1; i <= N; i++){
-      const u  = i / N;                  // 0..1 along tail
-      const k  = 1 - u;                  // taper
-      const px = baseX - u * tailLen * 0.95;
-      const py = baseY - u * tailLen * 0.65
-               + Math.sin(t + u * 7.0) * wagAmp * (0.3 + 0.7*k);
-      ctx.lineWidth = Math.max(1, tailBaseW*(0.3 + 0.7*k));
-      ctx.beginPath(); ctx.moveTo(prevX, prevY); ctx.lineTo(px, py); ctx.stroke();
-      prevX = px; prevY = py;
+    const N=16; let prevX=baseX, prevY=baseY;
+    for(let i=1;i<=N;i++){
+      const u=i/N, k=1-u;
+      const px = baseX - u*tailLen*0.95;
+      const py = baseY - u*tailLen*0.55
+               + Math.sin(t+u*7.0) * wagAmp * (0.25+0.75*k);
+      ctx.lineWidth = Math.max(1, tailBaseW*(0.3+0.7*k));
+      ctx.beginPath(); ctx.moveTo(prevX,prevY); ctx.lineTo(px,py); ctx.stroke();
+      prevX=px; prevY=py;
     }
 
     // --- Body ---
@@ -899,8 +934,9 @@ function drawMenu(){
     'Collect critters to score and refuel',
     'Avoid trees and mud (mud slips!)',
     '⚡ Lightning bolt = DASH (x2 score, faster)',
-    'Skip it if you like it chill',
-      ];
+    'Skip it if you like it chill'
+    // (Cheat is secret; line removed)
+  ];
   lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 100 + i*16));
 
   drawGlobalBoard(24, 190);
@@ -908,12 +944,13 @@ function drawMenu(){
 }
 
 /* =========================
-   Control
+   Control (with restart delay)
    ========================= */
 function endGame(){
   gameRunning = false;
   const n = getPlayerName();
   submitBestIfHigher(n, Math.round(score));
+  restartDelay = 1.0; // ⏱️ lock input for 1s to avoid accidental restart
 }
 function resetGame(){
   enemies = [];
@@ -934,7 +971,15 @@ function resetGame(){
   cheatToastText = '';
   dashActive = false;
   dashTimer = 0;
+  restartDelay = 0;
   initFlowerSpots(); // re-scatter for variety per run
+}
+
+function tryRestart(){
+  if (!gameRunning && restartDelay <= 0){
+    resetGame();
+    gameRunning = true;
+  }
 }
 
 function loop(ts){
@@ -943,6 +988,8 @@ function loop(ts){
   if (!Number.isFinite(dt) || dt < 0) dt = 0;
   dt = Math.min(dt, 0.05); // clamp for stability
   last = ts;
+
+  if (restartDelay > 0) restartDelay = Math.max(0, restartDelay - dt);
 
   if (gameRunning){
     if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
@@ -957,7 +1004,7 @@ function loop(ts){
 /* Keyboard: nudge one lane per keydown with simple debounce */
 let keyLock = false;
 document.addEventListener('keydown', e=>{
-  if (!gameRunning){ resetGame(); gameRunning = true; }
+  if (!gameRunning){ tryRestart(); }
   if (keyLock) return;
   if (e.key === 'ArrowLeft'){
     if (currentLane > 0) currentLane--;
@@ -974,7 +1021,7 @@ document.addEventListener('keyup', e=>{
 /* Touch on canvas */
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
-  if (!gameRunning){ resetGame(); gameRunning = true; }
+  if (!gameRunning){ tryRestart(); }
   touchStartX = e.touches[0].clientX;
 }, {passive: true});
 canvas.addEventListener('touchmove', e=>{
@@ -989,12 +1036,12 @@ canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
 
-function nudgeLeft(){ if (!gameRunning){ resetGame(); gameRunning = true; } if (currentLane > 0) currentLane--; }
-function nudgeRight(){ if (!gameRunning){ resetGame(); gameRunning = true; } if (currentLane < 2) currentLane++; }
+function nudgeLeft(){ if (currentLane > 0) currentLane--; }
+function nudgeRight(){ if (currentLane < 2) currentLane++; }
 
-function onPointerDownBtn1(e){ e.preventDefault(); btn1Down = true; nudgeLeft(); }
+function onPointerDownBtn1(e){ e.preventDefault(); btn1Down = true; if (!gameRunning){ tryRestart(); } nudgeLeft(); }
 function onPointerUpBtn1(e){ e.preventDefault(); btn1Down = false; if (!btn3Down && cheatCharges===0) cheatArmTimerMs = 0; }
-function onPointerDownBtn3(e){ e.preventDefault(); btn3Down = true; nudgeRight(); }
+function onPointerDownBtn3(e){ e.preventDefault(); btn3Down = true; if (!gameRunning){ tryRestart(); } nudgeRight(); }
 function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down && cheatCharges===0) cheatArmTimerMs = 0; }
 
 ['pointerdown'].forEach(evt=>{
@@ -1008,7 +1055,7 @@ function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down
 
 /* Tap anywhere to nudge toward tap side */
 canvas.addEventListener('click', e=>{
-  if (!gameRunning){ resetGame(); gameRunning = true; return; }
+  if (!gameRunning){ tryRestart(); return; }
   const x = e.clientX;
   const center = lanesX()[currentLane];
   if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
