@@ -699,37 +699,61 @@ function spawnPickup(){
 const CAT_W = 20, CAT_H = 30;
 function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
-    // --- Tail (behind) ---
-    const tailLength = h * 1.2;
-    const tailWidth  = w * 1.8;
-    const baseX = x - w/2.2;        // attach left-rear of body
-    const baseY = y + h*0.12;
-    const wag = Math.sin(performance.now()*0.005) * 6;
+    // ---- BODY METRICS (so tail connects perfectly) ----
+    const bodyRx = w/1.6;     // ellipse x-radius
+    const bodyRy = h/1.15;    // ellipse y-radius
 
-    ctx.fillStyle = '#a0522d'; // darker so it looks behind
-    ctx.beginPath();
-    ctx.moveTo(baseX, baseY);
-    ctx.quadraticCurveTo(baseX - tailLength*0.4, baseY + wag,
-                         baseX - tailLength*0.7, baseY - tailLength*0.5);
-    ctx.quadraticCurveTo(baseX - tailLength*0.3, baseY - tailLength*0.9,
-                         baseX, baseY - tailLength);
-    ctx.lineWidth = tailWidth;
+    // ---- TAIL (draw FIRST so it's behind the body) ----
+    const tailLen    = h * 1.25;           // overall length
+    const tailBaseW  = Math.max(3, w * 0.22);
+    const t          = performance.now() * 0.008;  // time for wag
+    const wagAmp     = h * 0.12;                    // wag amplitude
+
+    // Anchor slightly INSIDE the body so there is no seam.
+    // Left/back edge of the ellipse is (x - bodyRx). Nudge inward a bit.
+    const baseX = x - bodyRx + tailBaseW * 0.35;
+    const baseY = y + h * 0.05;
+
+    ctx.strokeStyle = '#a0522d';      // darker so it reads behind
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#a0522d';
-    ctx.stroke();
+    ctx.lineJoin = 'round';
 
-    // --- Body ---
+    const N = 16; // segments
+    let prevX = baseX, prevY = baseY;
+    for (let i = 1; i <= N; i++){
+      const u  = i / N;                 // 0..1 along tail
+      const k  = 1 - u;                  // for taper
+      const curveOut = 0.95;             // how far it goes horizontally
+      const curveUp  = 0.65;             // and vertically
+
+      // Centerline with wag (stronger at tip)
+      const px = baseX - u * tailLen * curveOut;
+      const py = baseY - u * tailLen * curveUp
+               + Math.sin(t + u * 7.0) * wagAmp * (0.35 + 0.65 * k);
+
+      // Tapered thickness
+      ctx.lineWidth = Math.max(1, tailBaseW * (0.28 + 0.72 * k));
+
+      ctx.beginPath();
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(px, py);
+      ctx.stroke();
+
+      prevX = px; prevY = py;
+    }
+
+    // ---- BODY (draw after tail so it sits in front at the base) ----
     ctx.fillStyle = '#d2691e';
     ctx.beginPath();
-    ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
+    ctx.ellipse(x, y, bodyRx, bodyRy, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // --- Head ---
+    // ---- HEAD ----
     const headR = h*0.36;
     const hx = x, hy = y - h*0.78;
     ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
 
-    // --- Ears ---
+    // ---- EARS ----
     ctx.beginPath();
     ctx.moveTo(hx-headR*0.6,hy-headR*0.15);
     ctx.lineTo(hx-headR*0.25,hy-headR*1.0);
@@ -741,18 +765,18 @@ function drawCat(x, y, w, h){
     ctx.lineTo(hx,hy-headR*0.15);
     ctx.closePath(); ctx.fill();
 
-    // --- Belly patch ---
+    // ---- BELLY PATCH ----
     ctx.fillStyle = '#a0522d';
     ctx.beginPath();
     ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // --- Eyes ---
+    // ---- EYES ----
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(hx-headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(hx+headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
 
-    // --- Whiskers ---
+    // ---- WHISKERS ----
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(hx- headR*0.55, hy);   ctx.lineTo(hx- headR*1.1, hy-2);
@@ -764,6 +788,7 @@ function drawCat(x, y, w, h){
     ctx.stroke();
   });
 
+  // body outline
   strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
     ctx.beginPath(); ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
   });
