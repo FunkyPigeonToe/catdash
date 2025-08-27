@@ -569,8 +569,8 @@ function drawCat(x, y, w, h){
     const wagAmp    = h * 0.12;
 
     // anchor lower & slightly further back (rump)
-    const baseX = x - bodyRx + tailBaseW * 0.45;
-    const baseY = y + bodyRy * 0.55;
+    const baseX = x - bodyRx + tailBaseW * 0.2;
+    const baseY = y + bodyRy * 0.6;
 
     ctx.strokeStyle = '#a0522d';
     ctx.lineCap='round'; ctx.lineJoin='round';
