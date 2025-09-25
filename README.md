@@ -95,10 +95,15 @@ async function fetchGlobalTop(limit=20){
       .order('score', { ascending: false })
       .limit(limit);
     if (error) throw error;
-    globalBoard = Array.isArray(data) ? data : [];
+
+    // normalize score → number
+    globalBoard = Array.isArray(data)
+      ? data.map(r => ({ name: r.name, score: Number(r.score) || 0, updated_at: r.updated_at }))
+      : [];
     lastBoardFetch = performance.now();
   }catch(err){
     console.warn('Leaderboard fetch error:', err.message||err);
+    globalBoard = [];
   }
 }
 
@@ -121,7 +126,7 @@ async function submitBestIfHigher(name, score){
       .upsert(payload, { onConflict: 'name' });
     if (e2) throw e2;
 
-    fetchGlobalTop(20);
+    await fetchGlobalTop(20); // refresh immediately after submit
     return true;
   }catch(err){
     console.warn('Submit best error:', err.message||err);
