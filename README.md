@@ -50,6 +50,20 @@
   @media (min-width: 900px) {
     .controls { display: none; }
   }
+
+  /* Change name button */
+  #changeNameBtn {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    z-index: 20;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
 </style>
 </head>
 <body>
@@ -59,6 +73,8 @@
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
 </div>
+
+<button id="changeNameBtn" type="button">Change Name</button>
 
 <!-- Supabase client (v2) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -95,15 +111,10 @@ async function fetchGlobalTop(limit=20){
       .order('score', { ascending: false })
       .limit(limit);
     if (error) throw error;
-
-    // normalize score → number
-    globalBoard = Array.isArray(data)
-      ? data.map(r => ({ name: r.name, score: Number(r.score) || 0, updated_at: r.updated_at }))
-      : [];
+    globalBoard = Array.isArray(data) ? data : [];
     lastBoardFetch = performance.now();
   }catch(err){
     console.warn('Leaderboard fetch error:', err.message||err);
-    globalBoard = [];
   }
 }
 
@@ -126,7 +137,7 @@ async function submitBestIfHigher(name, score){
       .upsert(payload, { onConflict: 'name' });
     if (e2) throw e2;
 
-    await fetchGlobalTop(20); // refresh immediately after submit
+    fetchGlobalTop(20);
     return true;
   }catch(err){
     console.warn('Submit best error:', err.message||err);
@@ -1083,9 +1094,19 @@ canvas.addEventListener('click', e=>{
   if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
 });
 
-/* Boot: pull initial board and start loop */
+/* =========================
+   Boot: prompt name, pull board, start loop
+   ========================= */
+getPlayerName();        // 👈 prompt once on load (mobile-friendly)
 fetchGlobalTop(20);
 requestAnimationFrame(loop);
+
+/* Change name button */
+document.getElementById('changeNameBtn').addEventListener('click', ()=>{
+  localStorage.removeItem(NAME_KEY);
+  const n = getPlayerName();
+  alert('Player name set to: ' + n);
+});
 </script>
 </body>
 </html>
