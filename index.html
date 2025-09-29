@@ -5,7 +5,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#12161c" />
-  <title></title>
+  <title>Gingerbolt</title>
   <style>
     :root{
       --pink:#ff4081; --pink-hi:#ff6fa3; --indigo:#5865F2; --bg:#12161c;
@@ -24,7 +24,6 @@
     .btn:active { transform:translateY(1px) scale(.98); }
     .btn-primary { background:linear-gradient(180deg,var(--pink-hi) 0%, var(--pink) 100%); font-weight:800; min-width:200px; }
     .btn-indigo  { background:var(--indigo); min-width:200px; }
-    #fsNote { font-size:12px; opacity:.85; text-align:center; margin-top:4px; }
 
     /* On-screen arrows (in game only) */
     .controls { position:fixed; inset:0; pointer-events:none; z-index:10; display:none; }
@@ -41,7 +40,7 @@
     <div class="buttons">
       <button id="playBtn" class="btn btn-primary" type="button">Play</button>
       <button id="frontChangeNameBtn" class="btn btn-indigo" type="button">Change Name</button>
-      <div id="fsNote">Tip: Play tries to go fullscreen</div>
+      <!-- removed the tip line -->
     </div>
   </div>
 
@@ -85,7 +84,7 @@
 
   /* ========================= Controls ========================= */
   const controls=document.getElementById('controls');
-  const CAT_Y_LIFT=-30; const BUTTON_Y_OFFSET=50;
+  const BUTTON_Y_OFFSET=50;
   function positionButtons(){
     const btn1=document.getElementById('btnLane1'); const btn3=document.getElementById('btnLane3');
     const lx=lanesX();
@@ -168,9 +167,34 @@
   }
   function drawFront(){
     drawFrontBackground();
-    const title='CAT DASH'; ctx.save(); const fs=Math.floor(Math.min(W,H)*.13); ctx.font=`${fs}px Impact, 'Trebuchet MS', system-ui, sans-serif`; ctx.textAlign='center'; ctx.lineWidth=Math.max(6,fs*.06); ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.fillStyle='#2a0a0a'; const tx=W*.5, ty=H*.20; ctx.strokeText(title,tx,ty); ctx.fillText(title,tx,ty); ctx.restore();
-    const sub=`Starring ${CAT_MASCOT_NAME} — the ginger bolt!`; ctx.save(); ctx.font='18px system-ui, sans-serif'; ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fillText(sub, (W-ctx.measureText(sub).width)/2, H*.24); ctx.restore();
+    /* Title changed to GINGERBOLT */
+    const title='GINGERBOLT'; ctx.save(); const fs=Math.floor(Math.min(W,H)*.13); ctx.font=`${fs}px Impact, 'Trebuchet MS', system-ui, sans-serif`; ctx.textAlign='center'; ctx.lineWidth=Math.max(6,fs*.06); ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.fillStyle='#2a0a0a'; const tx=W*.5, ty=H*.20; ctx.strokeText(title,tx,ty); ctx.fillText(title,tx,ty); ctx.restore();
+
+    /* Subtitle + story + aim */
+    const header = "Join Gingerbolt on his electrifying dash to glory!";
+    const story  = `Help ${CAT_MASCOT_NAME} weave past trees and mud, snag snacks, and charge ⚡ to dash like an anime hero!`;
+    const aim    = `Aim: stay alive, collect food to keep your energy up, and set a global high score.`;
+
+    function wrap(text,x,y,maxW,lineH,font){
+      ctx.font=font; ctx.textAlign='center';
+      const words=text.split(' '); let line='', cy=y;
+      for(let i=0;i<words.length;i++){
+        const test=line?line+' '+words[i]:words[i];
+        if(ctx.measureText(test).width>maxW){ ctx.fillText(line,x,cy); cy+=lineH; line=words[i]; }
+        else line=test;
+      }
+      if(line) ctx.fillText(line,x,cy);
+      return cy;
+    }
+
+    const maxW=Math.min(W*0.86,720); let y=H*0.24;
+    ctx.fillStyle='rgba(255,255,255,.95)';
+    y+=6;  wrap(header, W/2, y, maxW, 26, 'bold 20px system-ui, sans-serif');
+    y+=32; wrap(story,  W/2, y, maxW, 22, '16px system-ui, sans-serif');
+    y+=48; wrap(aim,    W/2, y, maxW, 22, '16px system-ui, sans-serif');
+
     drawFrontAnimation();
+
     /* Leaderboard lower-left so buttons never cover it */
     const margin=18; const baseY=H*.65;
     drawGlobalBoard(margin, baseY, Math.min(10, Math.floor((H-baseY-40)/18)-1));
@@ -184,21 +208,141 @@
   function laneHasAnyEnemy(li){ const lx=lanesX(), x=lx[li]; return enemies.some(e=>e.x===x); }
   function spawnPickup(){ const y=-40; if(enemies.some(e=>Math.abs(e.y-y)<SPAWN_BUFFER_Y) || pickups.some(p=>Math.abs(p.y-y)<SPAWN_BUFFER_Y)) return; const lx=lanesX(); let c=[0,1,2].filter(i=>laneIsFree(lx[i],y) && !laneHasAnyEnemy(i)); if(!c.length) return; const without=c.filter(l=>l!==lastPickupLane); const lane=(without.length?without:c)[Math.floor(Math.random()*(without.length?without.length:c.length))]; lastPickupLane=lane; const r=Math.random(); let type,golden=false, scale=1; if(r<.06){ type='dash'; scale=1.2;} else if(r<.46){ type='mouse'; golden=Math.random()<.25; scale=golden?1.2:1.0;} else if(r<.86){ type='bird'; golden=Math.random()<.25; scale=golden?1.25:1.05;} else if(r<.97){ type='lizard'; golden=Math.random()<.25; scale=golden?1.25:1.1;} else { type='chicken'; golden=true; scale=1.35;} const baseW= type==='bird'?30 : type==='mouse'?34 : type==='lizard'?36 : type==='chicken'?38 : 30; const baseH= type==='bird'?18 : type==='mouse'?18 : type==='lizard'?16 : type==='chicken'?22 : 30; const w=baseW*scale, h=baseH*scale; pickups.push({type,x:lx[lane],y,w,h,scale,golden}); }
 
+  /* ========================= Anime speedlines overlay (gameplay) ========================= */
+  function drawAnimeSpeedlines(){
+    const density = Math.floor(Math.min(28, Math.max(8, roadSpeed/40))) + (dashActive?6:0);
+    ctx.save();
+    ctx.globalAlpha = 0.14 + (dashActive ? 0.08 : 0);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    const tilt = -0.35;
+    const t = performance.now() * (0.0015 + roadSpeed / 90000);
+    for (let i = 0; i < density; i++) {
+      const base = (i / density) * (W + 80) - 40;
+      const scroll = ((t + i * 0.37) % 1) * 120;
+      const x = base + (scroll - 60);
+      ctx.beginPath();
+      ctx.moveTo(x, -60);
+      ctx.lineTo(x + Math.tan(tilt) * (H + 120), H + 60);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   /* ========================= Update & draw loop ========================= */
-  const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_Y_LIFT);
+  /* Player Y: near the bottom (above on-screen arrows) */
+  const PLAYER_MARGIN_BOTTOM = 150;
+  const PLAYER_Y = () => H - PLAYER_MARGIN_BOTTOM;
+
   function armCheatIfHeld(dt){ const both=btn1Down && btn3Down; if(both && !cheatRearmLock && cheatCharges===0){ cheatArmTimerMs+=dt*1000; if(cheatArmTimerMs>=CHEAT_HOLD_TIME_MS){ cheatCharges=2; cheatRearmLock=true; cheatToastText='Shield armed x2'; cheatToastTimer=1.0; } } else cheatArmTimerMs=0; if(!btn1Down && !btn3Down && cheatCharges===0) cheatRearmLock=false; }
   function startDash(){ if(dashActive) return; dashActive=true; dashTimer=DASH_DURATION; cheatToastText='DASH!'; cheatToastTimer=1.2; }
   function updateDash(dt){ if(!dashActive) return; dashTimer-=dt; if(dashTimer<=0){ dashActive=false; dashTimer=0; } }
-  function update(dt){ const accel=baseAccel*(1-Math.min(1,roadSpeed/maxSpeed)); const speedMul=dashActive?DASH_SPEED_MUL:1; roadSpeed=Math.min(maxSpeed, (roadSpeed+accel)*Math.pow(1.00000002, meters)); const actual=roadSpeed*speedMul; if(slipTimer>0){ slipTimer=Math.max(0, slipTimer-dt); slipOffset=Math.sin(performance.now()/40)*4; } else slipOffset=0; spawnTimer+=dt; const spawnInt=dashActive?.5:.6; if(spawnTimer>spawnInt){ spawnTimer=0; if(Math.random()<(dashActive?.65:.70)) spawnEnemy(); else spawnPickup(); if(Math.random()<(dashActive?.50:.35)) spawnPickup(); }
-    enemies.forEach(e=>e.y+=actual*dt); pickups.forEach(p=>p.y+=actual*dt); enemies=enemies.filter(e=>e.y<H+60); pickups=pickups.filter(p=>p.y<H+60);
-    const px=lanesX()[currentLane]+slipOffset, py=PLAYER_Y(), pw=CAT_W-4, ph=CAT_H-2; armCheatIfHeld(dt); const collide=graceTimer<=0;
-    if(collide){ for(let i=0;i<enemies.length;i++){ const e=enemies[i]; let ew=e.w, eh=e.h; if(e.type==='tree'){ ew*=.6; eh*=.8;} if(Math.abs(e.x-px)<(ew+pw)/2 && Math.abs(e.y-py)<(eh+ph)/2){ if(e.type==='mud'){ enemies.splice(i,1); fuel=Math.max(0,fuel-10); score=Math.max(0, score-(dashActive?1:2)); slipTimer=.6; } else { if(cheatCharges>0){ enemies.splice(i,1); cheatCharges--; } else endGame(); } break; } } }
-    for(let i=0;i<pickups.length;i++){ const p=pickups[i]; if(Math.abs(p.x-px)<(p.w+pw)/2 && Math.abs(p.y-py)<(p.h+ph)/2){ pickups.splice(i,1); if(p.type==='dash'){ startDash(); cheatCharges=Math.min(2, cheatCharges+1); cheatToastText='DASH + Shield +1'; cheatToastTimer=1.2; spawnSparkles(px,py,'rgba(255,240,130,.95)'); } else if(p.type==='chicken'){ fuel=Math.min(100, fuel+25); score+=(dashActive?30:15); cheatCharges=Math.min(2, cheatCharges+1); cheatToastText='Shield +1'; cheatToastTimer=1.2; spawnSparkles(px,py,'rgba(255,230,140,.95)'); } else if(p.type==='lizard'){ fuel=Math.min(100, fuel+(p.golden?22:12)); score+=(p.golden?12:5)*(dashActive?DASH_SCORE_MUL:1); spawnSparkles(px,py,'rgba(180,255,120,.95)'); } else if(p.type==='bird'){ fuel=Math.min(100, fuel+(p.golden?20:10)); score+=(p.golden?10:3)*(dashActive?DASH_SCORE_MUL:1); spawnSparkles(px,py,'rgba(180,210,255,.95)'); } else { fuel=Math.min(100, fuel+(p.golden?20:10)); score+=(p.golden?10:3)*(dashActive?DASH_SCORE_MUL:1); spawnSparkles(px,py,'rgba(255,230,150,.95)'); } break; } }
-    updateDash(dt); updateParticles(dt); if(cheatToastTimer>0) cheatToastTimer=Math.max(0, cheatToastTimer-dt); meters+=(actual*dt)/120; fuel-=dt*(dashActive?2.4:2.0); if(fuel<=0) endGame(); }
-  function draw(){ if(mode==='front'){ frontT+=.016; drawFront(); return; } if(mode==='menu'){ drawMenu(); return; } drawBackground(); enemies.forEach(e=>{ if(e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); }); pickups.forEach(p=>{ if(p.type==='mouse') drawMouse(p.x,p.y,p.scale,p.golden); else if(p.type==='bird') drawBird(p.x,p.y,p.scale,p.golden); else if(p.type==='lizard') drawLizard(p.x,p.y,p.scale,p.golden); else if(p.type==='chicken') drawChicken(p.x,p.y,p.scale); else if(p.type==='dash') drawLightning(p.x,p.y,p.scale); }); drawCat(lanesX()[currentLane]+slipOffset, PLAYER_Y(), CAT_W, CAT_H); drawParticles(); drawHUD(); drawDashOverlay(); drawVignette(); }
+  function update(dt){
+    const accel=baseAccel*(1-Math.min(1,roadSpeed/maxSpeed));
+    const speedMul=dashActive?DASH_SPEED_MUL:1;
+    roadSpeed=Math.min(maxSpeed, (roadSpeed+accel)*Math.pow(1.00000002, meters));
+    const actual=roadSpeed*speedMul;
+
+    if(slipTimer>0){ slipTimer=Math.max(0, slipTimer-dt); slipOffset=Math.sin(performance.now()/40)*4; } else slipOffset=0;
+
+    spawnTimer+=dt; const spawnInt=dashActive?.5:.6;
+    if(spawnTimer>spawnInt){
+      spawnTimer=0;
+      if(Math.random()<(dashActive?.65:.70)) spawnEnemy(); else spawnPickup();
+      if(Math.random()<(dashActive?.50:.35)) spawnPickup();
+    }
+
+    enemies.forEach(e=>e.y+=actual*dt);
+    pickups.forEach(p=>p.y+=actual*dt);
+    enemies=enemies.filter(e=>e.y<H+60);
+    pickups=pickups.filter(p=>p.y<H+60);
+
+    const px=lanesX()[currentLane]+slipOffset, py=PLAYER_Y(), pw=CAT_W-4, ph=CAT_H-2;
+    armCheatIfHeld(dt);
+    const collide=graceTimer<=0;
+
+    if(collide){
+      for(let i=0;i<enemies.length;i++){
+        const e=enemies[i];
+        let ew=e.w, eh=e.h;
+        if(e.type==='tree'){ ew*=.6; eh*=.8;}
+        if(Math.abs(e.x-px)<(ew+pw)/2 && Math.abs(e.y-py)<(eh+ph)/2){
+          if(e.type==='mud'){
+            enemies.splice(i,1);
+            fuel=Math.max(0,fuel-10);
+            score=Math.max(0, score-(dashActive?1:2));
+            slipTimer=.6;
+          } else {
+            if(cheatCharges>0){ enemies.splice(i,1); cheatCharges--; }
+            else endGame();
+          }
+          break;
+        }
+      }
+    }
+
+    for(let i=0;i<pickups.length;i++){
+      const p=pixels=pickups[i];
+      const p2=pickups[i];
+      if(Math.abs(p2.x-px)<(p2.w+pw)/2 && Math.abs(p2.y-py)<(p2.h+ph)/2){
+        pickups.splice(i,1);
+        if(p2.type==='dash'){
+          startDash();
+          cheatCharges=Math.min(2, cheatCharges+1);
+          cheatToastText='DASH + Shield +1';
+          cheatToastTimer=1.2;
+          spawnSparkles(px,py,'rgba(255,240,130,.95)');
+        } else if(p2.type==='chicken'){
+          fuel=Math.min(100, fuel+25);
+          score+=(dashActive?30:15);
+          cheatCharges=Math.min(2, cheatCharges+1);
+          cheatToastText='Shield +1';
+          cheatToastTimer=1.2;
+          spawnSparkles(px,py,'rgba(255,230,140,.95)');
+        } else if(p2.type==='lizard'){
+          fuel=Math.min(100, fuel+(p2.golden?22:12));
+          score+=(p2.golden?12:5)*(dashActive?DASH_SCORE_MUL:1);
+          spawnSparkles(px,py,'rgba(180,255,120,.95)');
+        } else if(p2.type==='bird'){
+          fuel=Math.min(100, fuel+(p2.golden?20:10));
+          score+=(p2.golden?10:3)*(dashActive?DASH_SCORE_MUL:1);
+          spawnSparkles(px,py,'rgba(180,210,255,.95)');
+        } else {
+          fuel=Math.min(100, fuel+(p2.golden?20:10));
+          score+=(p2.golden?10:3)*(dashActive?DASH_SCORE_MUL:1);
+          spawnSparkles(px,py,'rgba(255,230,150,.95)');
+        }
+        break;
+      }
+    }
+
+    updateDash(dt);
+    updateParticles(dt);
+    if(cheatToastTimer>0) cheatToastTimer=Math.max(0, cheatToastTimer-dt);
+    meters+=(actual*dt)/120;
+    fuel-=dt*(dashActive?2.4:2.0);
+    if(fuel<=0) endGame();
+  }
+  function draw(){
+    if(mode==='front'){ frontT+=.016; drawFront(); return; }
+    if(mode==='menu'){ drawMenu(); return; }
+    drawBackground();
+    drawAnimeSpeedlines(); /* anime vibe overlay */
+    enemies.forEach(e=>{ if(e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
+    pickups.forEach(p=>{ if(p.type==='mouse') drawMouse(p.x,p.y,p.scale,p.golden);
+      else if(p.type==='bird') drawBird(p.x,p.y,p.scale,p.golden);
+      else if(p.type==='lizard') drawLizard(p.x,p.y,p.scale,p.golden);
+      else if(p.type==='chicken') drawChicken(p.x,p.y,p.scale);
+      else if(p.type==='dash') drawLightning(p.x,p.y,p.scale); });
+    drawCat(lanesX()[currentLane]+slipOffset, PLAYER_Y(), CAT_W, CAT_H);
+    drawParticles();
+    drawHUD();
+    drawDashOverlay();
+    drawVignette();
+  }
 
   /* ========================= Flow ========================= */
-  function drawMenu(){ drawFrontBackground(); ctx.fillStyle='#fff'; ctx.font='14px system-ui, sans-serif'; const sub='Collect snacks • Avoid trees & mud • Grab ⚡ for Dash'; ctx.fillText(sub,(W-ctx.measureText(sub).width)/2,70); drawGlobalBoard(18,150,14); drawVignette(); }
+  function drawMenu(){ drawFrontBackground(); ctx.fillStyle='#fff'; ctx.font='14px system-ui, sans-serif'; const sub='Dodge trees & mud • Grab snacks for energy • ⚡ Dash for speed & x2 score'; ctx.fillText(sub,(W-ctx.measureText(sub).width)/2,70); drawGlobalBoard(18,150,14); drawVignette(); }
   function endGame(){ mode='menu'; const n=getPlayerName(); submitBestIfHigher(n, Math.round(score)); restartDelay=1.0; }
   function resetGame(){ enemies=[]; pickups=[]; particles=[]; score=0; fuel=100; meters=0; roadSpeed=226; currentLane=1; spawnTimer=0; graceTimer=.75; last=undefined; cheatArmTimerMs=0; cheatCharges=0; cheatRearmLock=false; cheatToastTimer=0; cheatToastText=''; dashActive=false; dashTimer=0; restartDelay=0; initFlowerSpots(); }
   async function goFullscreen(){ try{ const el=document.documentElement; if(!document.fullscreenElement && el.requestFullscreen){ await el.requestFullscreen(); } }catch(e){} }
