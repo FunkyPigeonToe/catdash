@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -51,30 +52,56 @@
     .controls { display: none; }
   }
 
-  /* Change name button */
-  #changeNameBtn {
+  /* ===== Menu UI (Start + Change Name) ===== */
+  #menuButtons {
     position: fixed;
-    right: 10px;
-    bottom: 10px;
-    z-index: 20;
-    background: rgba(0,0,0,0.5);
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-40%); /* slightly above center, looks nicer under title */
+    display: none; /* shown only in menu */
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    z-index: 9999;
+    pointer-events: auto;
+  }
+  #menuButtons button {
+    background: #ff4081;
     color: #fff;
     border: none;
-    border-radius: 10px;
-    padding: 6px 12px;
-    font-size: 14px;
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-size: 18px;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+    -webkit-tap-highlight-color: transparent;
+  }
+  #menuButtons button:active { transform: scale(0.96); }
+
+  /* Make the primary button pop */
+  #startBtn {
+    background: linear-gradient(180deg, #ff6fa3 0%, #ff4081 100%);
+    font-weight: 700;
+    min-width: 220px;
+  }
+  #changeNameBtn {
+    background: #5865F2;
+    min-width: 220px;
   }
 </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 
+<!-- Centered menu buttons (visible only in menu) -->
+<div id="menuButtons">
+  <button id="startBtn" type="button">Start Game</button>
+  <button id="changeNameBtn" type="button">Change Name</button>
+</div>
+
 <div id="controls" class="controls">
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
 </div>
-
-<button id="changeNameBtn" type="button">Change Name</button>
 
 <!-- Supabase client (v2) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -961,7 +988,7 @@ function drawMenu(){
   ctx.fillText(title, (W - ctx.measureText(title).width)/2, 56);
 
   ctx.font = '14px system-ui, sans-serif';
-  const sub = 'Tap, swipe, or use arrows to start';
+  const sub = 'Use Start to play • Change Name below';
   ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 78);
 
   const lines = [
@@ -1009,6 +1036,7 @@ function resetGame(){
 }
 
 function tryRestart(){
+  // Start only via Start button (or arrows), not by tapping canvas
   if (!gameRunning && restartDelay <= 0){
     resetGame();
     gameRunning = true;
@@ -1028,16 +1056,44 @@ function loop(ts){
     if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
     update(dt);
     draw();
+    menuButtons.style.display = 'none';
   } else {
     drawMenu();
+    if (restartDelay <= 0) {
+      menuButtons.style.display = 'flex';
+    }
   }
   requestAnimationFrame(loop);
 }
 
-/* Keyboard: nudge one lane per keydown with simple debounce */
+/* ===== Menu buttons logic ===== */
+const startBtn = document.getElementById('startBtn');
+const changeBtn = document.getElementById('changeNameBtn');
+const menuButtons = document.getElementById('menuButtons');
+
+startBtn.addEventListener('click', ()=>{
+  if (!gameRunning && restartDelay <= 0) {
+    resetGame();
+    gameRunning = true;
+  }
+});
+
+changeBtn.addEventListener('click', ()=>{
+  localStorage.removeItem(NAME_KEY);
+  const n = getPlayerName();
+  alert('Player name set to: ' + n);
+});
+
+/* Keyboard: keep arrow start (desktop), mobile unaffected */
 let keyLock = false;
 document.addEventListener('keydown', e=>{
-  if (!gameRunning){ tryRestart(); }
+  if (!gameRunning){
+    // Allow keyboard start on desktop
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ') {
+      tryRestart();
+      return;
+    }
+  }
   if (keyLock) return;
   if (e.key === 'ArrowLeft'){
     if (currentLane > 0) currentLane--;
@@ -1051,14 +1107,14 @@ document.addEventListener('keyup', e=>{
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyLock = false;
 });
 
-/* Touch on canvas */
+/* Touch on canvas — no longer starts the game; only lane nudges while playing */
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
-  if (!gameRunning){ tryRestart(); }
+  if (!gameRunning) return; // don't start from tap
   touchStartX = e.touches[0].clientX;
 }, {passive: true});
 canvas.addEventListener('touchmove', e=>{
-  if (touchStartX === null) return;
+  if (!gameRunning || touchStartX === null) return;
   const dx = e.touches[0].clientX - touchStartX;
   if (dx > 50 && currentLane < 2){ currentLane++; touchStartX = e.touches[0].clientX; }
   else if (dx < -50 && currentLane > 0){ currentLane--; touchStartX = e.touches[0].clientX; }
@@ -1072,9 +1128,9 @@ const btn3 = document.getElementById('btnLane3');
 function nudgeLeft(){ if (currentLane > 0) currentLane--; }
 function nudgeRight(){ if (currentLane < 2) currentLane++; }
 
-function onPointerDownBtn1(e){ e.preventDefault(); btn1Down = true; if (!gameRunning){ tryRestart(); } nudgeLeft(); }
+function onPointerDownBtn1(e){ e.preventDefault(); btn1Down = true; if (gameRunning) nudgeLeft(); }
 function onPointerUpBtn1(e){ e.preventDefault(); btn1Down = false; if (!btn3Down && cheatCharges===0) cheatArmTimerMs = 0; }
-function onPointerDownBtn3(e){ e.preventDefault(); btn3Down = true; if (!gameRunning){ tryRestart(); } nudgeRight(); }
+function onPointerDownBtn3(e){ e.preventDefault(); btn3Down = true; if (gameRunning) nudgeRight(); }
 function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down && cheatCharges===0) cheatArmTimerMs = 0; }
 
 ['pointerdown'].forEach(evt=>{
@@ -1086,27 +1142,17 @@ function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down
   btn3.addEventListener(evt, onPointerUpBtn3, {passive:false});
 });
 
-/* Tap anywhere to nudge toward tap side */
+/* Tap anywhere to nudge toward tap side — only while playing */
 canvas.addEventListener('click', e=>{
-  if (!gameRunning){ tryRestart(); return; }
+  if (!gameRunning){ return; } // no tap-to-start
   const x = e.clientX;
   const center = lanesX()[currentLane];
   if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
 });
 
-/* =========================
-   Boot: prompt name, pull board, start loop
-   ========================= */
-getPlayerName();        // 👈 prompt once on load (mobile-friendly)
+/* Boot: pull initial board and start loop */
 fetchGlobalTop(20);
 requestAnimationFrame(loop);
-
-/* Change name button */
-document.getElementById('changeNameBtn').addEventListener('click', ()=>{
-  localStorage.removeItem(NAME_KEY);
-  const n = getPlayerName();
-  alert('Player name set to: ' + n);
-});
 </script>
 </body>
 </html>
