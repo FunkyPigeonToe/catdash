@@ -16,13 +16,15 @@
 
     /* Front & Menu buttons */
     .stack { position:fixed; display:none; z-index:9; left:50%; transform:translateX(-50%); pointer-events:auto; width:min(92vw,520px); }
-    #frontStack { top: 56%; }
+    /* Moved higher to avoid leaderboard overlap */
+    #frontStack { top: 40%; }
     #menuStack  { top: 78%; }
     .stack .buttons { display:flex; flex-direction:column; gap:12px; align-items:center; }
-    .btn { border:0; border-radius:14px; padding:12px 18px; font-size:17px; color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.35); -webkit-tap-highlight-color:transparent; }
+    /* Slightly smaller buttons */
+    .btn { border:0; border-radius:14px; padding:12px 18px; font-size:16px; color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.35); -webkit-tap-highlight-color:transparent; }
     .btn:active { transform:translateY(1px) scale(.98); }
-    .btn-primary { background:linear-gradient(180deg,var(--pink-hi) 0%, var(--pink) 100%); font-weight:800; min-width:220px; }
-    .btn-indigo  { background:var(--indigo); min-width:220px; }
+    .btn-primary { background:linear-gradient(180deg,var(--pink-hi) 0%, var(--pink) 100%); font-weight:800; min-width:200px; }
+    .btn-indigo  { background:var(--indigo); min-width:200px; }
     #fsNote { font-size:12px; opacity:.85; text-align:center; margin-top:4px; }
 
     /* On-screen arrows (in game only) */
@@ -85,22 +87,39 @@
   /* ========================= Controls ========================= */
   const controls=document.getElementById('controls');
   const CAT_Y_LIFT=-30; const BUTTON_Y_OFFSET=50;
-  function positionButtons(){ const btn1=document.getElementById('btnLane1'); const btn3=document.getElementById('btnLane3'); const lx=lanesX(); const baseY=H-Math.min(120,H*.12); const y=Math.min(H-10, baseY+BUTTON_Y_OFFSET); btn1.style.left=lx[0]+'px'; btn1.style.top=y+'px'; btn3.style.left=lx[2]+'px'; btn3.style.top=y+'px'; }
+  function positionButtons(){
+    const btn1=document.getElementById('btnLane1'); const btn3=document.getElementById('btnLane3');
+    const lx=lanesX();
+    const baseY=H-Math.min(120,H*.12);
+    const y=Math.min(H-10, baseY+BUTTON_Y_OFFSET);
+    btn1.style.left=lx[0]+'px'; btn1.style.top=y+'px';
+    btn3.style.left=lx[2]+'px'; btn3.style.top=y+'px';
+  }
   positionButtons();
 
-  /* ========================= Game state (unchanged core) ========================= */
-  let mode='front', currentLane=1, enemies=[], pickups=[], particles=[]; let score=0, fuel=100, meters=0; let spawnTimer=0, last=undefined, graceTimer=.75, restartDelay=0; let roadSpeed=226, maxSpeed=704, baseAccel=.6, slipTimer=0, slipOffset=0; let btn1Down=false, btn3Down=false, cheatArmTimerMs=0, cheatCharges=0, cheatRearmLock=false; const CHEAT_HOLD_TIME_MS=50; let cheatToastTimer=0, cheatToastText=''; let dashActive=false, dashTimer=0; const DASH_DURATION=8.0, DASH_SPEED_MUL=1.30, DASH_SCORE_MUL=2;
+  /* ========================= Game state ========================= */
+  let mode='front', currentLane=1, enemies=[], pickups=[], particles=[];
+  let score=0, fuel=100, meters=0;
+  let spawnTimer=0, last=undefined, graceTimer=.75, restartDelay=0;
+  let roadSpeed=226, maxSpeed=704, baseAccel=.6, slipTimer=0, slipOffset=0;
+  let btn1Down=false, btn3Down=false, cheatArmTimerMs=0, cheatCharges=0, cheatRearmLock=false;
+  const CHEAT_HOLD_TIME_MS=50;
+  let cheatToastTimer=0, cheatToastText='';
+  let dashActive=false, dashTimer=0;
+  const DASH_DURATION=8.0, DASH_SPEED_MUL=1.30, DASH_SCORE_MUL=2;
 
   /* ========================= Visual helpers ========================= */
   function withShadow(color='rgba(0,0,0,.35)', blur=8, oy=3, fn){ ctx.save(); ctx.shadowColor=color; ctx.shadowBlur=blur; ctx.shadowOffsetX=0; ctx.shadowOffsetY=oy; fn(); ctx.restore(); }
   function strokeAround(color='rgba(0,0,0,.35)', lw=2, fn){ ctx.save(); ctx.lineWidth=lw; ctx.strokeStyle=color; fn(); ctx.stroke(); ctx.restore(); }
 
   /* ========================= Background (game scenes) ========================= */
-  const FLOWER_SEG_METERS=400; const FLOWER_COLORS=['#ffec99','#ffd6e7','#c0ebff','#c3fda7','#ffd8a8','#eebefa','#b2f2bb']; const flowerSpots=[]; function initFlowerSpots(){ flowerSpots.length=0; const count=Math.max(80,Math.floor(W*H/11000)); for(let i=0;i<count;i++){ flowerSpots.push({x:Math.random()*W,y:Math.random()*H,r:1.2+Math.random()*1.4,rot:Math.random()*Math.PI*2,stem:Math.random()<.8}); } } initFlowerSpots();
+  const FLOWER_SEG_METERS=400; const FLOWER_COLORS=['#ffec99','#ffd6e7','#c0ebff','#c3fda7','#ffd8a8','#eebefa','#b2f2bb']; const flowerSpots=[];
+  function initFlowerSpots(){ flowerSpots.length=0; const count=Math.max(80,Math.floor(W*H/11000)); for(let i=0;i<count;i++){ flowerSpots.push({x:Math.random()*W,y:Math.random()*H,r:1.2+Math.random()*1.4,rot:Math.random()*Math.PI*2,stem:Math.random()<.8}); } }
+  initFlowerSpots();
   function drawBloom(x,y,s,color,rot){ ctx.save(); ctx.translate(x,y); ctx.rotate(rot); const pr=s*2.1, cr=s*1.1; ctx.fillStyle=color; for(let i=0;i<5;i++){ const a=(i/5)*Math.PI*2; ctx.beginPath(); ctx.ellipse(Math.cos(a)*s*1.1, Math.sin(a)*s*1.1, pr*.55, pr*.35, a, 0, Math.PI*2); ctx.fill(); } const g=ctx.createRadialGradient(0,0,0,0,0,cr); g.addColorStop(0,'rgba(255,255,220,.95)'); g.addColorStop(1,'rgba(255,255,220,.2)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,cr,0,Math.PI*2); ctx.fill(); ctx.restore(); }
   function drawBackground(){ const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#64b24a'); g.addColorStop(1,'#4d9c3b'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.fillStyle='rgba(40,90,40,.10)'; for(let y=0;y<H;y+=40){ for(let x=((y/40)%2===0?0:20); x<W; x+=40){ ctx.fillRect(x,y,10,10);} } const seg=Math.floor(meters/FLOWER_SEG_METERS)%FLOWER_COLORS.length; const color=FLOWER_COLORS[seg]; const lx=lanesX(), trailW=W/6; flowerSpots.forEach(f=>{ const inLane=(Math.abs(f.x-lx[0])<trailW/2)||(Math.abs(f.x-lx[1])<trailW/2)||(Math.abs(f.x-lx[2])<trailW/2); if(inLane) return; if(f.stem){ ctx.strokeStyle='rgba(20,80,20,.6)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(f.x,f.y+4); ctx.lineTo(f.x,f.y+8); ctx.stroke(); } drawBloom(f.x,f.y,f.r,color,f.rot); }); for(let i=0;i<3;i++){ const rg=ctx.createLinearGradient(0,0,0,H); rg.addColorStop(0,'#8b684f'); rg.addColorStop(1,'#6f523f'); ctx.fillStyle=rg; ctx.fillRect(lx[i]-trailW/2,0,trailW,H); ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fillRect(lx[i]-1,0,2,H);} }
 
-  /* ========================= Obstacles, pickups, cat, HUD (unchanged) ========================= */
+  /* ========================= Obstacles, pickups, cat, HUD ========================= */
   function drawTree(x,y,w,h){ withShadow('rgba(0,0,0,.35)',10,4,()=>{ const tw=w*.28, th=h*.48, tx=x-tw/2, ty=y+h*.12, r=tw*.35; ctx.fillStyle='#6d3f17'; ctx.beginPath(); ctx.moveTo(tx+r,ty); ctx.lineTo(tx+tw-r,ty); ctx.quadraticCurveTo(tx+tw,ty,tx+tw,ty+r); ctx.lineTo(tx+tw,ty+th-r); ctx.quadraticCurveTo(tx+tw,ty+th,tx+tw-r,ty+th); ctx.lineTo(tx+r,ty+th); ctx.quadraticCurveTo(tx,ty+th,tx,ty+th-r); ctx.lineTo(tx,ty+r); ctx.quadraticCurveTo(tx,ty,tx+r,ty); ctx.closePath(); ctx.fill(); const cx=x, cy=y-h*.06; const c1='#2e7d32', c2='#2f8c34', c3='#399c3a'; ctx.fillStyle=c2; ctx.beginPath(); ctx.arc(cx-w*.28,cy+h*.02,h*.25,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+w*.28,cy+h*.02,h*.25,0,Math.PI*2); ctx.fill(); ctx.fillStyle=c1; ctx.beginPath(); ctx.arc(cx,cy,h*.32,0,Math.PI*2); ctx.fill(); ctx.fillStyle=c3; ctx.beginPath(); ctx.arc(cx,cy-h*.22,h*.18,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,h*.32,0,Math.PI*2); ctx.stroke(); }); }
   function drawMud(x,y,w,h){ withShadow('rgba(0,0,0,.3)',8,3,()=>{ const g=ctx.createRadialGradient(x,y,2,x,y,Math.max(w,h)); g.addColorStop(0,'#6a4a3a'); g.addColorStop(1,'#3e2723'); ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); ctx.fill(); }); strokeAround('rgba(0,0,0,.35)',1.2,()=>{ ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); }); }
   function drawAdditiveGlow(x,y,r,a=.9){ ctx.save(); ctx.globalCompositeOperation='lighter'; const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,`rgba(255,215,0,${a})`); g.addColorStop(1,'rgba(255,215,0,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
@@ -127,20 +146,14 @@
   const CAT_MASCOT_NAME = 'Gingerbolt';
   let frontT=0;
   function drawFrontBackground(){
-    // Sunrise anime gradient
     const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#ff3d7f'); g.addColorStop(.45,'#ff7a3d'); g.addColorStop(1,'#ffe27a'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    // Radial burst
     const cx=W*.5, cy=H*.75, rays=90; ctx.save(); ctx.globalAlpha=.18; for(let i=0;i<rays;i++){ const a=(i/rays)*Math.PI*2 + Math.sin(frontT*.9+i)*.05; const len=Math.max(W,H)*1.2; const w=2 + (i%4===0?3:0) + Math.sin(frontT*2+i)*.5; ctx.strokeStyle = i%3===0? 'rgba(255,255,255,.75)': 'rgba(255,255,255,.45)'; ctx.lineWidth=w; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*len, cy+Math.sin(a)*len); ctx.stroke(); } ctx.restore();
-    // Vignette
     const vg=ctx.createRadialGradient(W/2,H*.65,Math.min(W,H)*.2, W/2,H*.65, Math.max(W,H)*.85); vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.38)'); ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
   }
   function drawFrontAnimation(){
     const baseY=H*.74; const travel=Math.min(280, W*.35); const phase=(Math.sin(frontT*.8)*.5+.5); const catX=W*.5 - travel/2 + phase*travel; const catY=baseY - 10 + Math.sin(frontT*3)*4;
-    // Aura
     for(let i=0;i<3;i++){ const r=60+i*18+Math.sin(frontT*2+i)*3; const ag=ctx.createRadialGradient(catX,catY-20,0,catX,catY-20,r); ag.addColorStop(0,'rgba(255,230,120,.55)'); ag.addColorStop(1,'rgba(255,230,120,0)'); ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(catX,catY-20,r,0,Math.PI*2); ctx.fill(); }
-    // Speed streaks
     ctx.save(); ctx.globalAlpha=.9; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=3; for(let i=0;i<8;i++){ const ox=-50 - i*14; const oy=Math.sin(frontT*10+i)*8; ctx.beginPath(); ctx.moveTo(catX+ox,catY+oy); ctx.lineTo(catX+ox-60, catY+oy-6); ctx.stroke(); } ctx.restore();
-    // Ginger dashing cat
     withShadow('rgba(0,0,0,.35)',14,6,()=>{
       ctx.strokeStyle='#d9782e'; ctx.lineWidth=8; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(catX-26,catY-6); ctx.lineTo(catX-44,catY-16); ctx.lineTo(catX-34,catY-28); ctx.lineTo(catX-52,catY-38); ctx.stroke();
       ctx.fillStyle='#e0812c'; ctx.beginPath(); ctx.ellipse(catX,catY,38,26,0,0,Math.PI*2); ctx.fill();
@@ -156,21 +169,21 @@
   }
   function drawFront(){
     drawFrontBackground();
-    // Anime title
     const title='CAT DASH'; ctx.save(); const fs=Math.floor(Math.min(W,H)*.13); ctx.font=`${fs}px Impact, 'Trebuchet MS', system-ui, sans-serif`; ctx.textAlign='center'; ctx.lineWidth=Math.max(6,fs*.06); ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.fillStyle='#2a0a0a'; const tx=W*.5, ty=H*.20; ctx.strokeText(title,tx,ty); ctx.fillText(title,tx,ty); ctx.restore();
-    // Subtitle
     const sub=`Starring ${CAT_MASCOT_NAME} — the ginger bolt!`; ctx.save(); ctx.font='18px system-ui, sans-serif'; ctx.fillStyle='rgba(255,255,255,.95)'; ctx.fillText(sub, (W-ctx.measureText(sub).width)/2, H*.24); ctx.restore();
     drawFrontAnimation();
-    // Leaderboard bottom-left
-    const margin=18; const baseY=H*.52; drawGlobalBoard(margin, baseY, Math.min(10, Math.floor((H-baseY-40)/18)-1)); drawVignette();
+    /* Leaderboard lower-left so buttons never cover it */
+    const margin=18; const baseY=H*.65;
+    drawGlobalBoard(margin, baseY, Math.min(10, Math.floor((H-baseY-40)/18)-1));
+    drawVignette();
   }
 
-  /* ========================= Spawning & collisions (unchanged) ========================= */
+  /* ========================= Spawning & collisions ========================= */
   const SPAWN_BUFFER_Y=70; function laneIsFree(x,y){ return !enemies.some(e=>e.x===x && Math.abs(e.y-y)<SPAWN_BUFFER_Y) && !pickups.some(p=>p.x===x && Math.abs(p.y-y)<SPAWN_BUFFER_Y); }
   function pickFreeLane(spawnY){ const lx=lanesX(); const c=[0,1,2].filter(i=>laneIsFree(lx[i],spawnY)); if(!c.length) return null; return c[Math.floor(Math.random()*c.length)]; }
   let lastPickupLane=null; function spawnEnemy(){ const lane=pickFreeLane(-60); if(lane==null) return; const lx=lanesX(); const type=Math.random()<.55?'tree':'mud'; enemies.push(type==='tree'?{type,x:lx[lane],y:-50,w:40,h:70}:{type,x:lx[lane],y:-40,w:56,h:24}); }
   function laneHasAnyEnemy(li){ const lx=lanesX(), x=lx[li]; return enemies.some(e=>e.x===x); }
-  function spawnPickup(){ const y=-40; if(enemies.some(e=>Math.abs(e.y-y)<SPAWN_BUFFER_Y) || pickups.some(p=>Math.abs(p.y-y)<SPAWN_BUFFER_Y)) return; const lx=lanesX(); let c=[0,1,2].filter(i=>laneIsFree(lx[i],y) && !laneHasAnyEnemy(i)); if(!c.length) return; const without=c.filter(l=>l!==lastPickupLane); const lane=(without.length?without:c)[Math.floor(Math.random()* (without.length?without.length:c.length))]; lastPickupLane=lane; const r=Math.random(); let type,golden=false, scale=1; if(r<.06){ type='dash'; scale=1.2;} else if(r<.46){ type='mouse'; golden=Math.random()<.25; scale=golden?1.2:1.0;} else if(r<.86){ type='bird'; golden=Math.random()<.25; scale=golden?1.25:1.05;} else if(r<.97){ type='lizard'; golden=Math.random()<.25; scale=golden?1.25:1.1;} else { type='chicken'; golden=true; scale=1.35;} const baseW= type==='bird'?30 : type==='mouse'?34 : type==='lizard'?36 : type==='chicken'?38 : 30; const baseH= type==='bird'?18 : type==='mouse'?18 : type==='lizard'?16 : type==='chicken'?22 : 30; const w=baseW*scale, h=baseH*scale; pickups.push({type,x:lx[lane],y,w,h,scale,golden}); }
+  function spawnPickup(){ const y=-40; if(enemies.some(e=>Math.abs(e.y-y)<SPAWN_BUFFER_Y) || pickups.some(p=>Math.abs(p.y-y)<SPAWN_BUFFER_Y)) return; const lx=lanesX(); let c=[0,1,2].filter(i=>laneIsFree(lx[i],y) && !laneHasAnyEnemy(i)); if(!c.length) return; const without=c.filter(l=>l!==lastPickupLane); const lane=(without.length?without:c)[Math.floor(Math.random()*(without.length?without.length:c.length))]; lastPickupLane=lane; const r=Math.random(); let type,golden=false, scale=1; if(r<.06){ type='dash'; scale=1.2;} else if(r<.46){ type='mouse'; golden=Math.random()<.25; scale=golden?1.2:1.0;} else if(r<.86){ type='bird'; golden=Math.random()<.25; scale=golden?1.25:1.05;} else if(r<.97){ type='lizard'; golden=Math.random()<.25; scale=golden?1.25:1.1;} else { type='chicken'; golden=true; scale=1.35;} const baseW= type==='bird'?30 : type==='mouse'?34 : type==='lizard'?36 : type==='chicken'?38 : 30; const baseH= type==='bird'?18 : type==='mouse'?18 : type==='lizard'?16 : type==='chicken'?22 : 30; const w=baseW*scale, h=baseH*scale; pickups.push({type,x:lx[lane],y,w,h,scale,golden}); }
 
   /* ========================= Update & draw loop ========================= */
   const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_Y_LIFT);
