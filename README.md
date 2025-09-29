@@ -10,7 +10,7 @@
     background: #333;
     color: #fff;
     font-family: system-ui, sans-serif;
-    height: 100dvh;               /* dynamic viewport (reduces Android top gap) */
+    height: 100dvh;
     overflow: hidden;
   }
   canvas {
@@ -19,20 +19,19 @@
     background: #6dbb4a;
     touch-action: none;
 
-    /* Android/GPU stability hints to reduce flicker */
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     transform: translateZ(0);
     will-change: transform;
   }
 
-  /* Mobile lane buttons (hidden on menu, shown in-game via JS) */
+  /* === On-screen arrows (hidden on front & menu, shown in-game) === */
   .controls {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 10;
-    display: none; /* JS shows while playing */
+    display: none;
   }
   .laneBtn {
     position: absolute;
@@ -48,13 +47,45 @@
   }
   .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
 
-  /* ===== Menu UI (Start + Change Name) — moved lower to avoid leaderboard ===== */
+  /* === Front page buttons (centered) === */
+  #frontButtons {
+    position: fixed;
+    left: 50%;
+    top: 68%;
+    transform: translate(-50%,-50%);
+    display: none; /* shown only in front */
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    z-index: 9999;
+    pointer-events: auto;
+  }
+  #frontButtons button {
+    background: #ff4081;
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 22px;
+    font-size: 18px;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+    -webkit-tap-highlight-color: transparent;
+  }
+  #frontButtons button:active { transform: scale(0.96); }
+  #playBtn {
+    background: linear-gradient(180deg, #ff6fa3 0%, #ff4081 100%);
+    font-weight: 700;
+    min-width: 240px;
+  }
+  #frontChangeNameBtn { background: #5865F2; min-width: 240px; }
+  #fsNote { font-size: 12px; opacity: 0.9; }
+
+  /* === Menu buttons (lower so they don’t block leaderboard) === */
   #menuButtons {
     position: fixed;
     left: 50%;
-    top: 76%;                       /* lower on the screen */
+    top: 76%;
     transform: translate(-50%,-50%);
-    display: none;                  /* shown only in menu */
+    display: none; /* shown only in menu */
     flex-direction: column;
     gap: 12px;
     align-items: center;
@@ -72,28 +103,31 @@
     -webkit-tap-highlight-color: transparent;
   }
   #menuButtons button:active { transform: scale(0.96); }
-
   #startBtn {
     background: linear-gradient(180deg, #ff6fa3 0%, #ff4081 100%);
     font-weight: 700;
     min-width: 220px;
   }
-  #changeNameBtn {
-    background: #5865F2;
-    min-width: 220px;
-  }
+  #changeNameBtn { background: #5865F2; min-width: 220px; }
 </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 
-<!-- Centered menu buttons (visible only in menu) -->
+<!-- FRONT: centered action buttons -->
+<div id="frontButtons">
+  <button id="playBtn" type="button">Play</button>
+  <button id="frontChangeNameBtn" type="button">Change Name</button>
+  <div id="fsNote">Tip: We’ll try to go fullscreen when you press Play.</div>
+</div>
+
+<!-- MENU: start + change name (not blocking leaderboard) -->
 <div id="menuButtons">
   <button id="startBtn" type="button">Start Game</button>
   <button id="changeNameBtn" type="button">Change Name</button>
 </div>
 
-<!-- On-screen lane arrows (hidden on menu, shown in-game) -->
+<!-- On-screen lane arrows (hidden on front & menu, shown in-game) -->
 <div id="controls" class="controls">
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
@@ -108,7 +142,7 @@
    ========================= */
 const SUPABASE_URL = 'https://fvcvrhaxxpsientgggnx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y3ZyaGF4eHBzaWVudGdnZ254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwODczMzYsImV4cCI6MjA3MTY2MzMzNn0.5wTxwGVJDa3gnS61gaDq00xSFGUMEQ0Pda6tJo4VK-A';
-const TABLE_NAME = 'highscores'; // ✅ name (PK), score (int/bigint), updated_at
+const TABLE_NAME = 'highscores'; // name (PK), score, updated_at
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const NAME_KEY = 'catdash_name';
@@ -140,22 +174,16 @@ async function fetchGlobalTop(limit=20){
     console.warn('Leaderboard fetch error:', err.message||err);
   }
 }
-
 async function submitBestIfHigher(name, score){
   try{
     const { data: existing, error: e1 } = await supa
-      .from(TABLE_NAME)
-      .select('score')
-      .eq('name', name)
-      .single();
-
+      .from(TABLE_NAME).select('score').eq('name', name).single();
     const prev = Number(existing?.score ?? 0);
     if (!e1 && score <= prev) return false;
 
     const payload = { name, score, updated_at: new Date().toISOString() };
     const { error: e2 } = await supa
-      .from(TABLE_NAME)
-      .upsert(payload, { onConflict: 'name' });
+      .from(TABLE_NAME).upsert(payload, { onConflict: 'name' });
     if (e2) throw e2;
 
     fetchGlobalTop(20);
@@ -197,18 +225,17 @@ function handleResize(){
   W = v.w; H = v.h;
   resizeCanvas();
   positionButtons();
-  initFlowerSpots(); // re-balance on orientation change
+  initFlowerSpots();
 }
 window.addEventListener('resize', handleResize, { passive: true });
 if (window.visualViewport){
   window.visualViewport.addEventListener('resize', handleResize, { passive: true });
   window.visualViewport.addEventListener('scroll', handleResize, { passive: true });
 }
-
 function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 
 /* =========================
-   Controls (mobile buttons)
+   Controls: on-screen arrows
    ========================= */
 const controls = document.getElementById('controls');
 const CAT_AND_BUTTON_OFFSET = 50;
@@ -226,50 +253,41 @@ function positionButtons(){
 positionButtons();
 
 /* =========================
-   Game State
+   Game State + Modes (front/menu/game)
    ========================= */
-let gameRunning = false;
+let mode = 'front'; // 'front' | 'menu' | 'game'
 let currentLane = 1;
-let enemies = [];   // {type:'tree'|'mud', x,y,w,h}
-let pickups = [];   // {type:'mouse'|'bird'|'lizard'|'chicken'|'dash', x,y,w,h,scale,golden}
+let enemies = [];
+let pickups = [];
 let particles = [];
-let score = 0;
-let fuel = 100;
-let meters = 0;
+let score = 0, fuel = 100, meters = 0;
 
 let spawnTimer = 0;
 let last = undefined;
 let graceTimer = 0.75;
+let restartDelay = 0;
 
-let restartDelay = 0; // ⏱️ delay before restart is allowed (seconds)
-
-let roadSpeed = 226;
-let maxSpeed  = 704;
+let roadSpeed = 226, maxSpeed = 704;
 const baseAccel = 0.6;
 let slipTimer = 0, slipOffset = 0;
 
-/* Cheat (hold both buttons ≥50ms to arm 2 tree ignores) */
+/* Cheat shield arm */
 let btn1Down = false, btn3Down = false;
-let cheatArmTimerMs = 0;
-let cheatCharges = 0;
-let cheatRearmLock = false;
+let cheatArmTimerMs = 0, cheatCharges = 0, cheatRearmLock = false;
 const CHEAT_HOLD_TIME_MS = 50;
 let cheatToastTimer = 0, cheatToastText = '';
 
 /* Dash Mode */
-let dashActive = false;
-let dashTimer = 0;
-const DASH_DURATION = 8.0;
-const DASH_SPEED_MUL = 1.30;
-const DASH_SCORE_MUL = 2;
+let dashActive = false, dashTimer = 0;
+const DASH_DURATION = 8.0, DASH_SPEED_MUL = 1.30, DASH_SCORE_MUL = 2;
 
 /* Flowers (colour shifts every 400 m) */
 const FLOWER_SEG_METERS = 400;
 const FLOWER_COLORS = ['#ffec99','#ffd6e7','#c0ebff','#c3fda7','#ffd8a8','#eebefa','#b2f2bb'];
-const flowerSpots = []; // static random positions
+const flowerSpots = [];
 function initFlowerSpots(){
   flowerSpots.length = 0;
-  const count = Math.max(80, Math.floor(W*H/11000)); // density
+  const count = Math.max(80, Math.floor(W*H/11000));
   for (let i=0;i<count;i++){
     flowerSpots.push({
       x: Math.random()*W,
@@ -305,9 +323,7 @@ function drawBloom(x, y, size, color, rot){
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate(rot);
-  const petalR = size*2.1;
-  const centerR = size*1.1;
-
+  const petalR = size*2.1, centerR = size*1.1;
   ctx.fillStyle = color;
   for (let i=0;i<5;i++){
     const ang = (i/5)*Math.PI*2;
@@ -315,7 +331,6 @@ function drawBloom(x, y, size, color, rot){
     ctx.ellipse(Math.cos(ang)*size*1.1, Math.sin(ang)*size*1.1, petalR*0.55, petalR*0.35, ang, 0, Math.PI*2);
     ctx.fill();
   }
-
   const g = ctx.createRadialGradient(0,0,0,0,0,centerR);
   g.addColorStop(0,'rgba(255,255,220,0.95)');
   g.addColorStop(1,'rgba(255,255,220,0.2)');
@@ -323,7 +338,6 @@ function drawBloom(x, y, size, color, rot){
   ctx.beginPath(); ctx.arc(0,0,centerR,0,Math.PI*2); ctx.fill();
   ctx.restore();
 }
-
 function drawBackground(){
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#64b24a'); g.addColorStop(1, '#4d9c3b');
@@ -336,8 +350,7 @@ function drawBackground(){
 
   const seg = Math.floor(meters / FLOWER_SEG_METERS) % FLOWER_COLORS.length;
   const color = FLOWER_COLORS[seg];
-  const lx = lanesX();
-  const trailW = W/6;
+  const lx = lanesX(), trailW = W/6;
 
   flowerSpots.forEach(f=>{
     const inLane =
@@ -514,7 +527,6 @@ function drawLightning(x, y, scale=1){
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
-
   ctx.fillStyle = 'gold';
   ctx.beginPath();
   ctx.moveTo(0, -15);
@@ -525,16 +537,13 @@ function drawLightning(x, y, scale=1){
   ctx.lineTo(4, 2);
   ctx.closePath();
   ctx.fill();
-
   ctx.lineWidth = 2.2;
   ctx.strokeStyle = '#000';
   ctx.stroke();
-
   ctx.shadowColor = 'rgba(255, 215, 0, 0.7)';
   ctx.shadowBlur = 12;
   ctx.fillStyle = 'gold';
   ctx.fill();
-
   ctx.restore();
 }
 
@@ -608,6 +617,7 @@ function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
     const bodyRx = w/1.6, bodyRy = h/1.15;
 
+    // Tail behind
     const tailLen   = h * 1.3;
     const tailBaseW = Math.max(3, w * 0.30);
     const t         = performance.now() * 0.008;
@@ -618,7 +628,6 @@ function drawCat(x, y, w, h){
 
     ctx.strokeStyle = '#a0522d';
     ctx.lineCap='round'; ctx.lineJoin='round';
-
     const N=16; let prevX=baseX, prevY=baseY;
     for(let i=1;i<=N;i++){
       const u=i/N, k=1-u;
@@ -630,15 +639,16 @@ function drawCat(x, y, w, h){
       prevX=px; prevY=py;
     }
 
+    // Body
     ctx.fillStyle = '#d2691e';
-    ctx.beginPath();
-    ctx.ellipse(x, y, bodyRx, bodyRy, 0, 0, Math.PI*2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x, y, bodyRx, bodyRy, 0, 0, Math.PI*2); ctx.fill();
 
+    // Head
     const headR = h*0.36;
     const hx = x, hy = y - h*0.78;
     ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
 
+    // Ears
     ctx.beginPath();
     ctx.moveTo(hx-headR*0.6,hy-headR*0.15);
     ctx.lineTo(hx-headR*0.25,hy-headR*1.0);
@@ -650,15 +660,16 @@ function drawCat(x, y, w, h){
     ctx.lineTo(hx,hy-headR*0.15);
     ctx.closePath(); ctx.fill();
 
+    // Belly patch
     ctx.fillStyle = '#a0522d';
-    ctx.beginPath();
-    ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2); ctx.fill();
 
+    // Eyes
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(hx-headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(hx+headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
 
+    // Whiskers
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(hx- headR*0.55, hy);   ctx.lineTo(hx- headR*1.1, hy-2);
@@ -728,7 +739,6 @@ function drawHUD(){
   if (txt){
     const wTxt = ctx.measureText(txt).width + 12;
     const x = W - wTxt - 10;
-    ctx.fillStyle = '#fff';
     ctx.fillText(txt, x, 28);
   }
 
@@ -800,7 +810,81 @@ function drawGlobalBoard(x, y){
 }
 
 /* =========================
-   Update & Draw
+   FRONT PAGE (animated cat chases mouse)
+   ========================= */
+let frontTime = 0;
+function drawFront(){
+  drawBackground();
+
+  // Title (centered, not at the top)
+  const title = 'CAT DASH';
+  ctx.save();
+  ctx.font = Math.floor(Math.min(W, H) * 0.10) + 'px "Trebuchet MS", system-ui, sans-serif';
+  const tw = ctx.measureText(title).width;
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 16;
+  ctx.fillText(title, (W - tw)/2, H*0.32);
+  ctx.restore();
+
+  // Funny loop: mouse runs left->right, cat chases
+  frontTime += 0.016;
+  const pathY = H*0.52;
+  const loopW = W + 200;
+  const t = (frontTime * 160) % loopW; // speed
+
+  const mouseX = -100 + t;
+  const catX   = mouseX - 120 + Math.sin(frontTime*3)*4; // bob a bit
+
+  // Mouse (little zoomy)
+  drawMouse(mouseX, pathY, 1.2, false);
+
+  // Cat (slightly bigger, playful)
+  drawCat(catX, pathY + Math.sin(frontTime*6)*4, 28, 40);
+
+  // Little “whoosh” lines behind mouse for humor
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(mouseX-24, pathY-6);
+  ctx.lineTo(mouseX-44, pathY-10);
+  ctx.moveTo(mouseX-24, pathY+6);
+  ctx.lineTo(mouseX-44, pathY+10);
+  ctx.stroke();
+  ctx.restore();
+
+  // Leaderboard preview at bottom
+  drawGlobalBoard(24, H-24-22*8); // show up to ~8 lines without overlap
+  drawVignette();
+}
+
+/* =========================
+   MENU (no title at top)
+   ========================= */
+function drawMenu(){
+  drawBackground();
+  ctx.fillStyle = '#fff';
+
+  // Small helper text (not a big title)
+  ctx.font = '14px system-ui, sans-serif';
+  const sub = 'Start to play • Change Name anytime';
+  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 70);
+
+  const lines = [
+    'Collect critters to score and refuel',
+    'Avoid trees and mud (mud slips!)',
+    '⚡ Lightning bolt = DASH (x2 score, faster)',
+    'Skip it if you like it chill'
+  ];
+  lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 96 + i*16));
+
+  drawGlobalBoard(24, 190);
+  drawVignette();
+}
+
+/* =========================
+   Update & Draw (game)
    ========================= */
 const PLAYER_Y = () => Math.min(H - 190, H * 0.64 + CAT_AND_BUTTON_OFFSET);
 
@@ -821,7 +905,6 @@ function armCheatIfHeld(dt){
     cheatRearmLock = false;
   }
 }
-
 function startDash(){
   if (dashActive) return;
   dashActive = true;
@@ -864,8 +947,7 @@ function update(dt){
 
   const px = lanesX()[currentLane] + slipOffset;
   const py = PLAYER_Y();
-  const pw = CAT_W - 4;
-  const ph = CAT_H - 2;
+  const pw = CAT_W - 4, ph = CAT_H - 2;
 
   armCheatIfHeld(dt);
 
@@ -939,6 +1021,15 @@ function update(dt){
 }
 
 function draw(){
+  if (mode === 'front'){
+    drawFront();
+    return;
+  }
+  if (mode === 'menu'){
+    drawMenu();
+    return;
+  }
+  // game
   drawBackground();
   enemies.forEach(e => { if (e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
   pickups.forEach(p=>{
@@ -955,38 +1046,14 @@ function draw(){
   drawVignette();
 }
 
-function drawMenu(){
-  drawBackground();
-  ctx.fillStyle = '#fff';
-
-  ctx.font = '16px system-ui, sans-serif';
-  const title = 'Cat Dash';
-  ctx.fillText(title, (W - ctx.measureText(title).width)/2, 56);
-
-  ctx.font = '14px system-ui, sans-serif';
-  const sub = 'Use Start to play • Change Name below';
-  ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 78);
-
-  const lines = [
-    'Collect critters to score and refuel',
-    'Avoid trees and mud (mud slips!)',
-    '⚡ Lightning bolt = DASH (x2 score, faster)',
-    'Skip it if you like it chill'
-  ];
-  lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 100 + i*16));
-
-  drawGlobalBoard(24, 190);
-  drawVignette();
-}
-
 /* =========================
-   Control (with restart delay)
+   Control / Flow
    ========================= */
 function endGame(){
-  gameRunning = false;
+  mode = 'menu';
   const n = getPlayerName();
   submitBestIfHigher(n, Math.round(score));
-  restartDelay = 1.0; // lock input for 1s
+  restartDelay = 1.0;
 }
 function resetGame(){
   enemies = [];
@@ -1011,13 +1078,24 @@ function resetGame(){
   initFlowerSpots();
 }
 
-function tryRestart(){
-  if (!gameRunning && restartDelay <= 0){
-    resetGame();
-    gameRunning = true;
+/* Fullscreen helper (called on Play/Start) */
+async function goFullscreen(){
+  try {
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) {
+      await el.requestFullscreen();
+    }
+  } catch(e){
+    // ignore errors; some browsers require user gesture or block
   }
 }
 
+function startGame(){
+  resetGame();
+  mode = 'game';
+}
+
+/* Main loop */
 function loop(ts){
   if (last === undefined) last = ts;
   let dt = (ts - last) / 1000;
@@ -1025,50 +1103,64 @@ function loop(ts){
   dt = Math.min(dt, 0.05);
   last = ts;
 
-  if (restartDelay > 0) restartDelay = Math.max(0, restartDelay - dt);
-
-  if (gameRunning){
+  if (mode === 'game'){
+    if (restartDelay > 0) restartDelay = Math.max(0, restartDelay - dt);
     if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
     update(dt);
-    draw();
-    // Hide menu UI, show arrow controls
-    menuButtons.style.display = 'none';
+    // show arrows only in-game
     controls.style.display = 'block';
-  } else {
-    drawMenu();
-    // Show menu UI, hide arrow controls
-    if (restartDelay <= 0) {
-      menuButtons.style.display = 'flex';
-    }
+    frontButtons.style.display = 'none';
+    menuButtons.style.display = 'none';
+  } else if (mode === 'menu'){
     controls.style.display = 'none';
+    frontButtons.style.display = 'none';
+    menuButtons.style.display = 'flex';
+  } else { // front
+    controls.style.display = 'none';
+    frontButtons.style.display = 'flex';
+    menuButtons.style.display = 'none';
   }
+
+  draw();
   requestAnimationFrame(loop);
 }
 
-/* ===== Menu buttons logic ===== */
+/* ===== Buttons / Inputs ===== */
+const menuButtons = document.getElementById('menuButtons');
 const startBtn = document.getElementById('startBtn');
 const changeBtn = document.getElementById('changeNameBtn');
-const menuButtons = document.getElementById('menuButtons');
 
-startBtn.addEventListener('click', ()=>{
-  if (!gameRunning && restartDelay <= 0) {
-    resetGame();
-    gameRunning = true;
-  }
+const frontButtons = document.getElementById('frontButtons');
+const playBtn = document.getElementById('playBtn');
+const frontChangeNameBtn = document.getElementById('frontChangeNameBtn');
+
+playBtn.addEventListener('click', async ()=>{
+  await goFullscreen();
+  startGame();
+});
+frontChangeNameBtn.addEventListener('click', ()=>{
+  localStorage.removeItem(NAME_KEY);
+  const n = getPlayerName();
+  alert('Player name set to: ' + n);
 });
 
+startBtn.addEventListener('click', async ()=>{
+  await goFullscreen();
+  startGame();
+});
 changeBtn.addEventListener('click', ()=>{
   localStorage.removeItem(NAME_KEY);
   const n = getPlayerName();
   alert('Player name set to: ' + n);
 });
 
-/* Keyboard: keep arrow start (desktop), mobile unaffected */
+/* Keyboard (desktop): space or arrows start from menu/front */
 let keyLock = false;
-document.addEventListener('keydown', e=>{
-  if (!gameRunning){
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ') {
-      tryRestart();
+document.addEventListener('keydown', async e=>{
+  if (mode !== 'game'){
+    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+      await goFullscreen();
+      startGame();
       return;
     }
   }
@@ -1085,32 +1177,29 @@ document.addEventListener('keyup', e=>{
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyLock = false;
 });
 
-/* Touch on canvas — no tap-to-start; only nudges while playing */
+/* Touch on canvas — only nudges while playing */
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
-  if (!gameRunning) return;
+  if (mode !== 'game') return;
   touchStartX = e.touches[0].clientX;
 }, {passive: true});
 canvas.addEventListener('touchmove', e=>{
-  if (!gameRunning || touchStartX === null) return;
+  if (mode !== 'game' || touchStartX === null) return;
   const dx = e.touches[0].clientX - touchStartX;
   if (dx > 50 && currentLane < 2){ currentLane++; touchStartX = e.touches[0].clientX; }
   else if (dx < -50 && currentLane > 0){ currentLane--; touchStartX = e.touches[0].clientX; }
 }, {passive: true});
 canvas.addEventListener('touchend', ()=>{ touchStartX = null; });
 
-/* Lane buttons — pointer events so we can track hold state */
+/* Lane buttons */
 const btn1 = document.getElementById('btnLane1');
 const btn3 = document.getElementById('btnLane3');
-
 function nudgeLeft(){ if (currentLane > 0) currentLane--; }
 function nudgeRight(){ if (currentLane < 2) currentLane++; }
-
-function onPointerDownBtn1(e){ e.preventDefault(); btn1Down = true; if (gameRunning) nudgeLeft(); }
+function onPointerDownBtn1(e){ e.preventDefault(); btn1Down = true; if (mode==='game') nudgeLeft(); }
 function onPointerUpBtn1(e){ e.preventDefault(); btn1Down = false; if (!btn3Down && cheatCharges===0) cheatArmTimerMs = 0; }
-function onPointerDownBtn3(e){ e.preventDefault(); btn3Down = true; if (gameRunning) nudgeRight(); }
+function onPointerDownBtn3(e){ e.preventDefault(); btn3Down = true; if (mode==='game') nudgeRight(); }
 function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down && cheatCharges===0) cheatArmTimerMs = 0; }
-
 ['pointerdown'].forEach(evt=>{
   btn1.addEventListener(evt, onPointerDownBtn1, {passive:false});
   btn3.addEventListener(evt, onPointerDownBtn3, {passive:false});
@@ -1120,15 +1209,7 @@ function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down
   btn3.addEventListener(evt, onPointerUpBtn3, {passive:false});
 });
 
-/* Tap anywhere to nudge toward tap side — only while playing */
-canvas.addEventListener('click', e=>{
-  if (!gameRunning){ return; }
-  const x = e.clientX;
-  const center = lanesX()[currentLane];
-  if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
-});
-
-/* Boot: pull initial board and start loop */
+/* Boot */
 fetchGlobalTop(20);
 requestAnimationFrame(loop);
 </script>
