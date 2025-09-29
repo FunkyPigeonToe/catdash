@@ -4,12 +4,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Cat Dash</title>
 <style>
+  :root{
+    --pink:#ff4081;
+    --pink-hi:#ff6fa3;
+    --indigo:#5865F2;
+    --bg:#12161c;
+    --panel: rgba(0,0,0,0.35);
+  }
   html, body {
     margin: 0;
     padding: 0;
-    background: #333;
+    background: var(--bg);
     color: #fff;
-    font-family: system-ui, sans-serif;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
     height: 100dvh;
     overflow: hidden;
   }
@@ -25,7 +32,38 @@
     will-change: transform;
   }
 
-  /* === On-screen arrows (hidden on front & menu, shown in-game) === */
+  /* --- Front & Menu Buttons (centered, neat spacing) --- */
+  .stack {
+    position: fixed;
+    display: none;
+    z-index: 9999;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: auto;
+    width: min(92vw, 520px);
+  }
+  #frontStack {
+    top: 64%;
+  }
+  #menuStack {
+    top: 78%;
+  }
+  .stack .buttons {
+    display: flex; flex-direction: column; gap: 12px; align-items: center;
+  }
+  .btn {
+    border: 0; border-radius: 14px; padding: 14px 22px; font-size: 18px; color: #fff;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { transform: translateY(1px) scale(0.98); }
+  .btn-primary { background: linear-gradient(180deg, var(--pink-hi) 0%, var(--pink) 100%); font-weight: 700; min-width: 240px; }
+  .btn-indigo  { background: var(--indigo); min-width: 240px; }
+
+  /* Small note line */
+  #fsNote { font-size: 12px; opacity: 0.85; text-align: center; margin-top: 4px; }
+
+  /* --- On-screen arrows (only shown in game) --- */
   .controls {
     position: fixed;
     inset: 0;
@@ -47,87 +85,33 @@
   }
   .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
 
-  /* === Front page buttons (centered) === */
-  #frontButtons {
-    position: fixed;
-    left: 50%;
-    top: 68%;
-    transform: translate(-50%,-50%);
-    display: none; /* shown only in front */
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;
-    z-index: 9999;
-    pointer-events: auto;
+  /* Helpful responsive tweak: hide arrows on big screens */
+  @media (min-width: 900px) {
+    .controls { display: none !important; }
   }
-  #frontButtons button {
-    background: #ff4081;
-    color: #fff;
-    border: none;
-    border-radius: 14px;
-    padding: 14px 22px;
-    font-size: 18px;
-    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
-    -webkit-tap-highlight-color: transparent;
-  }
-  #frontButtons button:active { transform: scale(0.96); }
-  #playBtn {
-    background: linear-gradient(180deg, #ff6fa3 0%, #ff4081 100%);
-    font-weight: 700;
-    min-width: 240px;
-  }
-  #frontChangeNameBtn { background: #5865F2; min-width: 240px; }
-  #fsNote { font-size: 12px; opacity: 0.9; }
-
-  /* === Menu buttons (lower so they don’t block leaderboard) === */
-  #menuButtons {
-    position: fixed;
-    left: 50%;
-    top: 76%;
-    transform: translate(-50%,-50%);
-    display: none; /* shown only in menu */
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;
-    z-index: 9999;
-    pointer-events: auto;
-  }
-  #menuButtons button {
-    background: #ff4081;
-    color: #fff;
-    border: none;
-    border-radius: 14px;
-    padding: 14px 22px;
-    font-size: 18px;
-    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
-    -webkit-tap-highlight-color: transparent;
-  }
-  #menuButtons button:active { transform: scale(0.96); }
-  #startBtn {
-    background: linear-gradient(180deg, #ff6fa3 0%, #ff4081 100%);
-    font-weight: 700;
-    min-width: 220px;
-  }
-  #changeNameBtn { background: #5865F2; min-width: 220px; }
 </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 
-<!-- FRONT: centered action buttons -->
-<div id="frontButtons">
-  <button id="playBtn" type="button">Play</button>
-  <button id="frontChangeNameBtn" type="button">Change Name</button>
-  <div id="fsNote">Tip: We’ll try to go fullscreen when you press Play.</div>
+<!-- FRONT (centered actions) -->
+<div id="frontStack" class="stack">
+  <div class="buttons">
+    <button id="playBtn" class="btn btn-primary" type="button">Play</button>
+    <button id="frontChangeNameBtn" class="btn btn-indigo" type="button">Change Name</button>
+    <div id="fsNote">Tip: Play tries to go fullscreen</div>
+  </div>
 </div>
 
-<!-- MENU: start + change name (not blocking leaderboard) -->
-<div id="menuButtons">
-  <button id="startBtn" type="button">Start Game</button>
-  <button id="changeNameBtn" type="button">Change Name</button>
+<!-- MENU (below leaderboard area) -->
+<div id="menuStack" class="stack">
+  <div class="buttons">
+    <button id="startBtn" class="btn btn-primary" type="button">Start Game</button>
+    <button id="changeNameBtn" class="btn btn-indigo" type="button">Change Name</button>
+  </div>
 </div>
 
-<!-- On-screen lane arrows (hidden on front & menu, shown in-game) -->
+<!-- In-game lane arrows -->
 <div id="controls" class="controls">
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
@@ -235,7 +219,7 @@ if (window.visualViewport){
 function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 
 /* =========================
-   Controls: on-screen arrows
+   Controls: on-screen arrows (only in-game)
    ========================= */
 const controls = document.getElementById('controls');
 const CAT_AND_BUTTON_OFFSET = 50;
@@ -317,7 +301,7 @@ function strokeAround(strokeStyle='rgba(0,0,0,0.35)', lineWidth=2, drawPathFn){
 }
 
 /* =========================
-   Background + Flowers + Trails
+   Background + Flowers + Trails (game scenes)
    ========================= */
 function drawBloom(x, y, size, color, rot){
   ctx.save();
@@ -363,9 +347,7 @@ function drawBackground(){
       ctx.strokeStyle = 'rgba(20,80,20,0.6)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(f.x, f.y+4);
-      ctx.lineTo(f.x, f.y+8);
-      ctx.stroke();
+      ctx.moveTo(f.x, f.y+4); ctx.lineTo(f.x, f.y+8); ctx.stroke();
     }
     drawBloom(f.x, f.y, f.r, color, f.rot);
   });
@@ -379,7 +361,7 @@ function drawBackground(){
 }
 
 /* =========================
-   Trees & Mud
+   Trees & Mud (game)
    ========================= */
 function drawTree(x,y,w,h){
   withShadow('rgba(0,0,0,0.35)', 10, 4, ()=>{
@@ -548,7 +530,7 @@ function drawLightning(x, y, scale=1){
 }
 
 /* =========================
-   Spawning & placement
+   Spawning & placement (game)
    ========================= */
 const SPAWN_BUFFER_Y = 70;
 function laneIsFree(x, y){
@@ -726,7 +708,7 @@ function drawParticles(){
 }
 
 /* =========================
-   HUD & overlays & board
+   HUD & overlays & board (game/menu/front use)
    ========================= */
 function drawHUD(){
   ctx.fillStyle = '#fff'; ctx.font = '16px system-ui, sans-serif';
@@ -783,14 +765,11 @@ function drawDashOverlay(){
   ctx.lineWidth = 2;
   for (let i=0;i<6;i++){
     const x = (i+0.5) * (W/6);
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x + (Math.random()*8-4), H);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + (Math.random()*8-4), H); ctx.stroke();
   }
   ctx.restore();
 }
-function drawGlobalBoard(x, y){
+function drawGlobalBoard(x, y, maxRows=20){
   ctx.fillStyle = '#fff';
   ctx.font = '18px system-ui, sans-serif';
   ctx.fillText('Global Top 20', x, y);
@@ -801,85 +780,178 @@ function drawGlobalBoard(x, y){
     if (performance.now() - lastBoardFetch > 5000) fetchGlobalTop(20);
     return;
   }
-  for (let i=0; i<globalBoard.length && i<20; i++){
+  const rows = Math.min(maxRows, globalBoard.length);
+  for (let i=0; i<rows; i++){
     const e = globalBoard[i];
     const name = (e.name || '???').slice(0,12).padEnd(12, ' ');
-    const line = `${String(i+1).padStart(2,' ')}. ${name}  ${String(Number(e.score||0)).padStart(5,' ')}  ${String((e.updated_at||'').slice(0,10))}`;
+    const line = `${String(i+1).padStart(2,' ')}. ${name}  ${String(Number(e.score||0)).padStart(6,' ')}  ${String((e.updated_at||'').slice(0,10))}`;
     ctx.fillText(line, x, y + 22 + i*18);
   }
 }
 
 /* =========================
-   FRONT PAGE (animated cat chases mouse)
+   BRAND-NEW FRONT PAGE
+   Clean layout + fresh background + new animation
    ========================= */
-let frontTime = 0;
-function drawFront(){
-  drawBackground();
+let frontT = 0;
+const clouds = Array.from({length: 6}, ()=>({
+  x: Math.random(), y: Math.random()*0.25 + 0.05, s: Math.random()*0.5 + 0.7, v: Math.random()*0.015 + 0.01
+}));
 
-  // Title (centered, not at the top)
+function drawFrontBackground(){
+  // Sky gradient
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0, '#6ec8ff');   // light blue
+  sky.addColorStop(0.6, '#9be1ff'); // softer
+  sky.addColorStop(1, '#b7f0ff');   // horizon
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+
+  // Sun pulse
+  const sunR = Math.min(W,H)*0.08 + Math.sin(frontT*2)*3;
+  const sunX = W*0.14, sunY = H*0.18;
+  const g = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR*2.2);
+  g.addColorStop(0,'rgba(255,255,160,1)');
+  g.addColorStop(1,'rgba(255,255,160,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sunX, sunY, sunR*2.2, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff8b0'; ctx.beginPath(); ctx.arc(sunX, sunY, sunR, 0, Math.PI*2); ctx.fill();
+
+  // Soft clouds (parallax)
+  clouds.forEach(c=>{
+    c.x += c.v * 0.016; if (c.x > 1.2) c.x = -0.2;
+    const cx = c.x * W, cy = c.y * H;
+    ctx.save(); ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 70*c.s, 40*c.s, 0, 0, Math.PI*2);
+    ctx.ellipse(cx+50*c.s, cy+5*c.s, 60*c.s, 32*c.s, 0, 0, Math.PI*2);
+    ctx.ellipse(cx-50*c.s, cy+8*c.s, 55*c.s, 30*c.s, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Rolling hills (two layers)
+  function hill(yBase, amp, color, scale){
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0,H);
+    for(let x=0; x<=W; x+=8){
+      const y = yBase + Math.sin((x/W)*Math.PI*2*scale + frontT*0.3)*amp;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W,H);
+    ctx.closePath(); ctx.fill();
+  }
+  hill(H*0.78, 14, '#6bbf6b', 1.1); // back hill
+  hill(H*0.85, 20, '#46a445', 0.7); // front hill
+}
+
+function drawFrontAnimation(){
+  // New animation: cat batting a rolling yarn ball on the grass
+  const groundY = H*0.86;
+  const trackL = W*0.18, trackR = W*0.82;
+
+  // Yarn ball rolls back and forth
+  const cycle = 5.5; // seconds
+  const phase = (frontT % cycle) / cycle; // 0..1
+  const tri = phase < 0.5 ? (phase/0.5) : (1 - (phase-0.5)/0.5); // 0..1..0
+  const yarnX = trackL + (trackR - trackL) * tri;
+  const yarnY = groundY - 10 + Math.sin(frontT*8)*1.2;
+
+  // Yarn: ball with wrap lines
+  const r = 16;
+  withShadow('rgba(0,0,0,0.25)', 8, 2, ()=>{
+    ctx.fillStyle = '#ff6fa3';
+    ctx.beginPath(); ctx.arc(yarnX, yarnY, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#ff3f88'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(yarnX, yarnY, r-3, 0.2+frontT*1.2, Math.PI*1.3+frontT*1.2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(yarnX, yarnY, r-7, 0.8+frontT*1.2, Math.PI*1.8+frontT*1.2); ctx.stroke();
+    // Little trailing string
+    ctx.beginPath(); ctx.moveTo(yarnX+r-2, yarnY-2);
+    ctx.quadraticCurveTo(yarnX+r+10, yarnY+3, yarnX+r+20, yarnY-4);
+    ctx.stroke();
+  });
+
+  // Cat: sits, then bats paw when ball near
+  let catX = yarnX - 60, catY = groundY - 6 + Math.sin(frontT*3)*1.5;
+  // keep cat within screen
+  catX = Math.max(60, Math.min(W-60, catX));
+
+  // simple sitting cat with little paw bat
+  const bat = Math.max(0, 1 - Math.abs(yarnX - (catX+54)) / 50); // 0..1 when close
+  const pawLift = bat * 8 * Math.sin(frontT*12);
+
+  // Body (ellipse) + head
+  withShadow('rgba(0,0,0,0.25)', 10, 3, ()=>{
+    // tail backdrop (subtle)
+    ctx.strokeStyle = '#9a4c1f';
+    ctx.lineCap='round';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(catX-24, catY+6);
+    ctx.quadraticCurveTo(catX-44, catY-6, catX-30, catY-22);
+    ctx.stroke();
+
+    // body
+    ctx.fillStyle = '#d2691e';
+    ctx.beginPath(); ctx.ellipse(catX, catY, 26, 20, 0, 0, Math.PI*2); ctx.fill();
+    // head
+    ctx.beginPath(); ctx.arc(catX+24, catY-20, 12, 0, Math.PI*2); ctx.fill();
+    // ears
+    ctx.beginPath();
+    ctx.moveTo(catX+16, catY-24); ctx.lineTo(catX+22, catY-36); ctx.lineTo(catX+28, catY-24); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(catX+28, catY-24); ctx.lineTo(catX+34, catY-36); ctx.lineTo(catX+40, catY-24); ctx.closePath(); ctx.fill();
+    // tummy
+    ctx.fillStyle = '#a0522d';
+    ctx.beginPath(); ctx.ellipse(catX, catY+2, 12, 10, 0, 0, Math.PI*2); ctx.fill();
+    // eyes
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(catX+20, catY-20, 2.6, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(catX+28, catY-20, 2.6, 0, Math.PI*2); ctx.fill();
+
+    // front paw (bat)
+    ctx.fillStyle = '#d2691e';
+    ctx.beginPath();
+    ctx.ellipse(catX+54, catY-2 - pawLift, 8, 5, 0.2, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+function drawFront(){
+  drawFrontBackground();
+
+  // Big centered title (clear, modern)
   const title = 'CAT DASH';
   ctx.save();
-  ctx.font = Math.floor(Math.min(W, H) * 0.10) + 'px "Trebuchet MS", system-ui, sans-serif';
-  const tw = ctx.measureText(title).width;
+  ctx.font = Math.floor(Math.min(W, H) * 0.12) + 'px "Trebuchet MS", system-ui, sans-serif';
+  ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 16;
-  ctx.fillText(title, (W - tw)/2, H*0.32);
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 18;
+  ctx.fillText(title, W*0.5, H*0.24);
   ctx.restore();
 
-  // Funny loop: mouse runs left->right, cat chases
-  frontTime += 0.016;
-  const pathY = H*0.52;
-  const loopW = W + 200;
-  const t = (frontTime * 160) % loopW; // speed
+  // New animation area
+  drawFrontAnimation();
 
-  const mouseX = -100 + t;
-  const catX   = mouseX - 120 + Math.sin(frontTime*3)*4; // bob a bit
-
-  // Mouse (little zoomy)
-  drawMouse(mouseX, pathY, 1.2, false);
-
-  // Cat (slightly bigger, playful)
-  drawCat(catX, pathY + Math.sin(frontTime*6)*4, 28, 40);
-
-  // Little “whoosh” lines behind mouse for humor
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(mouseX-24, pathY-6);
-  ctx.lineTo(mouseX-44, pathY-10);
-  ctx.moveTo(mouseX-24, pathY+6);
-  ctx.lineTo(mouseX-44, pathY+10);
-  ctx.stroke();
-  ctx.restore();
-
-  // Leaderboard preview at bottom
-  drawGlobalBoard(24, H-24-22*8); // show up to ~8 lines without overlap
+  // Leaderboard panel on left/bottom — spaced so it never collides with buttons
+  const margin = 24;
+  const baseY = H*0.50;
+  drawGlobalBoard(margin, baseY, Math.min(10, Math.floor((H-baseY-40)/18)-1));
   drawVignette();
 }
 
 /* =========================
-   MENU (no title at top)
+   MENU (minimal helper copy; leaderboard clear)
    ========================= */
 function drawMenu(){
-  drawBackground();
+  // Reuse front background for consistency
+  drawFrontBackground();
   ctx.fillStyle = '#fff';
-
-  // Small helper text (not a big title)
   ctx.font = '14px system-ui, sans-serif';
-  const sub = 'Start to play • Change Name anytime';
+  const sub = 'Collect snacks • Avoid trees & mud • Grab ⚡ for Dash';
   ctx.fillText(sub, (W - ctx.measureText(sub).width)/2, 70);
 
-  const lines = [
-    'Collect critters to score and refuel',
-    'Avoid trees and mud (mud slips!)',
-    '⚡ Lightning bolt = DASH (x2 score, faster)',
-    'Skip it if you like it chill'
-  ];
-  lines.forEach((line,i)=> ctx.fillText(line, (W - ctx.measureText(line).width)/2, 96 + i*16));
-
-  drawGlobalBoard(24, 190);
+  drawGlobalBoard(24, 150, 14);
   drawVignette();
 }
 
@@ -1022,6 +1094,7 @@ function update(dt){
 
 function draw(){
   if (mode === 'front'){
+    frontT += 0.016;
     drawFront();
     return;
   }
@@ -1078,18 +1151,15 @@ function resetGame(){
   initFlowerSpots();
 }
 
-/* Fullscreen helper (called on Play/Start) */
+/* Fullscreen helper */
 async function goFullscreen(){
   try {
     const el = document.documentElement;
     if (!document.fullscreenElement && el.requestFullscreen) {
       await el.requestFullscreen();
     }
-  } catch(e){
-    // ignore errors; some browsers require user gesture or block
-  }
+  } catch(e){}
 }
-
 function startGame(){
   resetGame();
   mode = 'game';
@@ -1107,18 +1177,17 @@ function loop(ts){
     if (restartDelay > 0) restartDelay = Math.max(0, restartDelay - dt);
     if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
     update(dt);
-    // show arrows only in-game
     controls.style.display = 'block';
-    frontButtons.style.display = 'none';
-    menuButtons.style.display = 'none';
+    frontStack.style.display = 'none';
+    menuStack.style.display = 'none';
   } else if (mode === 'menu'){
     controls.style.display = 'none';
-    frontButtons.style.display = 'none';
-    menuButtons.style.display = 'flex';
+    frontStack.style.display = 'none';
+    menuStack.style.display = 'block';
   } else { // front
     controls.style.display = 'none';
-    frontButtons.style.display = 'flex';
-    menuButtons.style.display = 'none';
+    frontStack.style.display = 'block';
+    menuStack.style.display = 'none';
   }
 
   draw();
@@ -1126,11 +1195,11 @@ function loop(ts){
 }
 
 /* ===== Buttons / Inputs ===== */
-const menuButtons = document.getElementById('menuButtons');
+const menuStack = document.getElementById('menuStack');
 const startBtn = document.getElementById('startBtn');
 const changeBtn = document.getElementById('changeNameBtn');
 
-const frontButtons = document.getElementById('frontButtons');
+const frontStack = document.getElementById('frontStack');
 const playBtn = document.getElementById('playBtn');
 const frontChangeNameBtn = document.getElementById('frontChangeNameBtn');
 
@@ -1154,7 +1223,7 @@ changeBtn.addEventListener('click', ()=>{
   alert('Player name set to: ' + n);
 });
 
-/* Keyboard (desktop): space or arrows start from menu/front */
+/* Keyboard (desktop): space or arrows start from front/menu */
 let keyLock = false;
 document.addEventListener('keydown', async e=>{
   if (mode !== 'game'){
