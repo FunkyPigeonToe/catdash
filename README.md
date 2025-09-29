@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -27,12 +26,13 @@
     will-change: transform;
   }
 
-  /* Mobile lane buttons */
+  /* Mobile lane buttons (hidden on menu, shown in-game via JS) */
   .controls {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 10;
+    display: none; /* JS shows while playing */
   }
   .laneBtn {
     position: absolute;
@@ -48,17 +48,13 @@
   }
   .laneBtn:active { transform: translate(-50%, -50%) scale(0.96); }
 
-  @media (min-width: 900px) {
-    .controls { display: none; }
-  }
-
-  /* ===== Menu UI (Start + Change Name) ===== */
+  /* ===== Menu UI (Start + Change Name) — moved lower to avoid leaderboard ===== */
   #menuButtons {
     position: fixed;
     left: 50%;
-    top: 50%;
-    transform: translate(-50%,-40%); /* slightly above center, looks nicer under title */
-    display: none; /* shown only in menu */
+    top: 76%;                       /* lower on the screen */
+    transform: translate(-50%,-50%);
+    display: none;                  /* shown only in menu */
     flex-direction: column;
     gap: 12px;
     align-items: center;
@@ -77,7 +73,6 @@
   }
   #menuButtons button:active { transform: scale(0.96); }
 
-  /* Make the primary button pop */
   #startBtn {
     background: linear-gradient(180deg, #ff6fa3 0%, #ff4081 100%);
     font-weight: 700;
@@ -98,6 +93,7 @@
   <button id="changeNameBtn" type="button">Change Name</button>
 </div>
 
+<!-- On-screen lane arrows (hidden on menu, shown in-game) -->
 <div id="controls" class="controls">
   <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
   <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
@@ -154,9 +150,7 @@ async function submitBestIfHigher(name, score){
       .single();
 
     const prev = Number(existing?.score ?? 0);
-    if (!e1 && score <= prev) {
-      return false; // don’t update if score is lower or equal
-    }
+    if (!e1 && score <= prev) return false;
 
     const payload = { name, score, updated_at: new Date().toISOString() };
     const { error: e2 } = await supa
@@ -216,6 +210,7 @@ function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 /* =========================
    Controls (mobile buttons)
    ========================= */
+const controls = document.getElementById('controls');
 const CAT_AND_BUTTON_OFFSET = 50;
 function positionButtons(){
   const btn1 = document.getElementById('btnLane1');
@@ -307,14 +302,12 @@ function strokeAround(strokeStyle='rgba(0,0,0,0.35)', lineWidth=2, drawPathFn){
    Background + Flowers + Trails
    ========================= */
 function drawBloom(x, y, size, color, rot){
-  // simple 5-petal bloom with soft center — inexpensive to draw
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate(rot);
   const petalR = size*2.1;
   const centerR = size*1.1;
 
-  // petals
   ctx.fillStyle = color;
   for (let i=0;i<5;i++){
     const ang = (i/5)*Math.PI*2;
@@ -322,7 +315,7 @@ function drawBloom(x, y, size, color, rot){
     ctx.ellipse(Math.cos(ang)*size*1.1, Math.sin(ang)*size*1.1, petalR*0.55, petalR*0.35, ang, 0, Math.PI*2);
     ctx.fill();
   }
-  // center (soft)
+
   const g = ctx.createRadialGradient(0,0,0,0,0,centerR);
   g.addColorStop(0,'rgba(255,255,220,0.95)');
   g.addColorStop(1,'rgba(255,255,220,0.2)');
@@ -336,13 +329,11 @@ function drawBackground(){
   g.addColorStop(0, '#64b24a'); g.addColorStop(1, '#4d9c3b');
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
 
-  // Subtle grid texture
   ctx.fillStyle = 'rgba(40,90,40,0.10)';
   for (let y=0; y<H; y+=40){
     for (let x=((y/40)%2===0?0:20); x<W; x+=40){ ctx.fillRect(x,y,10,10); }
   }
 
-  // Flowers — avoid lanes, draw stems + bloom
   const seg = Math.floor(meters / FLOWER_SEG_METERS) % FLOWER_COLORS.length;
   const color = FLOWER_COLORS[seg];
   const lx = lanesX();
@@ -355,7 +346,6 @@ function drawBackground(){
       (Math.abs(f.x - lx[2]) < trailW/2);
     if (inLane) return;
 
-    // stem (optional)
     if (f.stem){
       ctx.strokeStyle = 'rgba(20,80,20,0.6)';
       ctx.lineWidth = 1;
@@ -367,7 +357,6 @@ function drawBackground(){
     drawBloom(f.x, f.y, f.r, color, f.rot);
   });
 
-  // Trails
   for (let i=0;i<3;i++){
     const rg = ctx.createLinearGradient(0, 0, 0, H);
     rg.addColorStop(0, '#8b684f'); rg.addColorStop(1, '#6f523f');
@@ -526,7 +515,6 @@ function drawLightning(x, y, scale=1){
   ctx.translate(x, y);
   ctx.scale(scale, scale);
 
-  // yellow bolt fill
   ctx.fillStyle = 'gold';
   ctx.beginPath();
   ctx.moveTo(0, -15);
@@ -538,12 +526,10 @@ function drawLightning(x, y, scale=1){
   ctx.closePath();
   ctx.fill();
 
-  // black outline to make it clearer
   ctx.lineWidth = 2.2;
   ctx.strokeStyle = '#000';
   ctx.stroke();
 
-  // subtle glow so it stands out more
   ctx.shadowColor = 'rgba(255, 215, 0, 0.7)';
   ctx.shadowBlur = 12;
   ctx.fillStyle = 'gold';
@@ -598,14 +584,13 @@ function spawnPickup(){
   lane = (withoutLast.length ? withoutLast : candidateLanes)[Math.floor(Math.random()*(withoutLast.length?withoutLast.length:candidateLanes.length))];
   lastPickupLane = lane;
 
-  // Include small chance for ⚡ dash pickup (player choice)
   const r = Math.random();
   let type, golden=false, scale=1;
-  if (r < 0.06){ type='dash'; scale=1.2; } // ~6% of pickup spawns
+  if (r < 0.06){ type='dash'; scale=1.2; }
   else if (r < 0.46){ type='mouse';   golden = Math.random()<0.25; scale = golden?1.2:1.0; }
   else if (r < 0.86){ type='bird';    golden = Math.random()<0.25; scale = golden?1.25:1.05; }
   else if (r < 0.97){ type='lizard';  golden = Math.random()<0.25; scale = golden?1.25:1.1; }
-  else { type='chicken'; golden=true; scale=1.35; } // always golden
+  else { type='chicken'; golden=true; scale=1.35; }
 
   const baseW = type==='bird' ? 30 : type==='mouse' ? 34 : type==='lizard' ? 36 : type==='chicken' ? 38 : 30;
   const baseH = type==='bird' ? 18 : type==='mouse' ? 18 : type==='lizard' ? 16 : type==='chicken' ? 22 : 30;
@@ -623,15 +608,13 @@ function drawCat(x, y, w, h){
   withShadow('rgba(0,0,0,0.35)', 12, 5, ()=>{
     const bodyRx = w/1.6, bodyRy = h/1.15;
 
-    // --- Tail (draw first so it's behind) ---
     const tailLen   = h * 1.3;
-    const tailBaseW = Math.max(3, w * 0.30);   // thickness
+    const tailBaseW = Math.max(3, w * 0.30);
     const t         = performance.now() * 0.008;
     const wagAmp    = h * 0.12;
 
-    // anchor lower & slightly further back (rump)
-    const baseX = x - bodyRx + tailBaseW * 0.8; // move right/left by tweaking 0.8
-    const baseY = y + bodyRy * 0.60;            // move down/up by tweaking 0.60
+    const baseX = x - bodyRx + tailBaseW * 0.8;
+    const baseY = y + bodyRy * 0.60;
 
     ctx.strokeStyle = '#a0522d';
     ctx.lineCap='round'; ctx.lineJoin='round';
@@ -647,18 +630,15 @@ function drawCat(x, y, w, h){
       prevX=px; prevY=py;
     }
 
-    // --- Body ---
     ctx.fillStyle = '#d2691e';
     ctx.beginPath();
     ctx.ellipse(x, y, bodyRx, bodyRy, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // --- Head ---
     const headR = h*0.36;
     const hx = x, hy = y - h*0.78;
     ctx.beginPath(); ctx.arc(hx,hy,headR,0,Math.PI*2); ctx.fill();
 
-    // --- Ears ---
     ctx.beginPath();
     ctx.moveTo(hx-headR*0.6,hy-headR*0.15);
     ctx.lineTo(hx-headR*0.25,hy-headR*1.0);
@@ -670,18 +650,15 @@ function drawCat(x, y, w, h){
     ctx.lineTo(hx,hy-headR*0.15);
     ctx.closePath(); ctx.fill();
 
-    // --- Belly patch ---
     ctx.fillStyle = '#a0522d';
     ctx.beginPath();
     ctx.ellipse(x, y+2, w/2.6, h/2.6, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // --- Eyes ---
     ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(hx-headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(hx+headR*0.35, hy, headR*0.15, 0, Math.PI*2); ctx.fill();
 
-    // --- Whiskers ---
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.moveTo(hx- headR*0.55, hy);   ctx.lineTo(hx- headR*1.1, hy-2);
@@ -693,7 +670,6 @@ function drawCat(x, y, w, h){
     ctx.stroke();
   });
 
-  // Outline
   strokeAround('rgba(0,0,0,0.4)', 1, ()=>{
     ctx.beginPath(); ctx.ellipse(x, y, w/1.6, h/1.15, 0, 0, Math.PI*2);
   });
@@ -899,7 +875,7 @@ function update(dt){
     for (let i=0; i<enemies.length; i++){
       const e = enemies[i];
       let ew = e.w, eh = e.h;
-      if (e.type === 'tree'){ ew *= 0.6; eh *= 0.8; } // tighten hitbox
+      if (e.type === 'tree'){ ew *= 0.6; eh *= 0.8; }
       if (Math.abs(e.x - px) < (ew + pw)/2 && Math.abs(e.y - py) < (eh + ph)/2){
         if (e.type === 'mud'){
           enemies.splice(i,1);
@@ -943,7 +919,7 @@ function update(dt){
         fuel = Math.min(100, fuel + (p.golden ? 20 : 10));
         score += (p.golden ? 10 : 3) * (dashActive?DASH_SCORE_MUL:1);
         spawnSparkles(px, py, 'rgba(180,210,255,0.95)');
-      } else { // mouse
+      } else {
         fuel = Math.min(100, fuel + (p.golden ? 20 : 10));
         score += (p.golden ? 10 : 3) * (dashActive?DASH_SCORE_MUL:1);
         spawnSparkles(px, py, 'rgba(255,230,150,0.95)');
@@ -1010,7 +986,7 @@ function endGame(){
   gameRunning = false;
   const n = getPlayerName();
   submitBestIfHigher(n, Math.round(score));
-  restartDelay = 1.0; // ⏱️ lock input for 1s to avoid accidental restart
+  restartDelay = 1.0; // lock input for 1s
 }
 function resetGame(){
   enemies = [];
@@ -1032,11 +1008,10 @@ function resetGame(){
   dashActive = false;
   dashTimer = 0;
   restartDelay = 0;
-  initFlowerSpots(); // re-scatter for variety per run
+  initFlowerSpots();
 }
 
 function tryRestart(){
-  // Start only via Start button (or arrows), not by tapping canvas
   if (!gameRunning && restartDelay <= 0){
     resetGame();
     gameRunning = true;
@@ -1047,7 +1022,7 @@ function loop(ts){
   if (last === undefined) last = ts;
   let dt = (ts - last) / 1000;
   if (!Number.isFinite(dt) || dt < 0) dt = 0;
-  dt = Math.min(dt, 0.05); // clamp for stability
+  dt = Math.min(dt, 0.05);
   last = ts;
 
   if (restartDelay > 0) restartDelay = Math.max(0, restartDelay - dt);
@@ -1056,12 +1031,16 @@ function loop(ts){
     if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
     update(dt);
     draw();
+    // Hide menu UI, show arrow controls
     menuButtons.style.display = 'none';
+    controls.style.display = 'block';
   } else {
     drawMenu();
+    // Show menu UI, hide arrow controls
     if (restartDelay <= 0) {
       menuButtons.style.display = 'flex';
     }
+    controls.style.display = 'none';
   }
   requestAnimationFrame(loop);
 }
@@ -1088,7 +1067,6 @@ changeBtn.addEventListener('click', ()=>{
 let keyLock = false;
 document.addEventListener('keydown', e=>{
   if (!gameRunning){
-    // Allow keyboard start on desktop
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === ' ') {
       tryRestart();
       return;
@@ -1107,10 +1085,10 @@ document.addEventListener('keyup', e=>{
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') keyLock = false;
 });
 
-/* Touch on canvas — no longer starts the game; only lane nudges while playing */
+/* Touch on canvas — no tap-to-start; only nudges while playing */
 let touchStartX = null;
 canvas.addEventListener('touchstart', e=>{
-  if (!gameRunning) return; // don't start from tap
+  if (!gameRunning) return;
   touchStartX = e.touches[0].clientX;
 }, {passive: true});
 canvas.addEventListener('touchmove', e=>{
@@ -1144,7 +1122,7 @@ function onPointerUpBtn3(e){ e.preventDefault(); btn3Down = false; if (!btn1Down
 
 /* Tap anywhere to nudge toward tap side — only while playing */
 canvas.addEventListener('click', e=>{
-  if (!gameRunning){ return; } // no tap-to-start
+  if (!gameRunning){ return; }
   const x = e.clientX;
   const center = lanesX()[currentLane];
   if (x < center) nudgeLeft(); else if (x > center) nudgeRight();
