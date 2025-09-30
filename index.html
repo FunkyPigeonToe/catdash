@@ -524,7 +524,12 @@ function drawVignette(){ const g=ctx.createRadialGradient(W/2,H*.58,Math.min(W,H
 function endGame(){ mode='front'; lastScore=Math.round(score); const n=getPlayerName(); submitBestIfHigher(n,lastScore); updateUIState(); }
 function resetGame(){ enemies=[]; pickups=[]; particles=[]; score=0; fuel=100; meters=0; roadSpeed=226; currentLane=1; spawnTimer=0; graceTimer=.75; last=undefined; cheatCharges=0; cheatToastTimer=0; cheatToastText=''; dashActive=false; dashTimer=0; initFlowerSpots(); }
 function startGame(){ resetGame(); mode='game'; updateUIState(); }
-function loop(ts){ if(last===undefined) last=ts; let dt=(ts-last)/1000; if(!Number.isFinite(dt)||dt<0) dt=0; dt=Math.min(dt,.05); last=ts; update(dt); draw(); requestAnimationFrame(loop); }
+function loop(ts){
+  if(last===undefined) last=ts;
+  let dt=(ts-last)/1000; if(!Number.isFinite(dt)||dt<0) dt=0; dt=Math.min(dt,.05); last=ts;
+  try{ update(dt); draw(); } 
+  catch(err){ console.error(err); ctx.fillStyle='#fff'; ctx.font='14px ui-monospace'; ctx.fillText(String(err), 10, 20); }
+  requestAnimationFrame(loop);
 
 /* ========================= UI & inputs ========================= */
 const frontStack=document.getElementById('frontStack');
@@ -569,3 +574,4 @@ requestAnimationFrame(loop);
   </script>
 </body>
 </html>
+
