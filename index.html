@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -9,23 +10,50 @@
   <style>
     :root{
       --pink:#ff4081; --pink-hi:#ff6fa3; --indigo:#5865F2; --bg:#12161c;
+      --vh: 1vh; /* updated at runtime for iOS */
     }
-    html, body { margin:0; padding:0; background:var(--bg); color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; height:100dvh; overflow:hidden; }
-    canvas { display:block; margin:0 auto; background:#000; touch-action:none; backface-visibility:hidden; -webkit-backface-visibility:hidden; transform:translateZ(0); will-change:transform; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      height: 100%; margin:0;
+      background:var(--bg); color:#fff;
+      font-family:system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    /* Canvas fills the REAL viewport in iOS */
+    canvas {
+      display:block; margin:0 auto; background:#000;
+      width:100vw; height:calc(var(--vh) * 100);
+      touch-action:none; backface-visibility:hidden; -webkit-backface-visibility:hidden; transform:translateZ(0); will-change:transform;
+    }
 
     /* Front & Menu buttons */
-    .stack { position:fixed; display:none; z-index:9; left:50%; transform:translateX(-50%); pointer-events:auto; width:min(92vw,520px); }
-    #frontStack { top: 46%; }  /* raised so text + leaderboard fit */
-    #menuStack  { top: 78%; }
+    .stack {
+      position:fixed; z-index:9; left:50%; transform:translateX(-50%);
+      pointer-events:auto; width:min(92vw,520px);
+      /* hidden by attribute, not by display to avoid Safari z-index ghosts */
+    }
+    .stack[hidden]{ display:none; }
+    /* Use real viewport height for vertical placement */
+    #frontStack { top: calc(var(--vh) * 46); }  /* raised so leaderboard fits */
+    #menuStack  { top: calc(var(--vh) * 78); }
+
     .stack .buttons { display:flex; flex-direction:column; gap:12px; align-items:center; }
-    .btn { border:0; border-radius:14px; padding:12px 18px; font-size:16px; color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.35); -webkit-tap-highlight-color:transparent; }
+    .btn { border:0; border-radius:14px; padding:12px 18px; font-size:16px; color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.35); }
     .btn:active { transform:translateY(1px) scale(.98); }
     .btn-primary { background:linear-gradient(180deg,var(--pink-hi) 0%, var(--pink) 100%); font-weight:800; min-width:200px; }
     .btn-indigo  { background:var(--indigo); min-width:200px; }
 
     /* On-screen arrows (in game only) */
-    .controls { position:fixed; inset:0; pointer-events:none; z-index:10; display:none; }
-    .laneBtn  { position:absolute; width:80px; height:80px; border:none; border-radius:20px; background:rgba(0,0,0,.35); color:#fff; font-size:28px; box-shadow:0 6px 18px rgba(0,0,0,.35); -webkit-tap-highlight-color:transparent; touch-action:manipulation; pointer-events:auto; transform:translate(-50%, -50%); }
+    .controls { position:fixed; inset:0; pointer-events:none; z-index:10; }
+    .controls[hidden]{ display:none; }
+    .laneBtn  {
+      position:absolute; width:64px; height:64px; border:none; border-radius:18px;
+      background:rgba(0,0,0,.35); color:#fff; font-size:28px; box-shadow:0 6px 18px rgba(0,0,0,.35);
+      pointer-events:auto; transform:translate(-50%, -50%);
+    }
     .laneBtn:active { transform:translate(-50%, -50%) scale(.96); }
     @media (min-width:900px){ .controls{ display:none !important; } }
   </style>
@@ -34,7 +62,7 @@
   <canvas id="gameCanvas"></canvas>
 
   <!-- FRONT -->
-  <div id="frontStack" class="stack">
+  <div id="frontStack" class="stack" hidden>
     <div class="buttons">
       <button id="playBtn" class="btn btn-primary" type="button">Play</button>
       <button id="frontChangeNameBtn" class="btn btn-indigo" type="button">Change Name</button>
@@ -42,14 +70,14 @@
   </div>
 
   <!-- MENU -->
-  <div id="menuStack" class="stack">
+  <div id="menuStack" class="stack" hidden>
     <div class="buttons">
       <button id="startBtn" class="btn btn-primary" type="button">Start Game</button>
     </div>
   </div>
 
   <!-- In-game lane arrows -->
-  <div id="controls" class="controls">
+  <div id="controls" class="controls" hidden>
     <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
     <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
   </div>
@@ -62,37 +90,93 @@
   const TABLE_NAME = 'highscores';
   const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const NAME_KEY = 'catdash_name';
-  function getPlayerName(){ let n = localStorage.getItem(NAME_KEY); if(!n){ n = prompt('Enter player name (3–12 chars):','CAT')||'CAT'; n=n.trim().slice(0,12); if(n.length<3) n=(n+'CAT').slice(0,3); localStorage.setItem(NAME_KEY,n);} return n; }
+  function getPlayerName(){
+    let n = localStorage.getItem(NAME_KEY);
+    if(!n){
+      n = prompt('Enter player name (3–12 chars):','CAT')||'CAT';
+      n = n.trim().slice(0,12); if(n.length<3) n=(n+'CAT').slice(0,3);
+      localStorage.setItem(NAME_KEY,n);
+    }
+    return n;
+  }
   let globalBoard = []; let lastBoardFetch = 0;
-  async function fetchGlobalTop(limit=20){ try{ const {data,error}=await supa.from(TABLE_NAME).select('name,score,updated_at').order('score',{ascending:false}).limit(limit); if(error) throw error; globalBoard=Array.isArray(data)?data:[]; lastBoardFetch=performance.now(); }catch(e){ console.warn('LB fetch error',e.message||e); } }
-  async function submitBestIfHigher(name,score){ try{ const {data:existing,error:e1}=await supa.from(TABLE_NAME).select('score').eq('name',name).single(); const prev=Number(existing?.score||0); if(!e1 && score<=prev) return false; const payload={name,score,updated_at:new Date().toISOString()}; const {error:e2}=await supa.from(TABLE_NAME).upsert(payload,{onConflict:'name'}); if(e2) throw e2; fetchGlobalTop(20); return true; }catch(e){ console.warn('LB submit error',e.message||e); return false; } }
+  async function fetchGlobalTop(limit=20){
+    try{
+      const {data,error}=await supa.from(TABLE_NAME).select('name,score,updated_at').order('score',{ascending:false}).limit(limit);
+      if(error) throw error; globalBoard=Array.isArray(data)?data:[]; lastBoardFetch=performance.now();
+    }catch(e){ console.warn('LB fetch error',e.message||e); }
+  }
+  async function submitBestIfHigher(name,score){
+    try{
+      const {data:existing,error:e1}=await supa.from(TABLE_NAME).select('score').eq('name',name).maybeSingle?.() ?? await supa.from(TABLE_NAME).select('score').eq('name',name).single();
+      const prev=Number(existing?.score||0);
+      if(!e1 && score<=prev) return false;
+      const payload={name,score,updated_at:new Date().toISOString()};
+      const {error:e2}=await supa.from(TABLE_NAME).upsert(payload,{onConflict:'name'});
+      if(e2) throw e2; fetchGlobalTop(20); return true;
+    }catch(e){ console.warn('LB submit error',e.message||e); return false; }
+  }
+
+  /* ========================= Real viewport sizing (iPhone safe) ========================= */
+  function setVH(){
+    const vv = window.visualViewport;
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty('--vh', (h/100) + 'px');
+  }
+  setVH();
+  if (window.visualViewport){
+    visualViewport.addEventListener('resize', setVH, {passive:true});
+    visualViewport.addEventListener('scroll', setVH, {passive:true});
+  }
+  window.addEventListener('orientationchange', ()=>setTimeout(setVH, 250), {passive:true});
 
   /* ========================= Canvas / viewport ========================= */
   const canvas=document.getElementById('gameCanvas');
   const ctx=canvas.getContext('2d',{alpha:false, desynchronized:true});
-  function getViewportSize(){ const vv=window.visualViewport; if(vv) return {w:Math.floor(vv.width), h:Math.floor(vv.height)}; return {w:Math.floor(window.innerWidth), h:Math.floor(window.innerHeight)}; }
+  function getViewportSize(){
+    const vv=window.visualViewport;
+    if(vv) return {w:Math.floor(vv.width), h:Math.floor(vv.height)};
+    return {w:Math.floor(window.innerWidth), h:Math.floor(window.innerHeight)};
+  }
   let {w:W,h:H}=getViewportSize(); let DPR=1;
-  function resizeCanvas(){ DPR=Math.max(1,Math.min(3,window.devicePixelRatio||1)); canvas.style.width=W+'px'; canvas.style.height=H+'px'; canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; }
+  function resizeCanvas(){
+    DPR=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+    canvas.style.width=W+'px';
+    canvas.style.height=H+'px';
+    canvas.width=Math.floor(W*DPR);
+    canvas.height=Math.floor(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+  }
   resizeCanvas();
-  function handleResize(){ const v=getViewportSize(); W=v.w; H=v.h; resizeCanvas(); positionButtons(); initFlowerSpots(); initPetals(); }
+  function handleResize(){
+    const v=getViewportSize(); W=v.w; H=v.h;
+    resizeCanvas(); positionButtons(); initFlowerSpots(); initPetals();
+  }
   window.addEventListener('resize',handleResize,{passive:true});
-  if(window.visualViewport){ visualViewport.addEventListener('resize',handleResize,{passive:true}); visualViewport.addEventListener('scroll',handleResize,{passive:true}); }
+  if(window.visualViewport){
+    visualViewport.addEventListener('resize',handleResize,{passive:true});
+    visualViewport.addEventListener('scroll',handleResize,{passive:true});
+  }
   function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 
   /* ========================= Controls ========================= */
   const controls=document.getElementById('controls');
+  const btnLeft=document.getElementById('btnLane1');
+  const btnRight=document.getElementById('btnLane3');
   const CAT_Y_LIFT=-30; const BUTTON_Y_OFFSET=50;
   function positionButtons(){
-    const btn1=document.getElementById('btnLane1'); const btn3=document.getElementById('btnLane3');
     const lx=lanesX();
+    const safeBottom = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)'))||0);
     const baseY=H-Math.min(120,H*.12);
-    const y=Math.min(H-10, baseY+BUTTON_Y_OFFSET);
-    btn1.style.left=lx[0]+'px'; btn1.style.top=y+'px';
-    btn3.style.left=lx[2]+'px'; btn3.style.top=y+'px';
+    const y=Math.min(H-10, baseY+BUTTON_Y_OFFSET - safeBottom*0.3);
+    btnLeft.style.left=lx[0]+'px'; btnLeft.style.top=y+'px';
+    btnRight.style.left=lx[2]+'px'; btnRight.style.top=y+'px';
   }
   positionButtons();
 
-  /* ========================= Game state ========================= */
+  /* ========================= Game state (unchanged) ========================= */
   let mode='front', currentLane=1, enemies=[], pickups=[], particles=[];
   let score=0, fuel=100, meters=0;
   let spawnTimer=0, last=undefined, graceTimer=.75, restartDelay=0;
@@ -131,29 +215,121 @@
   function drawDashOverlay(){ if(!dashActive) return; ctx.save(); ctx.globalAlpha=0.18; ctx.fillStyle='#ff9800'; ctx.fillRect(0,0,W,H); ctx.restore(); }
 
   /* ========================= HUD & Leaderboard ========================= */
-  function drawHUD(){ ctx.fillStyle='#fff'; ctx.font='16px system-ui, sans-serif'; ctx.fillText('Score: '+Math.round(score),10,22); ctx.fillText('Energy: '+Math.round(fuel),10,42); }
-  function drawGlobalBoard(x,y,maxRows=10){ ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.fillText('Global Top 20',x,y); if(!globalBoard.length){ ctx.fillText('Loading...',x,y+20); return; } for(let i=0;i<Math.min(maxRows,globalBoard.length);i++){ const e=globalBoard[i]; const line=`${i+1}. ${(e.name||'???').slice(0,10)} ${e.score}`; ctx.fillText(line,x,y+20+i*16); } }
+  function drawHUD(){
+    ctx.fillStyle='#fff';
+    const hudSize = W < 380 ? 13 : 16;
+    ctx.font=`${hudSize}px system-ui, sans-serif`;
+    ctx.textAlign='left';
+    ctx.fillText('Score: '+Math.round(score),10,22);
+    ctx.fillText('Energy: '+Math.round(fuel),10,42);
+  }
+  function drawGlobalBoard(x,y,maxRows=10){
+    ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.textAlign='left';
+    ctx.fillText('Global Top 20',x,y);
+    if(!globalBoard.length){ ctx.fillText('Loading...',x,y+20); return; }
+    for(let i=0;i<Math.min(maxRows,globalBoard.length);i++){
+      const e=globalBoard[i]; const nm=(e.name||'???').slice(0,10);
+      const line=`${i+1}. ${nm.padEnd(10,' ')} ${e.score}`;
+      ctx.fillText(line,x,y+20+i*16);
+    }
+  }
 
   /* ========================= Front screen ========================= */
   const CAT_MASCOT_NAME='Gingerbolt';
   let frontT=0;
-  function drawFront(){ ctx.fillStyle='linear-gradient(#ff3d7f,#ff7a3d)'; ctx.fillRect(0,0,W,H); const title='GINGERBOLT'; ctx.save(); ctx.font=`${Math.floor(W*0.13)}px Impact`; ctx.textAlign='center'; ctx.fillStyle='#2a0a0a'; ctx.fillText(title,W/2,H*0.2); ctx.restore(); ctx.font='18px system-ui'; ctx.fillStyle='#fff'; ctx.fillText('Join Gingerbolt on his electrifying dash to glory!',W/2,H*0.26); ctx.fillText('Help Gingerbolt weave past trees and mud, snag snacks, and charge ⚡ to dash.',W/2,H*0.3); ctx.fillText('Aim: stay alive, collect food, keep energy up, and set a high score.',W/2,H*0.34); drawGlobalBoard(18,H*0.55,10); }
+  function drawFront(){
+    // gradient sky
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#ff7f7f'); g.addColorStop(0.4,'#ff7a45'); g.addColorStop(0.7,'#e4572e'); g.addColorStop(1,'#12161c');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+    // sun + streaks
+    const sunR = Math.min(W,H)*0.22;
+    const sunX = W/2, sunY = H*0.62;
+    ctx.save();
+    // streaks
+    for(let a=0; a<360; a+=6){
+      const rad = (a*Math.PI)/180;
+      ctx.beginPath();
+      ctx.moveTo(sunX + Math.cos(rad)*sunR*0.65, sunY + Math.sin(rad)*sunR*0.65);
+      ctx.lineTo(sunX + Math.cos(rad)*sunR*2.6,  sunY + Math.sin(rad)*sunR*2.0);
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = 'rgba(255,210,122,0.35)';
+      ctx.stroke();
+    }
+    // sun disc
+    const sGrad = ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,sunR);
+    sGrad.addColorStop(0,'#ffd27a'); sGrad.addColorStop(0.6,'#ffb84a'); sGrad.addColorStop(1,'#ff9a1a');
+    ctx.fillStyle=sGrad; ctx.beginPath(); ctx.arc(sunX,sunY,sunR,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // title & copy (centered, responsive)
+    ctx.save();
+    ctx.textAlign='center';
+    const titleSize = Math.max(28, Math.min(64, Math.floor(W*0.13)));
+    ctx.font = `900 ${titleSize}px Impact, system-ui, sans-serif`;
+    ctx.fillStyle = '#2a0a0a';
+    ctx.fillText('GINGERBOLT', W/2, H*0.2);
+
+    const bodySize = W < 380 ? 12 : 14;
+    ctx.font = `500 ${bodySize}px system-ui, -apple-system, Segoe UI`;
+    ctx.fillStyle = '#fff';
+    const lines = [
+      'Join Gingerbolt on his electrifying dash to glory!',
+      'Weave past trees and mud, snag snacks, and charge ⚡ to dash.',
+      'Stay alive, keep your energy up, and set a high score.'
+    ];
+    let y = H*0.26;
+    for(const ln of lines){ ctx.fillText(ln, W/2, y); y += bodySize*1.6; }
+    ctx.restore();
+
+    // global board on left
+    drawGlobalBoard(18, Math.min(H*0.55, H-180), 10);
+  }
 
   /* ========================= Flow ========================= */
   const PLAYER_Y=()=>Math.min(H-190,H*0.64+CAT_Y_LIFT);
   function update(dt){ updatePetals(dt); }
-  function draw(){ if(mode==='front'){ frontT+=.016; drawFront(); return; } drawBackground(); drawPetals(); drawCat(lanesX()[currentLane]+slipOffset,PLAYER_Y(),CAT_W,CAT_H); drawPetalVortex(lanesX()[currentLane]+slipOffset,PLAYER_Y()); drawHUD(); drawDashOverlay(); }
-  function endGame(){ mode='menu'; }
+  function draw(){
+    if(mode==='front'){ frontT+=.016; drawFront(); return; }
+    if(mode==='menu'){ drawFront(); return; } // keep background visible behind menu buttons
+    drawBackground(); drawPetals();
+    drawCat(lanesX()[currentLane]+slipOffset,PLAYER_Y(),CAT_W,CAT_H);
+    drawPetalVortex(lanesX()[currentLane]+slipOffset,PLAYER_Y());
+    drawHUD(); drawDashOverlay();
+  }
+  function endGame(){ mode='menu'; updateUIState(); }
   function resetGame(){ score=0; fuel=100; meters=0; enemies=[]; pickups=[]; particles=[]; initFlowerSpots(); initPetals(); }
-  function startGame(){ resetGame(); mode='game'; }
+  function startGame(){ resetGame(); mode='game'; updateUIState(); }
   function loop(ts){ if(last===undefined) last=ts; let dt=(ts-last)/1000; last=ts; update(dt); draw(); requestAnimationFrame(loop); }
 
   /* ========================= Inputs ========================= */
-  const menuStack=document.getElementById('menuStack'); const startBtn=document.getElementById('startBtn'); const frontStack=document.getElementById('frontStack'); const playBtn=document.getElementById('playBtn'); const frontChangeNameBtn=document.getElementById('frontChangeNameBtn');
-  playBtn.addEventListener('click',()=>{ startGame(); }); startBtn.addEventListener('click',()=>{ startGame(); }); frontChangeNameBtn.addEventListener('click',()=>{ localStorage.removeItem(NAME_KEY); getPlayerName(); });
+  const menuStack=document.getElementById('menuStack');
+  const startBtn=document.getElementById('startBtn');
+  const frontStack=document.getElementById('frontStack');
+  const playBtn=document.getElementById('playBtn');
+  const frontChangeNameBtn=document.getElementById('frontChangeNameBtn');
+
+  function updateUIState(){
+    // show correct stacks for current mode, keeping them inside iPhone viewport
+    if(mode==='front'){ frontStack.hidden = false; menuStack.hidden = true; controls.hidden = true; }
+    else if(mode==='menu'){ frontStack.hidden = true; menuStack.hidden = false; controls.hidden = true; }
+    else { frontStack.hidden = true; menuStack.hidden = true; controls.hidden = (matchMedia('(min-width:900px)').matches); }
+    positionButtons();
+  }
+
+  playBtn.addEventListener('click',()=>{ mode='menu'; updateUIState(); });
+  startBtn.addEventListener('click',()=>{ startGame(); });
+  frontChangeNameBtn.addEventListener('click',()=>{ localStorage.removeItem(NAME_KEY); getPlayerName(); });
+
+  // Arrow buttons (phones)
+  btnLeft.addEventListener('pointerdown',()=>{ currentLane=Math.max(0,currentLane-1); });
+  btnRight.addEventListener('pointerdown',()=>{ currentLane=Math.min(2,currentLane+1); });
 
   /* Boot */
   fetchGlobalTop(20);
+  getPlayerName();
+  updateUIState();
   requestAnimationFrame(loop);
   </script>
 </body>
