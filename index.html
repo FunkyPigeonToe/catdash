@@ -169,12 +169,103 @@ function drawBackground(){
 function drawTree(x,y,w,h){ withShadow('rgba(0,0,0,.35)',10,4,()=>{ const tw=w*.28,th=h*.48,tx=x-tw/2,ty=y+h*.12,r=tw*.35; ctx.fillStyle='#6d3f17'; ctx.beginPath(); ctx.moveTo(tx+r,ty); ctx.lineTo(tx+tw-r,ty); ctx.quadraticCurveTo(tx+tw,ty,tx+tw,ty+r); ctx.lineTo(tx+tw,ty+th-r); ctx.quadraticCurveTo(tx+tw,ty+th,tx+tw-r,ty+th); ctx.lineTo(tx+r,ty+th); ctx.quadraticCurveTo(tx,ty+th,tx,ty+th-r); ctx.lineTo(tx,ty+r); ctx.quadraticCurveTo(tx,ty,tx+r,ty); ctx.closePath(); ctx.fill(); const cx=x,cy=y-h*.06; ctx.fillStyle='#2f8c34'; ctx.beginPath(); ctx.arc(cx,cy,h*.32,0,Math.PI*2); ctx.fill(); }); }
 function drawMud(x,y,w,h){ withShadow('rgba(0,0,0,.3)',8,3,()=>{ const g=ctx.createRadialGradient(x,y,2,x,y,Math.max(w,h)); g.addColorStop(0,'#6a4a3a'); g.addColorStop(1,'#3e2723'); ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); ctx.fill(); }); strokeAround('rgba(0,0,0,.35)',1.2,()=>{ ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); }); }
 function drawLightning(x,y,s=1){ ctx.save(); ctx.translate(x,y); ctx.scale(s,s); ctx.fillStyle='gold'; ctx.beginPath(); ctx.moveTo(0,-15); ctx.lineTo(8,0); ctx.lineTo(2,0); ctx.lineTo(12,18); ctx.lineTo(-2,2); ctx.lineTo(4,2); ctx.closePath(); ctx.fill(); ctx.lineWidth=2.2; ctx.strokeStyle='#000'; ctx.stroke(); ctx.restore(); }
+
+/* In-game cat (unchanged) */
 const CAT_W=22,CAT_H=34;
 function drawCat(x,y,w,h){ withShadow('rgba(0,0,0,.35)',12,5,()=>{ const rx=w/1.55, ry=h/1.12; const t=performance.now()*0.008, amp=h*.12; const bx=x-rx+w*.3,by=y+ry*.60; ctx.strokeStyle='#9a5a2a'; ctx.lineCap='round'; let px=bx,py=by; for(let i=1;i<=16;i++){ const u=i/16,k=1-u; const xx=bx-u*h*1.3*.95; const yy=by-u*h*1.3*.55+Math.sin(t+u*7)*amp*(.25+.75*k); ctx.lineWidth=Math.max(1,w*.30*(.3+.7*k)); ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(xx,yy); ctx.stroke(); px=xx; py=yy; } ctx.fillStyle='#d07a2b'; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx.fill(); const hr=h*.36,hx=x,hy=y-h*.78; ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.moveTo(hx-hr*.6,hy-hr*.15); ctx.lineTo(hx-hr*.25,hy-hr*1.0); ctx.lineTo(hx,hy-hr*.15); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(hx+hr*.6,hy-hr*.15); ctx.lineTo(hx+hr*.25,hy-hr*1.0); ctx.lineTo(hx,hy-hr*.15); ctx.closePath(); ctx.fill(); ctx.fillStyle='#a85b24'; ctx.beginPath(); ctx.ellipse(x,y+2,w/2.6,h/2.6,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(hx-hr*.35,hy,hr*.15,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(hx+hr*.35,hy,hr*.15,0,Math.PI*2); ctx.fill(); }); strokeAround('rgba(0,0,0,.4)',1,()=>{ ctx.beginPath(); ctx.ellipse(x,y,w/1.55,h/1.12,0,0,Math.PI*2); }); }
 
-/* Pickups used in game & on start anim */
+/* Front-screen mouse & cat */
 function addGlow(x,y,r,a=.9){ ctx.save(); ctx.globalCompositeOperation='lighter'; const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,`rgba(255,215,0,${a})`); g.addColorStop(1,'rgba(255,215,0,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
 function drawMouse(x,y,s,gold){ const t=performance.now()*0.006,w=Math.sin(t+x*.01)*1.2*s; const body=gold?'#ffd54f':'#c7a17a', ear=gold?'#ffe082':'#d7b894'; withShadow('rgba(0,0,0,.25)',6,2,()=>{ ctx.fillStyle=body; ctx.beginPath(); ctx.ellipse(x,y+w,12*s,7*s,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x+9*s,y-1*s+w,6*s,5*s,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle=ear; ctx.beginPath(); ctx.arc(x+12*s,y-5*s+w,2.8*s,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(x+7.5*s,y-6*s+w,2.2*s,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=gold?'#ffe082':'#b78963'; ctx.lineWidth=1.4*s; ctx.beginPath(); ctx.moveTo(x-12*s,y+2*s+w); ctx.quadraticCurveTo(x-18*s,y+6*s+w,x-22*s,y+3*s+w); ctx.stroke(); ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(x+11*s,y-2*s+w,1.4*s,0,Math.PI*2); ctx.fill(); }); if(gold) addGlow(x,y,22*s,.85); }
+
+/* New: front-screen cat that looks more like a cat (side profile) */
+function drawFrontCat(x,y,scale=1){
+  const t=performance.now()*0.006;
+  const bob = Math.sin(t*2)*2*scale;
+  const s=1.0*scale;
+
+  withShadow('rgba(0,0,0,.35)',10,4,()=>{
+
+    // Tail (sway)
+    ctx.strokeStyle='#b9641f';
+    ctx.lineWidth=8*s;
+    ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(x-52*s, y-8*s + bob*0.2);
+    ctx.quadraticCurveTo(x-68*s, y-22*s + Math.sin(t*3)*6*s, x-84*s, y-10*s + Math.cos(t*2.4)*6*s);
+    ctx.stroke();
+
+    // Body
+    ctx.fillStyle='#d9822c'; // ginger
+    ctx.beginPath();
+    ctx.ellipse(x, y, 46*s, 26*s, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Head
+    const hx=x+44*s, hy=y-14*s;
+    ctx.beginPath();
+    ctx.arc(hx,hy,18*s,0,Math.PI*2);
+    ctx.fill();
+
+    // Ears
+    ctx.beginPath();
+    ctx.moveTo(hx+6*s, hy-18*s);
+    ctx.lineTo(hx+14*s, hy-6*s);
+    ctx.lineTo(hx, hy-8*s);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(hx-8*s, hy-18*s);
+    ctx.lineTo(hx-1*s, hy-6*s);
+    ctx.lineTo(hx-14*s, hy-8*s);
+    ctx.closePath();
+    ctx.fill();
+
+    // Legs (simple stepping)
+    ctx.fillStyle='#c37526';
+    const step = Math.sin(t*6)*3*s;
+    // back legs
+    ctx.fillRect(x-28*s, y+18*s, 8*s, 18*s);
+    ctx.fillRect(x-6*s, y+18*s, 8*s, 18*s);
+    // front legs (stepping)
+    ctx.fillRect(x+18*s, y+18*s - step, 8*s, 18*s + step);
+    ctx.fillRect(x+32*s, y+18*s + step, 8*s, 18*s - step);
+
+    // Muzzle & eye
+    ctx.fillStyle='#f2c79a';
+    ctx.beginPath();
+    ctx.ellipse(hx+6*s, hy+2*s, 8*s, 6*s, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle='#1a1a1a';
+    ctx.beginPath();
+    ctx.arc(hx+6*s, hy-4*s, 3*s, 0, Math.PI*2);
+    ctx.fill();
+
+    // Nose
+    ctx.fillStyle='#ffb3b3';
+    ctx.beginPath();
+    ctx.arc(hx+12*s, hy+3*s, 2.2*s, 0, Math.PI*2);
+    ctx.fill();
+
+    // Whiskers
+    ctx.strokeStyle='rgba(255,255,255,.85)';
+    ctx.lineWidth=1.6*s;
+    ctx.beginPath();
+    ctx.moveTo(hx+10*s, hy+4*s); ctx.lineTo(hx+22*s, hy+0*s);
+    ctx.moveTo(hx+10*s, hy+6*s); ctx.lineTo(hx+22*s, hy+6*s);
+    ctx.moveTo(hx+10*s, hy+8*s); ctx.lineTo(hx+22*s, hy+12*s);
+    ctx.stroke();
+
+    // Subtle stripes
+    ctx.strokeStyle='rgba(120,60,20,.25)';
+    ctx.lineWidth=6*s;
+    ctx.beginPath(); ctx.moveTo(x-16*s,y-10*s); ctx.lineTo(x-2*s,y-12*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-10*s,y); ctx.lineTo(x+6*s,y-2*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-6*s,y+10*s); ctx.lineTo(x+10*s,y+8*s); ctx.stroke();
+  });
+}
 
 /* ========================= Particles/HUD (trimmed) ========================= */
 function spawnSparkles(x,y,c){ for(let i=0;i<12;i++){ const a=(Math.PI*2)*(i/12)+Math.random()*.4; const sp=60+Math.random()*110; particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-40,life:.6+Math.random()*.4,age:0,color:c}); } }
@@ -244,14 +335,16 @@ function drawFront(){
   const maxRows = Math.max(6, Math.floor((H - boardTop - buttonReserved)/18));
   const boardBottom = drawGlobalBoard(sidePad, boardTop, maxRows);
 
-  // Cat chases mouse along the bottom
+  // Cat chases mouse along the bottom (front-screen specific art)
   const groundY = H*0.84, pathW = W*0.86, pathL=(W-pathW)/2;
   const speed=80; frontRunnerX=(frontRunnerX + speed * 0.016) % (pathW+160);
   const mouseX = pathL - 80 + frontRunnerX;
   const mouseY = groundY - 6 + Math.sin(performance.now()*0.003)*4;
-  const catX = mouseX - 80, catY = groundY + Math.sin(performance.now()*0.003+1.2)*3;
+  const catX = mouseX - 96, catY = groundY + Math.sin(performance.now()*0.003+1.2)*3;
+
   drawMouse(mouseX, mouseY, 1.2, true);
-  drawCat(catX, catY, 36, 50);
+  // Use new front-screen cat (not the in-game cat)
+  drawFrontCat(catX, catY, Math.min(1.0, Math.max(0.8, W/720)));
 
   drawVignette();
 
