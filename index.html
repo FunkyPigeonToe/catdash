@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -7,144 +8,96 @@
 <style>
   :root{
     --bg:#0d0f1a;
-    --orange:#ff7a45;
     --sun:#ffd27a;
-    --pink:#ff5fa2;
-    --pink-hi:#ff7fba;
+    --pink:#ff5fa2; --pink-hi:#ff7fba;
     --indigo:#5865F2;
-    --panel:#0d0f1acc;
-    --panel-strong:#101423e6;
-    --white:#ffffff;
+    --panel:#0d0f1acc; --panel-strong:#101423e6;
   }
-  html,body{margin:0;padding:0;background:var(--bg);font-family:ui-rounded,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e9eef5;height:100%;overflow:hidden}
-  button{appearance:none;border:0;border-radius:18px;padding:16px 26px;font-size:20px;font-weight:800;letter-spacing:.3px;cursor:pointer;box-shadow:0 8px 24px #00000050;transition:transform .06s ease,box-shadow .2s ease}
+
+  html,body{margin:0;padding:0;background:var(--bg);color:#e9eef5;height:100%;overflow:hidden;
+    font-family:ui-rounded,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+
+  /* Buttons */
+  button{appearance:none;border:0;border-radius:18px;padding:16px 26px;font-size:20px;font-weight:800;letter-spacing:.3px;cursor:pointer;
+    box-shadow:0 8px 24px #00000050;transition:transform .06s ease,box-shadow .2s ease}
   button:active{transform:translateY(1px)}
   .btn-primary{background:linear-gradient(180deg,var(--pink),var(--pink-hi));color:#fff}
   .btn-secondary{background:linear-gradient(180deg,#7289ff,var(--indigo));color:#fff}
-  /* Layout sections */
-  .screen{position:absolute;inset:0;display:grid;place-items:center}
-  #home{z-index:3}
+
+  /* Screens */
+  .screen{position:absolute;inset:0}
+  #home{z-index:3;display:grid;place-items:center}
   #game{z-index:2;display:none;background:#15202b}
-  /* Sun rays hero */
-  .hero{
-    position:absolute;inset:0;overflow:hidden;
-    background:
-      radial-gradient(1200px 800px at 50% 75%, #ffb56b33 0%, transparent 60%),
-      radial-gradient(800px 600px at 50% 80%, #ff9f5e22 0%, transparent 55%),
-      linear-gradient(180deg,#ff7f7f 0%, #ff7a45 35%, #e4572e 60%, #1a1e2a 100%);
-  }
-  .sun{
-    position:absolute;left:50%;bottom:16%;
-    width:340px;height:340px;border-radius:50%;
-    transform:translateX(-50%);
+
+  /* Hero background */
+  .hero{position:absolute;inset:0;overflow:hidden;
+    background:linear-gradient(180deg,#ff7f7f 0%, #ff7a45 35%, #e4572e 60%, #1a1e2a 100%);}
+  /* Centre the sun + streaks relative to the viewport */
+  .sun, .streaks{position:absolute;left:50%;top:62%;transform:translate(-50%,-50%)}
+  .sun{width:clamp(260px,42vw,520px);height:clamp(260px,42vw,520px);border-radius:50%;
     background:radial-gradient(closest-side,var(--sun) 0%,#ffb84a 60%,#ff9a1a 100%);
-    box-shadow:0 0 80px 30px #ffb84a44, 0 0 180px 80px #ff9a1a22;
-  }
-  .rays{
-    position:absolute;left:50%;bottom:16%;transform:translateX(-50%);
-    width:1200px;height:1200px;border-radius:50%;
-    background:
-      conic-gradient(from 0deg,
-        #ffd27a11 0deg, #ffd27a00 6deg,
-        #ffd27a11 12deg, #ffd27a00 18deg,
-        #ffd27a11 24deg, #ffd27a00 30deg,
-        #ffd27a11 36deg, #ffd27a00 42deg,
-        #ffd27a11 48deg, #ffd27a00 54deg,
-        #ffd27a11 60deg, #ffd27a00 66deg,
-        #ffd27a11 72deg, #ffd27a00 78deg,
-        #ffd27a11 84deg, #ffd27a00 90deg,
-        #ffd27a11 96deg, #ffd27a00 102deg,
-        #ffd27a11 108deg, #ffd27a00 114deg,
-        #ffd27a11 120deg, #ffd27a00 126deg,
-        #ffd27a11 132deg, #ffd27a00 138deg,
-        #ffd27a11 144deg, #ffd27a00 150deg,
-        #ffd27a11 156deg, #ffd27a00 162deg,
-        #ffd27a11 168deg, #ffd27a00 174deg,
-        #ffd27a11 180deg, #ffd27a00 186deg,
-        #ffd27a11 192deg, #ffd27a00 198deg,
-        #ffd27a11 204deg, #ffd27a00 210deg,
-        #ffd27a11 216deg, #ffd27a00 222deg,
-        #ffd27a11 228deg, #ffd27a00 234deg,
-        #ffd27a11 240deg, #ffd27a00 246deg,
-        #ffd27a11 252deg, #ffd27a00 258deg,
-        #ffd27a11 264deg, #ffd27a00 270deg,
-        #ffd27a11 276deg, #ffd27a00 282deg,
-        #ffd27a11 288deg, #ffd27a00 294deg,
-        #ffd27a11 300deg, #ffd27a00 306deg,
-        #ffd27a11 312deg, #ffd27a00 318deg,
-        #ffd27a11 324deg, #ffd27a00 330deg,
-        #ffd27a11 336deg, #ffd27a00 342deg,
-        #ffd27a11 348deg, #ffd27a00 354deg, #ffd27a11 360deg);
-    filter:blur(0.6px);opacity:.65;animation:spin 32s linear infinite;
-    mask-image:radial-gradient(circle at 50% 50%, transparent 0 36%, black 36% 100%);
-  }
-  @keyframes spin{to{transform:translateX(-50%) rotate(360deg)}}
-  /* Petals */
+    box-shadow:0 0 80px 30px #ffb84a44, 0 0 180px 80px #ff9a1a22;}
+  .streaks{width:2400px;height:2400px;border-radius:50%;
+    background:repeating-conic-gradient(from 0deg, rgba(255,210,122,.45) 0deg 2deg, transparent 2deg 6deg);
+    mask-image:radial-gradient(circle at 50% 50%, transparent 0 20%, black 22% 100%);
+    -webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 0 20%, black 22% 100%);}
+
+  /* Floating petals */
   .petal{position:absolute;width:10px;height:6px;border-radius:6px;background:#ffb0c9aa;filter:blur(.2px);pointer-events:none}
-  /* Home content */
-  .home-card{
-    position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px;
-    padding:24px 20px 28px;max-width:760px;margin:0 16px;text-align:center;
-  }
-  h1{margin:0 0 8px;font-size:64px;letter-spacing:2px;line-height:1;
-     color:#1a0f0f;text-shadow:0 4px 0 #ffffff, 0 10px 24px #00000055, 0 0 1px #fff}
-  .tag{font-size:20px;opacity:.95;max-width:720px}
-  .actions{display:flex;flex-direction:column;gap:14px;margin-top:8px}
-  /* Leaderboard panel */
-  .board{
-    margin-top:10px;backdrop-filter:blur(8px);
-    background:linear-gradient(180deg,var(--panel),var(--panel-strong));
-    border-radius:18px;padding:14px 16px;width:min(92vw,460px);text-align:left;box-shadow:0 8px 30px #0008
-  }
-  .board h3{margin:0 0 8px;font-size:18px;opacity:.9}
-  .board ol{margin:0;padding:0 0 0 18px;max-height:200px;overflow:auto}
+
+  /* Centred content */
+  .home-wrap{position:relative;z-index:2;display:grid;place-items:center;gap:18px;
+    padding:clamp(16px,3vh,24px);text-align:center;max-width:min(92vw,860px)}
+  h1{margin:0 0 10px;font-size:clamp(46px,9vw,90px);letter-spacing:2px;line-height:1;
+     color:#120c0c;text-shadow:0 4px 0 #ffffff, 0 10px 24px #00000055, 0 0 1px #fff}
+  .tag{font-size:clamp(18px,2.6vw,22px);opacity:.95;max-width:820px}
+  .actions{display:flex;flex-direction:column;gap:14px;margin-top:6px}
+  @media (min-width:800px){ .actions{flex-direction:row} }
+
+  /* Leaderboard docked bottom-right */
+  .board{position:absolute;right:16px;bottom:16px;z-index:2;width:min(92vw,420px);
+    backdrop-filter:blur(8px);background:linear-gradient(180deg,var(--panel),var(--panel-strong));
+    border-radius:18px;padding:14px 16px;box-shadow:0 8px 30px #0008}
+  .board h3{margin:0 0 8px;font-size:18px;opacity:.92}
+  .board ol{margin:0;padding:0 0 0 18px;max-height:220px;overflow:auto}
   .board li{padding:2px 0;font-variant-numeric:tabular-nums}
-  .name-row{display:flex;justify-content:space-between;gap:12px}
-  /* Game area */
+
+  /* Game */
   #canvas{display:block;width:100vw;height:100vh}
   .hud{position:fixed;left:10px;top:14px;z-index:4;text-align:left;font-weight:700;font-size:16px;line-height:1.5;text-shadow:0 2px 4px #000c}
   .hud span{display:block}
   .pause-overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:5;background:#00000066}
   .menu{display:flex;flex-direction:column;gap:12px;align-items:center}
-  /* Responsive tweaks */
-  @media (min-width:800px){
-    h1{font-size:84px}
-    .tag{font-size:22px}
-    .actions{flex-direction:row}
-  }
 </style>
 </head>
 <body>
 
-<!-- Home Screen -->
+<!-- Home -->
 <section id="home" class="screen" aria-label="Home">
   <div class="hero" aria-hidden="true">
-    <div class="rays"></div>
+    <div class="streaks"></div>
     <div class="sun"></div>
   </div>
-
-  <!-- floating petals -->
   <div id="petals"></div>
 
-  <div class="home-card">
+  <div class="home-wrap">
     <h1>GINGERBOLT</h1>
     <div class="tag">
       Join Gingerbolt on his electrifying dash to glory. Weave past trees and mud, snag snacks, and charge to unleash anime style bursts. Stay alive, keep your energy up, and chase the top score.
     </div>
-
     <div class="actions">
       <button class="btn-primary" id="playBtn">Play</button>
       <button class="btn-secondary" id="nameBtn">Change Name</button>
     </div>
-
-    <div class="board" id="board">
-      <h3>Top scores</h3>
-      <ol id="scoreList"></ol>
-    </div>
   </div>
+
+  <aside class="board" id="board">
+    <h3>Top scores</h3>
+    <ol id="scoreList"></ol>
+  </aside>
 </section>
 
-<!-- Game Screen -->
+<!-- Game -->
 <section id="game" class="screen" aria-label="Game">
   <canvas id="canvas"></canvas>
   <div class="hud" id="hud">
@@ -152,7 +105,6 @@
     <span id="hEnergy">Energy: 100</span>
     <span id="hSnacks">Snacks: 0</span>
   </div>
-
   <div class="pause-overlay" id="pause">
     <div class="menu">
       <button class="btn-primary" id="resumeBtn">Resume</button>
@@ -162,137 +114,63 @@
 </section>
 
 <script>
-/* ---------- Name and scores ---------- */
-const NAME_KEY = 'gingerbolt_name';
-const SCORES_KEY = 'gingerbolt_scores';
+/* -------- Player name + scores -------- */
+const NAME_KEY='gingerbolt_name', SCORES_KEY='gingerbolt_scores';
 function getName(){ return localStorage.getItem(NAME_KEY) || 'CAT'; }
-function setName(n){ localStorage.setItem(NAME_KEY, n.trim() || 'CAT'); }
-function getScores(){
-  try{ return JSON.parse(localStorage.getItem(SCORES_KEY)) || []; }catch{ return []; }
-}
-function saveScore(name, score){
-  const arr = getScores();
-  arr.push({name, score, t: Date.now()});
-  arr.sort((a,b)=>b.score-a.score);
-  localStorage.setItem(SCORES_KEY, JSON.stringify(arr.slice(0,20)));
-}
+function setName(n){ localStorage.setItem(NAME_KEY,(n||'').trim()||'CAT'); }
+function getScores(){ try{return JSON.parse(localStorage.getItem(SCORES_KEY))||[];}catch{return[];} }
+function saveScore(name,score){ const a=getScores(); a.push({name,score,t:Date.now()}); a.sort((x,y)=>y.score-x.score); localStorage.setItem(SCORES_KEY,JSON.stringify(a.slice(0,20))); }
 function drawBoard(){
-  const list = document.getElementById('scoreList');
-  const scores = getScores();
-  if(scores.length === 0){
-    list.innerHTML = '<li>Be the first to set a score</li>';
-    return;
-  }
-  list.innerHTML = scores.map((s,i)=>(
-    `<li><span class="name-row"><span>${i+1}. ${s.name}</span><span>${s.score}</span></span></li>`
-  )).join('');
+  const list=document.getElementById('scoreList'), arr=getScores();
+  list.innerHTML = arr.length? arr.map((s,i)=>`<li><span>${i+1}. ${s.name}</span> <span style="float:right">${s.score}</span></li>`).join('') : '<li>Be the first to set a score</li>';
 }
 
-/* ---------- Petals on home ---------- */
+/* -------- Petals on home -------- */
 function spawnPetals(){
-  const holder = document.getElementById('petals');
-  holder.innerHTML = '';
-  const count = 24;
+  const holder=document.getElementById('petals'); holder.innerHTML='';
+  const count=24;
   for(let i=0;i<count;i++){
-    const p = document.createElement('div');
-    p.className = 'petal';
-    const startX = Math.random()*100;
-    const delay = Math.random()*6;
-    const dur = 10 + Math.random()*10;
-    const size = 6 + Math.random()*10;
-    p.style.left = startX+'vw';
-    p.style.top = '-20px';
-    p.style.width = size+'px';
-    p.style.height = size*0.6+'px';
-    p.style.animation = `fall ${dur}s linear ${delay}s infinite`;
-    holder.appendChild(p);
+    const p=document.createElement('div'); p.className='petal';
+    const startX=Math.random()*100, delay=Math.random()*6, dur=10+Math.random()*10, size=6+Math.random()*10;
+    p.style.left=startX+'vw'; p.style.top='-20px'; p.style.width=size+'px'; p.style.height=size*0.6+'px';
+    p.style.animation=`fall ${dur}s linear ${delay}s infinite`; holder.appendChild(p);
   }
 }
-const styleFall = document.createElement('style');
-styleFall.textContent = `
-@keyframes fall{
+const styleFall=document.createElement('style');
+styleFall.textContent=`@keyframes fall{
   0%{transform:translate3d(0,-40px,0) rotate(0deg);opacity:0}
   10%{opacity:.9}
   100%{transform:translate3d(${(Math.random()>.5?'-':'')+60}vw,105vh,0) rotate(540deg);opacity:.2}
-}`;
-document.head.appendChild(styleFall);
+}`; document.head.appendChild(styleFall);
 
-/* ---------- Simple endless runner (lightweight) ---------- */
-const home = document.getElementById('home');
-const game = document.getElementById('game');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d',{alpha:false});
-let W=0,H=0, px=0, py=0, lane=1, lanes=[0,0,0], t=0, speed=3;
-let obstacles=[], snacks=[], running=false, score=0, energy=100, snackCount=0;
+/* -------- Lightweight runner -------- */
+const home=document.getElementById('home'), game=document.getElementById('game');
+const canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d',{alpha:false});
+let W=0,H=0,px=0,py=0,lane=1,lanes=[0,0,0],t=0,speed=3;
+let obstacles=[],snacks=[],running=false,score=0,energy=100,snackCount=0;
 
-function resize(){
-  canvas.width = W = innerWidth;
-  canvas.height = H = innerHeight;
-  const gap = Math.min(120, W/6);
-  const centre = W/2;
-  lanes = [centre-gap, centre, centre+gap];
-  px = lanes[lane];
-  py = H*0.72;
-}
-addEventListener('resize', resize, {passive:true});
+function resize(){ canvas.width=W=innerWidth; canvas.height=H=innerHeight;
+  const gap=Math.min(120,W/6), centre=W/2; lanes=[centre-gap,centre,centre+gap]; px=lanes[lane]; py=H*0.72; }
+addEventListener('resize',resize,{passive:true});
 
-function resetGame(){
-  lane = 1; resize();
-  obstacles = []; snacks = []; t = 0; speed = 3;
-  score = 0; energy = 100; snackCount = 0;
-}
-function rnd(a,b){ return a + Math.random()*(b-a); }
-
-function spawnRow(){
-  // random lane for obstacle and optional snack
-  const L = Math.floor(rnd(0,3));
-  obstacles.push({x:lanes[L], y:-60});
-  if(Math.random()<0.55){
-    const S = (L+1)%3;
-    snacks.push({x:lanes[S], y:-120});
-  }
-}
+function resetGame(){ lane=1; resize(); obstacles=[]; snacks=[]; t=0; speed=3; score=0; energy=100; snackCount=0; }
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function spawnRow(){ const L=Math.floor(rnd(0,3)); obstacles.push({x:lanes[L],y:-60}); if(Math.random()<0.55){ const S=(L+1)%3; snacks.push({x:lanes[S],y:-120}); } }
 
 function drawTrack(){
-  // grass
-  ctx.fillStyle = '#2b6d2d';
-  ctx.fillRect(0,0,W,H);
-  // dirt lanes
-  for(let i=0;i<3;i++){
-    ctx.fillStyle = i%2? '#6b4b35' : '#7a553d';
-    ctx.fillRect(lanes[i]-50,0,100,H);
-  }
-  // petals drift lightly during play (no speed lines)
-  t+=0.01;
-  for(let i=0;i<16;i++){
-    const y = (t*60 + i*H/16)%H;
-    const x = (i*W/16 + Math.sin(t+i)*40)%W;
-    ctx.fillStyle = 'rgba(255,176,201,.65)';
-    ctx.beginPath(); ctx.ellipse(x,y,5,3, t+i, 0, Math.PI*2); ctx.fill();
-  }
+  ctx.fillStyle='#2b6d2d'; ctx.fillRect(0,0,W,H);
+  for(let i=0;i<3;i++){ ctx.fillStyle=i%2?'#6b4b35':'#7a553d'; ctx.fillRect(lanes[i]-50,0,100,H); }
+  t+=0.01; for(let i=0;i<16;i++){ const y=(t*60+i*H/16)%H, x=(i*W/16+Math.sin(t+i)*40)%W;
+    ctx.fillStyle='rgba(255,176,201,.65)'; ctx.beginPath(); ctx.ellipse(x,y,5,3,t+i,0,Math.PI*2); ctx.fill(); }
 }
-
 function drawCat(){
-  // simple ginger oval cat
-  ctx.save();
-  ctx.translate(px,py);
-  ctx.shadowColor = '#0006'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
-  // tail
-  ctx.fillStyle = '#a85a1f';
-  ctx.beginPath(); ctx.ellipse(-28,10,26,8,.2,0,Math.PI*2); ctx.fill();
-  // body
-  ctx.fillStyle = '#c46a24';
-  ctx.beginPath(); ctx.ellipse(0,0,26,40,0,0,Math.PI*2); ctx.fill();
-  // belly
-  ctx.fillStyle = '#a85a1f';
-  ctx.beginPath(); ctx.ellipse(0,6,14,20,0,0,Math.PI*2); ctx.fill();
-  // head
+  ctx.save(); ctx.translate(px,py); ctx.shadowColor='#0006'; ctx.shadowBlur=8; ctx.shadowOffsetY=2;
+  ctx.fillStyle='#a85a1f'; ctx.beginPath(); ctx.ellipse(-28,10,26,8,.2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#c46a24'; ctx.beginPath(); ctx.ellipse(0,0,26,40,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#a85a1f'; ctx.beginPath(); ctx.ellipse(0,6,14,20,0,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.ellipse(0,-38,18,14,0,0,Math.PI*2); ctx.fill();
-  // ears
-  ctx.fillStyle='#8c4a1b';
-  ctx.beginPath(); ctx.moveTo(-12,-48); ctx.lineTo(-4,-58); ctx.lineTo(-2,-42); ctx.fill();
+  ctx.fillStyle='#8c4a1b'; ctx.beginPath(); ctx.moveTo(-12,-48); ctx.lineTo(-4,-58); ctx.lineTo(-2,-42); ctx.fill();
   ctx.beginPath(); ctx.moveTo(12,-48); ctx.lineTo(4,-58); ctx.lineTo(2,-42); ctx.fill();
-  // eyes and whiskers
   ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-6,-40,3,0,Math.PI*2); ctx.arc(6,-40,3,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(-6,-40,1.5,0,Math.PI*2); ctx.arc(6,-40,1.5,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle='#fff'; ctx.lineWidth=2;
@@ -300,120 +178,42 @@ function drawCat(){
   for(let i=0;i<3;i++){ ctx.beginPath(); ctx.moveTo(2,-36+i*3); ctx.lineTo(18,-30+i*3); ctx.stroke(); }
   ctx.restore();
 }
-
-function rectHit(ax,ay,aw,ah,bx,by,bw,bh){
-  return Math.abs(ax-bx) < (aw+bw)*0.5 && Math.abs(ay-by) < (ah+bh)*0.5;
-}
-
+function rectHit(ax,ay,aw,ah,bx,by,bw,bh){ return Math.abs(ax-bx)<(aw+bw)*.5 && Math.abs(ay-by)<(ah+bh)*.5; }
 function loop(){
-  if(!running) return;
-  requestAnimationFrame(loop);
+  if(!running) return; requestAnimationFrame(loop);
   drawTrack();
-
-  // spawn
   if(Math.random()<0.03) spawnRow();
-
-  // move and draw obstacles
-  ctx.fillStyle = '#3b2a1d';
-  obstacles.forEach(o=>{ o.y += speed; ctx.fillRect(o.x-26,o.y-20,52,40); });
-  // move and draw snacks
-  ctx.fillStyle = '#ffd27a';
-  snacks.forEach(s=>{ s.y += speed; ctx.beginPath(); ctx.arc(s.x, s.y, 10, 0, Math.PI*2); ctx.fill(); });
-
-  // collisions
-  obstacles = obstacles.filter(o=>{
-    if(rectHit(px,py,40,60,o.x,o.y,52,40)){
-      energy -= 25; o.remove = true;
-    }
-    return !o.remove && o.y < H+60;
-  });
-  snacks = snacks.filter(s=>{
-    if(rectHit(px,py,40,60,s.x,s.y,20,20)){
-      energy = Math.min(100, energy+20);
-      snackCount++; score += 50; s.remove=true;
-    }
-    return !s.remove && s.y < H+40;
-  });
-
-  // player and score
-  drawCat();
-  score += Math.floor(speed);
-  energy -= 0.04*speed;
-  if(energy <= 0){ endGame(); return; }
-  speed = Math.min(9, speed + 0.002);
-
-  // HUD
-  document.getElementById('hScore').textContent = 'Score: ' + score;
-  document.getElementById('hEnergy').textContent = 'Energy: ' + Math.max(0,energy|0);
-  document.getElementById('hSnacks').textContent = 'Snacks: ' + snackCount;
+  ctx.fillStyle='#3b2a1d'; obstacles.forEach(o=>{o.y+=speed; ctx.fillRect(o.x-26,o.y-20,52,40);});
+  ctx.fillStyle='#ffd27a'; snacks.forEach(s=>{s.y+=speed; ctx.beginPath(); ctx.arc(s.x,s.y,10,0,Math.PI*2); ctx.fill();});
+  obstacles=obstacles.filter(o=>{ if(rectHit(px,py,40,60,o.x,o.y,52,40)){ energy-=25; o.remove=true; } return !o.remove && o.y<H+60; });
+  snacks=snacks.filter(s=>{ if(rectHit(px,py,40,60,s.x,s.y,20,20)){ energy=Math.min(100,energy+20); snackCount++; score+=50; s.remove=true; } return !s.remove && s.y<H+40; });
+  drawCat(); score+=Math.floor(speed); energy-=0.04*speed; if(energy<=0){ endGame(); return; }
+  speed=Math.min(9,speed+0.002);
+  document.getElementById('hScore').textContent='Score: '+score;
+  document.getElementById('hEnergy').textContent='Energy: '+Math.max(0,energy|0);
+  document.getElementById('hSnacks').textContent='Snacks: '+snackCount;
 }
 
-/* ---------- Controls (tap lanes, drag, keyboard) ---------- */
-function toLaneFromX(x){
-  const d0 = Math.abs(x - lanes[0]);
-  const d1 = Math.abs(x - lanes[1]);
-  const d2 = Math.abs(x - lanes[2]);
-  const m = Math.min(d0,d1,d2);
-  if(m===d0) return 0; if(m===d1) return 1; return 2;
-}
-canvas.addEventListener('pointerdown', e=>{
-  const L = toLaneFromX(e.clientX);
-  lane = L; px = lanes[lane];
-});
-canvas.addEventListener('pointermove', e=>{
-  if(e.pressure>0){
-    const L = toLaneFromX(e.clientX);
-    lane = L; px = lanes[lane];
-  }
-});
-addEventListener('keydown', e=>{
-  if(e.key==='ArrowLeft') lane = Math.max(0,lane-1);
-  if(e.key==='ArrowRight') lane = Math.min(2,lane+1);
-  px = lanes[lane];
-  if(e.key==='Escape') togglePause();
-});
+/* Controls */
+function toLaneFromX(x){ const d0=Math.abs(x-lanes[0]), d1=Math.abs(x-lanes[1]), d2=Math.abs(x-lanes[2]); const m=Math.min(d0,d1,d2); return m===d0?0:m===d1?1:2; }
+canvas.addEventListener('pointerdown',e=>{ lane=toLaneFromX(e.clientX); px=lanes[lane]; });
+canvas.addEventListener('pointermove',e=>{ if(e.pressure>0){ lane=toLaneFromX(e.clientX); px=lanes[lane]; }});
+addEventListener('keydown',e=>{ if(e.key==='ArrowLeft') lane=Math.max(0,lane-1); if(e.key==='ArrowRight') lane=Math.min(2,lane+1); px=lanes[lane]; if(e.key==='Escape') togglePause(); });
 
-/* ---------- Flow ---------- */
-function showHome(){
-  game.style.display='none';
-  home.style.display='grid';
-  drawBoard();
-}
-function showGame(){
-  home.style.display='none';
-  game.style.display='grid';
-  resetGame();
-  running = true; loop();
-}
-function endGame(){
-  running = false;
-  saveScore(getName(), score);
-  drawBoard();
-  showHome();
-}
+/* Flow */
+function showHome(){ game.style.display='none'; home.style.display='grid'; drawBoard(); }
+function showGame(){ home.style.display='none'; game.style.display='grid'; resetGame(); running=true; loop(); }
+function endGame(){ running=false; saveScore(getName(),score); drawBoard(); showHome(); }
+function togglePause(){ const p=document.getElementById('pause'); if(!running) return; if(p.style.display==='flex'){ p.style.display='none'; running=true; loop(); } else { p.style.display='flex'; running=false; } }
 
-function togglePause(){
-  const p = document.getElementById('pause');
-  if(!running){ return; }
-  if(p.style.display==='flex'){ p.style.display='none'; running=true; loop(); }
-  else{ p.style.display='flex'; running=false; }
-}
+/* Buttons */
+document.getElementById('playBtn').onclick=showGame;
+document.getElementById('nameBtn').onclick=()=>{ const n=prompt('Enter your player name',getName()); if(n!==null) setName(n); };
+document.getElementById('resumeBtn').onclick=togglePause;
+document.getElementById('quitBtn').onclick=()=>{ running=false; showHome(); };
 
-/* ---------- Buttons ---------- */
-document.getElementById('playBtn').onclick = showGame;
-document.getElementById('nameBtn').onclick = ()=>{
-  const current = getName();
-  const n = prompt('Enter your player name', current);
-  if(n!==null){ setName(n); }
-};
-document.getElementById('resumeBtn').onclick = togglePause;
-document.getElementById('quitBtn').onclick = ()=>{ running=false; showHome(); };
-
-/* ---------- Init ---------- */
-setName(getName());
-spawnPetals();
-resize();
-showHome();
+/* Init */
+setName(getName()); spawnPetals(); drawBoard(); resize(); showHome();
 </script>
 </body>
 </html>
