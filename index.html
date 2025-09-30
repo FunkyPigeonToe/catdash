@@ -51,7 +51,7 @@
       box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
       overflow: hidden;
     }
-    canvas { display:block; width:100%; height:100%; }
+    canvas { display:block; width:100%; height:100%; touch-action: manipulation; }
 
     .sidebar {
       background: var(--panel);
@@ -85,6 +85,7 @@
       background: radial-gradient(900px 500px at 50% 30%, rgba(20,24,38,.9), rgba(10,12,18,.95));
       z-index: 5;
     }
+    .overlay[hidden]{ display:none; }
     .overlay-inner {
       position:relative;
       width:min(900px, 92vw);
@@ -145,9 +146,9 @@
 <body>
   <div class="shell">
     <section class="playfield" id="playfield">
-      <canvas id="game"></canvas>
+      <canvas id="gameCanvas"></canvas>
 
-      <!-- Start overlay lives only on the main screen and never during play -->
+      <!-- Start overlay -->
       <div class="overlay" id="startOverlay" role="dialog" aria-modal="true">
         <div class="overlay-inner">
           <!-- anime sun + streaks background -->
@@ -167,7 +168,6 @@
           </div>
 
           <div>
-            <!-- Simple friendly cat illustration as inline SVG so no external assets needed -->
             <div class="mascot-wrap">
               <svg id="catSvg" viewBox="0 0 320 200" width="100%" height="100%" aria-label="Cartoon cat chasing a mouse">
                 <defs>
@@ -175,28 +175,19 @@
                     <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.35" />
                   </filter>
                 </defs>
-                <!-- ground -->
                 <ellipse cx="160" cy="180" rx="120" ry="14" fill="#0b0e15" />
-                <!-- tail -->
                 <path d="M240 120c35 -10 45 20 32 30c-8 7 -16 2 -22 -5" fill="none" stroke="#ffcf7d" stroke-width="10" stroke-linecap="round"/>
-                <!-- body -->
                 <ellipse cx="200" cy="120" rx="55" ry="40" fill="#ffcf7d" filter="url(#shadow)"/>
-                <!-- back leg -->
                 <ellipse cx="170" cy="150" rx="22" ry="14" fill="#ffcf7d"/>
-                <!-- front leg -->
                 <ellipse cx="230" cy="148" rx="22" ry="14" fill="#ffcf7d"/>
-                <!-- head -->
                 <circle cx="145" cy="110" r="28" fill="#ffcf7d"/>
-                <!-- ears -->
                 <path d="M130 86 l-12 -18 l-8 20 z" fill="#ffcf7d"/>
                 <path d="M158 86 l12 -18 l8 20 z" fill="#ffcf7d"/>
-                <!-- face -->
                 <circle cx="137" cy="112" r="4" fill="#333"/>
                 <circle cx="154" cy="112" r="4" fill="#333"/>
                 <path d="M140 120 q6 6 12 0" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
                 <path d="M125 116 q-14 4 -22 0" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
                 <path d="M166 116 q14 4 22 0" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
-                <!-- tiny mouse -->
                 <g id="mouse" transform="translate(40,158)">
                   <ellipse cx="12" cy="6" rx="12" ry="8" fill="#9aa6b2"/>
                   <circle cx="2" cy="6" r="4" fill="#9aa6b2"/>
@@ -226,15 +217,13 @@
 
       <div class="card">
         <h3>Leaderboard</h3>
-        <ol class="lb-list" id="leaderboard">
-          <!-- Filled by JS -->
-        </ol>
+        <ol class="lb-list" id="leaderboard"></ol>
       </div>
 
       <div class="card">
         <h3>Controls</h3>
         <div style="color:var(--muted); font-size:.95rem; line-height:1.4;">
-          Tap or click to pounce. Catch streaks for higher scores.
+          Tap or click to pounce. Catch the mouse for points.
         </div>
       </div>
     </aside>
@@ -244,28 +233,26 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
-    /* ===== Supabase setup. Paste your details. ===== */
+    /* ===== Supabase setup (fill yours) ===== */
     const SUPABASE_URL  = 'https://YOUR-PROJECT.supabase.co';   // ← replace
     const SUPABASE_ANON = 'YOUR-ANON-KEY';                      // ← replace
     const supaEnabled = SUPABASE_URL.includes('supabase.co') && !SUPABASE_ANON.startsWith('YOUR-');
     const supabase = supaEnabled ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
     // expected table: scores(name text, score int, created_at timestamptz default now())
 
-    // Local fallback store (kept from your build)
+    /* ===== Local fallback leaderboard (kept) ===== */
     const storeKey = 'catdash_lb_v2';
     const loadLBLocal = () => JSON.parse(localStorage.getItem(storeKey) || '[]');
     const saveLBLocal = (arr) => localStorage.setItem(storeKey, JSON.stringify(arr.slice(0,50)));
-
-    // Populate demo leaderboard if empty for local fallback
-    const demo = [
-      { name: 'Mittens', score: 1240 },
-      { name: 'Whiskers', score: 980 },
-      { name: 'Kaye', score: 770 },
-      { name: 'Chris', score: 720 },
-      { name: 'Paws', score: 540 }
-    ];
-    if (!supaEnabled && loadLBLocal().length === 0) saveLBLocal(demo);
-
+    if (!supaEnabled && loadLBLocal().length === 0){
+      saveLBLocal([
+        { name: 'Mittens', score: 1240 },
+        { name: 'Whiskers', score: 980 },
+        { name: 'Kaye', score: 770 },
+        { name: 'Chris', score: 720 },
+        { name: 'Paws', score: 540 }
+      ]);
+    }
     function escapeHtml(x){return (x+'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
     async function loadLB(){
@@ -274,13 +261,12 @@
       }
       const { data, error } = await supabase
         .from('scores')
-        .select('name, score, created_at')
+        .select('name, score')
         .order('score', { ascending:false })
         .limit(20);
       if (error){ console.error(error); return []; }
       return data || [];
     }
-
     async function saveScoreGlobal(name, score){
       if (!supaEnabled){
         const board = loadLBLocal(); board.push({ name, score }); saveLBLocal(board); return;
@@ -288,89 +274,61 @@
       const { error } = await supabase.from('scores').insert({ name, score });
       if (error) console.error(error);
     }
-
     async function renderLB(){
       const el = document.getElementById('leaderboard');
       el.innerHTML = '<li><span class="lb-name">Loading…</span></li>';
       const rows = await loadLB();
-      if (!rows || rows.length===0){
-        el.innerHTML = '<li><span class="lb-name">Be the first to set a score</span></li>';
-        return;
-      }
-      el.innerHTML = rows
-        .map((row,i)=>{
-          const name = escapeHtml(row.name || 'Anon');
-          const score = row.score ?? 0;
-          return `<li><span class="lb-name">${i+1}. ${name}</span><span class="lb-score">${score}</span></li>`;
-        }).join('');
+      if (!rows.length){ el.innerHTML = '<li><span class="lb-name">Be the first to set a score</span></li>'; return; }
+      el.innerHTML = rows.map((r,i)=>`<li><span class="lb-name">${i+1}. ${escapeHtml(r.name||'Anon')}</span><span class="lb-score">${r.score}</span></li>`).join('');
     }
     renderLB();
 
-    if (supaEnabled){
-      try{
-        supabase.channel('scores-change')
-          .on('postgres_changes', { event:'*', schema:'public', table:'scores' }, renderLB)
-          .subscribe();
-      }catch(e){ /* ignore if not permitted */ }
-    }
+    /* ===== Game (stable) ===== */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d',{alpha:false, desynchronized:true});
 
-    // Full screen canvas game stub (kept lightweight) -----------------------
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-
-    function resize(){
+    function sizeCanvas(){
       const rect = document.getElementById('playfield').getBoundingClientRect();
-      canvas.width = Math.floor(rect.width);
-      canvas.height = Math.floor(rect.height);
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      canvas.width  = Math.floor(rect.width  * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
     }
-    new ResizeObserver(resize).observe(document.getElementById('playfield'));
-    window.addEventListener('orientationchange', ()=> setTimeout(resize, 200));
-    resize();
+    sizeCanvas();
+    new ResizeObserver(sizeCanvas).observe(document.getElementById('playfield'));
+    window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
 
-    // Game state
     let running = false;
     let score = 0;
-    let player = { x: 120, y: 120, r: 26 };
-    let target = { x: 200, y: 120, r: 12 };
+    const player = { x: 120, y: 120, r: 26 };
+    const target = { x: 200, y: 120, r: 12 };
 
-    // Lift cat a bit so it is not off the bottom of the screen
-    function initialCatY(){
-      return Math.max(60, canvas.height * 0.65);
-    }
+    function initialCatY(){ return Math.max(60, canvas.clientHeight * 0.65); }
 
-    function reset(){
+    function resetGame(){
       score = 0;
-      player.x = canvas.width * 0.3;
+      player.x = canvas.clientWidth * 0.3;
       player.y = initialCatY();
       jitterTarget();
     }
-
     function jitterTarget(){
-      target.x = Math.random() * (canvas.width - 80) + 40;
-      target.y = Math.random() * (canvas.height - 120) + 60; // keep away from edges and bottom
+      target.x = Math.random() * (canvas.clientWidth - 80) + 40;
+      target.y = Math.random() * (canvas.clientHeight - 120) + 60;
     }
 
     function drawCat(cx, cy){
-      // very simple cat made from circles so we avoid external images
-      const scale = 1;
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(scale, scale);
-      // body
+      ctx.save(); ctx.translate(cx, cy);
       ctx.fillStyle = '#ffcf7d';
       ctx.beginPath(); ctx.ellipse(0, 0, 40, 26, 0, 0, Math.PI*2); ctx.fill();
-      // head
       ctx.beginPath(); ctx.arc(-38, -10, 18, 0, Math.PI*2); ctx.fill();
-      // ears
       ctx.beginPath(); ctx.moveTo(-50,-20); ctx.lineTo(-62,-36); ctx.lineTo(-56,-16); ctx.closePath(); ctx.fill();
       ctx.beginPath(); ctx.moveTo(-26,-20); ctx.lineTo(-14,-36); ctx.lineTo(-20,-16); ctx.closePath(); ctx.fill();
-      // legs
       ctx.beginPath(); ctx.ellipse(-12, 16, 12, 8, 0, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.ellipse(18, 14, 12, 8, 0, 0, Math.PI*2); ctx.fill();
-      // tail
       ctx.strokeStyle = '#ffcf7d'; ctx.lineWidth = 8; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(22, -6); ctx.quadraticCurveTo(50,-18, 46, 12); ctx.stroke();
-      // face
       ctx.fillStyle = '#333';
       ctx.beginPath(); ctx.arc(-44,-12,2,0,Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(-32,-12,2,0,Math.PI*2); ctx.fill();
@@ -378,7 +336,6 @@
       ctx.beginPath(); ctx.moveTo(-42,-6); ctx.quadraticCurveTo(-38,-2, -34,-6); ctx.stroke();
       ctx.restore();
     }
-
     function drawMouse(mx, my){
       ctx.save(); ctx.translate(mx, my);
       ctx.fillStyle = '#9aa6b2';
@@ -391,107 +348,97 @@
     }
 
     function draw(){
-      ctx.clearRect(0,0,canvas.width, canvas.height);
-      // background stars
+      ctx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
+      // starry bg
       for(let i=0;i<40;i++){
-        const x = (i*97 % canvas.width);
-        const y = (i*i*29 % canvas.height);
+        const x = (i*97 % canvas.clientWidth);
+        const y = (i*i*29 % canvas.clientHeight);
         ctx.globalAlpha = .08 + (i%5)*.04; ctx.fillStyle = '#cfe0ff';
         ctx.fillRect(x, y, 2, 2);
       }
       ctx.globalAlpha = 1;
-
       // ground
       ctx.fillStyle = '#0b0e15';
-      ctx.beginPath(); ctx.ellipse(canvas.width/2, canvas.height-18, canvas.width*0.35, 10, 0, 0, Math.PI*2); ctx.fill();
-
+      ctx.beginPath(); ctx.ellipse(canvas.clientWidth/2, canvas.clientHeight-18, canvas.clientWidth*0.35, 10, 0, 0, Math.PI*2); ctx.fill();
       // entities
       drawCat(player.x, player.y);
       drawMouse(target.x, target.y);
-
       // score
       ctx.fillStyle = 'rgba(255,255,255,.9)';
       ctx.font = '700 20px system-ui, -apple-system, Segoe UI';
       ctx.fillText('Score ' + score, 16, 28);
     }
 
-    // Input
+    // input (pointer + touch unified)
     function handleInput(evt){
       if (!running) return;
       const rect = canvas.getBoundingClientRect();
-      const x = (evt.clientX ?? evt.touches?.[0]?.clientX) - rect.left;
-      const y = (evt.clientY ?? evt.touches?.[0]?.clientY) - rect.top;
-      // move the cat toward the tap quickly
+      const p = 'touches' in evt ? evt.touches[0] : evt;
+      const x = p.clientX - rect.left;
+      const y = p.clientY - rect.top;
+      // smooth move
       player.x += (x - player.x) * 0.8;
       player.y += (y - player.y) * 0.8;
       // hit test
       const dx = player.x - target.x;
       const dy = player.y - target.y;
-      const d2 = dx*dx + dy*dy;
-      if (d2 < (player.r + target.r) * (player.r + target.r)){
-        score += 50; // basic points
-        document.getElementById('status').textContent = 'Nice catch!';
-        jitterTarget();
-      } else {
-        score = Math.max(0, score - 5);
-        document.getElementById('status').textContent = 'Missed';
-      }
+      const hit = (dx*dx + dy*dy) < ((player.r + target.r) ** 2);
+      if (hit){ score += 50; document.getElementById('status').textContent = 'Nice catch!'; jitterTarget(); }
+      else { score = Math.max(0, score - 5); document.getElementById('status').textContent = 'Missed'; }
     }
+    canvas.addEventListener('pointerdown', handleInput, { passive:true });
+    canvas.addEventListener('pointermove', e=>{ if(e.pressure>0) handleInput(e); }, { passive:true });
+    canvas.addEventListener('touchstart', handleInput, { passive:true });
 
-    canvas.addEventListener('pointerdown', handleInput, { passive: true });
-    canvas.addEventListener('touchstart', handleInput, { passive: true });
-
-    // Game loop
+    // main loop (robust)
+    let rafId = 0;
     function loop(){
       if (running){
         // gentle mouse drift
-        target.x += Math.sin(performance.now()/500) * 0.6;
-        target.y += Math.cos(performance.now()/700) * 0.4;
-        // keep inside bounds
-        target.x = Math.max(20, Math.min(canvas.width-20, target.x));
-        target.y = Math.max(40, Math.min(canvas.height-40, target.y));
+        const now = performance.now();
+        target.x += Math.sin(now/500) * 0.6;
+        target.y += Math.cos(now/700) * 0.4;
+        target.x = Math.max(20, Math.min(canvas.clientWidth-20, target.x));
+        target.y = Math.max(40, Math.min(canvas.clientHeight-40, target.y));
       }
       draw();
-      requestAnimationFrame(loop);
+      rafId = requestAnimationFrame(loop);
     }
-    loop();
+    rafId = requestAnimationFrame(loop);
 
-    // Start logic, name input only on main screen
+    // start / end
     const overlay = document.getElementById('startOverlay');
     const startBtn = document.getElementById('startBtn');
     const nameInput = document.getElementById('playerName');
 
     startBtn.addEventListener('click', ()=>{
       const name = (nameInput.value || '').trim() || 'Cat';
-      overlay.style.display = 'none';
       document.getElementById('status').textContent = 'Playing as ' + name;
-      reset();
+      resetGame();
+      overlay.hidden = true;           // use [hidden] to avoid layout bugs
       running = true;
     });
 
     async function endGame(){
+      if (!running) return;
       running = false;
       const name = (nameInput.value || '').trim() || 'Cat';
       await saveScoreGlobal(name, score);
       await renderLB();
       document.getElementById('status').textContent = 'Finished at ' + score;
-      overlay.style.display = 'flex';
+      overlay.hidden = false;          // show start screen
     }
-
-    // Expose endGame so you can call it from any game condition
+    // expose for your conditions/timers
     window.CATDASH = { endGame };
 
-    // Small animated wiggle for SVG cat on the start screen
+    // idle wiggle on hero svg
     const svg = document.getElementById('catSvg');
     let t0 = performance.now();
-    function wiggle(){
+    (function wiggle(){
       const t = (performance.now()-t0)/1000;
-      const amp = 3;
-      const y = Math.sin(t*2) * amp;
-      svg.style.transform = `translateY(${y}px)`;
+      svg.style.transform = `translateY(${Math.sin(t*2)*3}px)`;
       requestAnimationFrame(wiggle);
-    }
-    wiggle();
+    })();
   </script>
 </body>
 </html>
