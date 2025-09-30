@@ -17,12 +17,15 @@
       backface-visibility:hidden; -webkit-backface-visibility:hidden; transform:translateZ(0); will-change:transform; }
     .stack{ position:fixed; z-index:9; left:50%; transform:translateX(-50%); width:min(92vw,520px); pointer-events:auto; }
     .stack[hidden]{ display:none; }
+    /* start buttons are high to avoid leaderboard */
     #frontStack{ top:calc(var(--vh)*56); }
     .stack .buttons{ display:flex; flex-direction:column; gap:14px; align-items:center; }
     .btn{ border:0; border-radius:14px; padding:14px 20px; font-size:17px; color:#fff; box-shadow:0 10px 24px rgba(0,0,0,.35); }
     .btn:active{ transform:translateY(1px) scale(.98); }
     .btn-primary{ background:linear-gradient(180deg,var(--pink-hi) 0%, var(--pink) 100%); font-weight:800; min-width:230px; }
     .btn-indigo{ background:var(--indigo); min-width:230px; }
+
+    /* in-game mobile arrows */
     .controls{ position:fixed; inset:0; pointer-events:none; z-index:10; }
     .controls[hidden]{ display:none; }
     .laneBtn{ position:absolute; width:72px; height:72px; border:none; border-radius:18px; background:rgba(0,0,0,.35);
@@ -34,7 +37,7 @@
 <body>
   <canvas id="gameCanvas"></canvas>
 
-  <!-- START SCREEN BUTTONS -->
+  <!-- START SCREEN -->
   <div id="frontStack" class="stack">
     <div class="buttons">
       <button id="startBtn" class="btn btn-primary" type="button">Start Game</button>
@@ -42,19 +45,19 @@
     </div>
   </div>
 
-  <!-- In-game lane arrows (phones only) -->
+  <!-- In-game lane arrows -->
   <div id="controls" class="controls" hidden>
     <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
     <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
   </div>
 
 <script>
-/* ---------- viewport unit fix for iOS ---------- */
+/* ---------------- iOS real viewport unit ---------------- */
 function setVH(){ const vv=window.visualViewport; const h=vv?vv.height:window.innerHeight; document.documentElement.style.setProperty('--vh',(h/100)+'px'); }
 setVH(); if(window.visualViewport){ visualViewport.addEventListener('resize',setVH,{passive:true}); visualViewport.addEventListener('scroll',setVH,{passive:true}); }
 window.addEventListener('orientationchange',()=>setTimeout(setVH,250),{passive:true});
 
-/* ---------- canvas ---------- */
+/* ---------------- Canvas sizing ---------------- */
 const canvas=document.getElementById('gameCanvas');
 const ctx=canvas.getContext('2d',{alpha:false,desynchronized:true});
 function vp(){ const vv=window.visualViewport; return vv?{w:Math.floor(vv.width),h:Math.floor(vv.height)}:{w:innerWidth|0,h:innerHeight|0}; }
@@ -65,40 +68,71 @@ function onResize(){ const s=vp(); W=s.w; H=s.h; size(); positionButtons(); init
 addEventListener('resize',onResize,{passive:true}); if(window.visualViewport){ visualViewport.addEventListener('resize',onResize,{passive:true}); visualViewport.addEventListener('scroll',onResize,{passive:true}); }
 function lanesX(){ return [W/4, W/2, 3*W/4]; }
 
-/* ---------- “safe-mode” dummy leaderboard ---------- */
+/* ---------------- Leaderboard (safe loader) ---------------- */
 let globalBoard = [
   {name:'El Pickle',score:2677},{name:'Dave',score:1605},{name:'Kaye',score:777},{name:'DJC',score:563},
   {name:'Pickles',score:217},{name:'Sammy',score:150},{name:'Shorty',score:108},{name:'CAT',score:88}
-];
-function fetchGlobalTop(){ /* no-op in safe mode */ }
-function submitBestIfHigher(){ /* no-op in safe mode */ }
+]; // replaced once Supabase loads
 
-/* ---------- name ---------- */
+const SUPABASE_URL = 'https://fvcvrhaxxpsientgggnx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y3ZyaGF4eHBzaWVudGdnZ254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwODczMzYsImV4cCI6MjA3MTY2MzMzNn0.5wTxwGVJDa3gnS61gaDq00xSFGUMEQ0Pda6tJo4VK-A';
+const TABLE_NAME = 'highscores';
+let supa=null;
+
+function loadSupabaseOnce(){
+  if (window.supabase || supa) return;
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  s.defer=true;
+  s.onload=()=>{ try{ supa=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); fetchGlobalTop(); }catch(e){ console.warn('Supabase init failed:', e); } };
+  s.onerror=()=>console.warn('Supabase script failed to load (keeping local leaderboard).');
+  document.head.appendChild(s);
+}
+function fetchGlobalTop(limit=20){
+  if(!supa) return;
+  supa.from(TABLE_NAME).select('name,score,updated_at').order('score',{ascending:false}).limit(limit)
+    .then(({data,error})=>{
+      if(error) throw error;
+      if(Array.isArray(data) && data.length) globalBoard = data;
+    })
+    .catch(e=>console.warn('LB fetch error', e?.message||e));
+}
+function submitBestIfHigher(name,score){
+  if(!supa) return;
+  supa.from(TABLE_NAME).select('score').eq('name',name).single()
+    .then(({data,error})=>{
+      const prev=Number(data?.score||0);
+      if(!error && score<=prev) return;
+      const payload={name,score,updated_at:new Date().toISOString()};
+      return supa.from(TABLE_NAME).upsert(payload,{onConflict:'name'}).then(()=>fetchGlobalTop(20));
+    })
+    .catch(e=>console.warn('LB submit error', e?.message||e));
+}
+
+/* ---------------- Player name ---------------- */
 const NAME_KEY='catdash_name';
 function getPlayerName(){ let n=localStorage.getItem(NAME_KEY); if(!n){ n=prompt('Enter player name (3–12 chars):','CAT')||'CAT'; n=n.trim().slice(0,12); if(n.length<3) n=(n+'CAT').slice(0,3); localStorage.setItem(NAME_KEY,n);} return n; }
 
-/* ---------- controls placement ---------- */
+/* ---------------- Controls placement ---------------- */
 const controls=document.getElementById('controls'), btnLeft=document.getElementById('btnLane1'), btnRight=document.getElementById('btnLane3');
 function positionButtons(){ const lx=lanesX(); const baseY=H-Math.min(120,H*.12); const y=Math.min(H-10, baseY+50); btnLeft.style.left=lx[0]+'px'; btnLeft.style.top=y+'px'; btnRight.style.left=lx[2]+'px'; btnRight.style.top=y+'px'; }
 positionButtons();
 
-/* ---------- game state ---------- */
+/* ---------------- Game state (same core as before) ---------------- */
 let gameRunning=false, currentLane=1, enemies=[], pickups=[], particles=[];
 let score=0,fuel=100,meters=0,spawnTimer=0,last,graceTimer=.75,restartDelay=0;
 let roadSpeed=226,maxSpeed=704,baseAccel=.6,slipTimer=0,slipOffset=0;
-let btn1Down=false,btn3Down=false,cheatArmTimerMs=0,cheatCharges=0,cheatRearmLock=false;
-const CHEAT_HOLD_TIME_MS=50; let cheatToastTimer=0,cheatToastText='';
-let dashActive=false,dashTimer=0; const DASH_DURATION=8, DASH_SPEED_MUL=1.3, DASH_SCORE_MUL=2;
+const SPAWN_BUFFER_Y=70;
 
-/* ---------- helpers ---------- */
 function withShadow(c='rgba(0,0,0,.35)',b=8,oy=3,fn){ ctx.save(); ctx.shadowColor=c; ctx.shadowBlur=b; ctx.shadowOffsetX=0; ctx.shadowOffsetY=oy; fn(); ctx.restore(); }
 function strokeAround(c='rgba(0,0,0,.35)',lw=2,fn){ ctx.save(); ctx.lineWidth=lw; ctx.strokeStyle=c; fn(); ctx.stroke(); ctx.restore(); }
 
-/* ---------- backgrounds ---------- */
+/* ---------- Backgrounds ---------- */
 const FLOWER_COLORS=['#ffec99','#ffd6e7','#c0ebff','#c3fda7','#ffd8a8','#eebefa','#b2f2bb']; const flowerSpots=[];
 function initFlowerSpots(){ flowerSpots.length=0; const count=Math.max(80,Math.floor(W*H/11000)); for(let i=0;i<count;i++){ flowerSpots.push({x:Math.random()*W,y:Math.random()*H,r:1.2+Math.random()*1.4,rot:Math.random()*Math.PI*2,stem:Math.random()<.8}); } }
 initFlowerSpots();
 function drawBloom(x,y,s,color,rot){ ctx.save(); ctx.translate(x,y); ctx.rotate(rot); const pr=s*2.1, cr=s*1.1; ctx.fillStyle=color; for(let i=0;i<5;i++){ const a=(i/5)*Math.PI*2; ctx.beginPath(); ctx.ellipse(Math.cos(a)*s*1.1, Math.sin(a)*s*1.1, pr*.55, pr*.35, a, 0, Math.PI*2); ctx.fill(); } const g=ctx.createRadialGradient(0,0,0,0,0,cr); g.addColorStop(0,'rgba(255,255,220,.95)'); g.addColorStop(1,'rgba(255,255,220,.2)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,cr,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+
 function drawGameBG(){
   const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#64b24a'); g.addColorStop(1,'#4d9c3b'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
   ctx.fillStyle='rgba(40,90,40,.10)'; for(let y=0;y<H;y+=40){ for(let x=((y/40)%2===0?0:20); x<W; x+=40){ ctx.fillRect(x,y,10,10);} }
@@ -107,6 +141,7 @@ function drawGameBG(){
   flowerSpots.forEach(f=>{ const inLane= [0,1,2].some(i=>Math.abs(f.x-lx[i])<trailW/2); if(inLane) return; if(f.stem){ ctx.strokeStyle='rgba(20,80,20,.6)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(f.x,f.y+4); ctx.lineTo(f.x,f.y+8); ctx.stroke(); } drawBloom(f.x,f.y,f.r,color,f.rot); });
   for(let i=0;i<3;i++){ const rg=ctx.createLinearGradient(0,0,0,H); rg.addColorStop(0,'#8b684f'); rg.addColorStop(1,'#6f523f'); ctx.fillStyle=rg; ctx.fillRect(lx[i]-trailW/2,0,trailW,H); ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fillRect(lx[i]-1,0,2,H); }
 }
+
 function drawStartBG(){
   const sky=ctx.createLinearGradient(0,0,0,H);
   sky.addColorStop(0,'#ff6b9e'); sky.addColorStop(0.5,'#ff8a48'); sky.addColorStop(0.8,'#ffbf69'); sky.addColorStop(1,'#ffdca8');
@@ -120,13 +155,13 @@ function drawStartBG(){
   ctx.fillStyle=sG; ctx.beginPath(); ctx.arc(sunX,sunY,r,0,Math.PI*2); ctx.fill();
 }
 
-/* ---------- anime petals ---------- */
+/* ---------- anime petals (start screen only) ---------- */
 const petals=[]; function initPetals(){ petals.length=0; for(let i=0;i<40;i++){ petals.push({x:Math.random()*W,y:Math.random()*H,r:4+Math.random()*4,v:12+Math.random()*24,sway:Math.random()*2+1.2,a:Math.random()*Math.PI*2}); } }
 initPetals();
 function updatePetals(dt){ const mul=gameRunning?1.5:1.0; for(const p of petals){ p.a+=dt*1.6; p.x+=Math.sin(p.a)*p.sway; p.y+=p.v*dt*mul; if(p.y>H+20){ p.y=-20; p.x=Math.random()*W; } } }
-function drawPetals(){ ctx.save(); ctx.globalAlpha=gameRunning?0.75:0.85; for(const p of petals){ ctx.fillStyle='#ffb3c7'; ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r*0.9,p.r*0.6,0,0,Math.PI*2); ctx.fill(); } ctx.restore(); }
+function drawPetals(){ if(gameRunning) return; ctx.save(); ctx.globalAlpha=0.85; for(const p of petals){ ctx.fillStyle='#ffb3c7'; ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r*0.9,p.r*0.6,0,0,Math.PI*2); ctx.fill(); } ctx.restore(); }
 
-/* ---------- cat ---------- */
+/* ---------- Cat (ginger) ---------- */
 const CAT_W=22,CAT_H=34;
 function drawCat(x,y,w,h){
   withShadow('rgba(0,0,0,.35)',12,5,()=>{ const rx=w/1.55, ry=h/1.12;
@@ -147,14 +182,8 @@ function drawCat(x,y,w,h){
   strokeAround('rgba(0,0,0,.4)',1,()=>{ ctx.beginPath(); ctx.ellipse(x,y,w/1.55,h/1.12,0,0,Math.PI*2); });
 }
 
-/* ---------- particles ---------- */
-function spawnSparkles(x,y,c){ for(let i=0;i<12;i++){ const a=(Math.PI*2)*(i/12)+Math.random()*.4; const sp=60+Math.random()*110; particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-40,life:.6+Math.random()*.4,age:0,color:c}); } }
-function updateParticles(dt){ for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.age+=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=80*dt; if(p.age>=p.life) particles.splice(i,1); } }
-function drawParticles(){ particles.forEach(p=>{ const a=Math.max(0,1-p.age/p.life); ctx.save(); ctx.globalAlpha=a; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,2+1.2*a,0,Math.PI*2); ctx.fill(); ctx.restore(); }); }
-
-/* ---------- pickups/enemies (minimal) ---------- */
-const SPAWN_BUFFER_Y=70;
-function drawTree(x,y,w,h){ withShadow('rgba(0,0,0,.35)',10,4,()=>{ ctx.fillStyle='#6d3f17'; const tw=w*.28,th=h*.48,tx=x-tw/2,ty=y+h*.12,r=tw*.35; ctx.beginPath();
+/* ---------- Enemies & pickups (light version) ---------- */
+function drawTree(x,y,w,h){ withShadow('rgba(0,0,0,.35)',10,4,()=>{ const tw=w*.28,th=h*.48,tx=x-tw/2,ty=y+h*.12,r=tw*.35; ctx.fillStyle='#6d3f17'; ctx.beginPath();
   ctx.moveTo(tx+r,ty); ctx.lineTo(tx+tw-r,ty); ctx.quadraticCurveTo(tx+tw,ty,tx+tw,ty+r);
   ctx.lineTo(tx+tw,ty+th-r); ctx.quadraticCurveTo(tx+tw,ty+th,tx+tw-r,ty+th);
   ctx.lineTo(tx+r,ty+th); ctx.quadraticCurveTo(tx,ty+th,tx,ty+th-r);
@@ -165,37 +194,23 @@ function drawLightning(x,y,s=1){ ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
 
 function laneIsFree(x,y){ return !enemies.some(e=>e.x===x && Math.abs(e.y-y)<SPAWN_BUFFER_Y) && !pickups.some(p=>p.x===x && Math.abs(p.y-y)<SPAWN_BUFFER_Y); }
 function pickFreeLane(y){ const lx=lanesX(); const c=[0,1,2].filter(i=>laneIsFree(lx[i],y)); return c.length?c[Math.floor(Math.random()*c.length)]:null; }
-function spawnEnemy(){ const li=pickFreeLane(-60); if(li==null) return; const x=lanesX()[li]; (Math.random()<.55)?enemies.push({type:'tree',x,y:-50,w:40,h:70}):enemies.push({type:'mud',x,y:-40,w:56,h:24}); }
 let lastPickupLane=null;
+function spawnEnemy(){ const li=pickFreeLane(-60); if(li==null) return; const x=lanesX()[li]; (Math.random()<.55)?enemies.push({type:'tree',x,y:-50,w:40,h:70}):enemies.push({type:'mud',x,y:-40,w:56,h:24}); }
 function spawnPickup(){
   const y=-40; const lx=lanesX(); const free=[0,1,2].filter(i=>laneIsFree(lx[i],y)); if(!free.length) return;
   const lane=(free.filter(l=>l!==lastPickupLane)[0] ?? free[0]); lastPickupLane=lane; const x=lx[lane];
-  const r=Math.random(); let type='mouse', scale=1, golden=false;
-  if(r<.06){ type='dash'; scale=1.2; } else if(r<.46){ type='mouse'; golden=Math.random()<.25; scale=golden?1.2:1.0; }
-  else if(r<.86){ type='bird'; golden=Math.random()<.25; scale=golden?1.25:1.05; }
-  else if(r<.97){ type='lizard'; golden=Math.random()<.25; scale=golden?1.25:1.1; }
-  else { type='chicken'; golden=true; scale=1.35; }
-  const baseW= type==='bird'?30 : type==='mouse'?34 : type==='lizard'?36 : type==='chicken'?38 : 30;
-  const baseH= type==='bird'?18 : type==='mouse'?18 : type==='lizard'?16 : type==='chicken'?22 : 30;
-  pickups.push({type,x,y,w:baseW*scale,h:baseH*scale,scale,golden});
+  const r=Math.random(); let type='mouse', scale=1;
+  if(r<.06){ type='dash'; scale=1.2; } else { type='mouse'; scale=1.0; }
+  const baseW= type==='dash'?30:34; const baseH= type==='dash'?30:18;
+  pickups.push({type,x,y,w:baseW*scale,h:baseH*scale,scale});
 }
 
 /* ---------- HUD / board / overlays ---------- */
-function drawHUD(){
-  ctx.fillStyle='#fff'; ctx.font='16px system-ui,sans-serif';
-  ctx.fillText('Score: '+Math.round(score),10,22);
-  ctx.fillText('Energy: '+Math.round(fuel),10,42);
-  ctx.fillText('Meters: '+Math.round(meters),10,62);
-}
+function drawHUD(){ ctx.fillStyle='#fff'; ctx.font='16px system-ui,sans-serif'; ctx.fillText('Score: '+Math.round(score),10,22); ctx.fillText('Energy: '+Math.round(fuel),10,42); ctx.fillText('Meters: '+Math.round(meters),10,62); }
 function drawVignette(){ const g=ctx.createRadialGradient(W/2,H*.58,Math.min(W,H)*.25,W/2,H*.58,Math.max(W,H)*.75); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.35)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
-function drawGlobalBoard(x,y,maxRows){
-  ctx.fillStyle='#fff'; ctx.font='14px ui-monospace, Menlo, monospace'; ctx.textAlign='left';
-  ctx.fillText('Global Top 20',x,y);
-  const rows=Math.min(maxRows,globalBoard.length);
-  for(let i=0;i<rows;i++){ const e=globalBoard[i]; const nm=(e.name||'???').slice(0,12).padEnd(12,' '); const line=`${String(i+1).padStart(2,' ')}. ${nm}  ${String(Number(e.score||0)).padStart(5,' ')}`; ctx.fillText(line,x,y+18+i*16); }
-}
+function drawGlobalBoard(x,y,maxRows){ ctx.fillStyle='#fff'; ctx.font='14px ui-monospace, Menlo, monospace'; ctx.textAlign='left'; ctx.fillText('Global Top 20',x,y); const rows=Math.min(maxRows,globalBoard.length); for(let i=0;i<rows;i++){ const e=globalBoard[i]; const nm=(e.name||'???').slice(0,12).padEnd(12,' '); const line=`${String(i+1).padStart(2,' ')}. ${nm}  ${String(Number(e.score||0)).padStart(5,' ')}`; ctx.fillText(line,x,y+18+i*16); } }
 
-/* ---------- start screen ---------- */
+/* ---------- Start screen ---------- */
 let lastScore=null;
 function drawStartScreen(){
   drawStartBG(); drawPetals();
@@ -213,11 +228,13 @@ function drawStartScreen(){
   ];
   let y=H*0.26; for(const ln of lines){ ctx.fillText(ln,W/2,y); y+=(W<380?20:22); }
   ctx.restore();
+
+  // Board area: starts lower so buttons don’t overlap
   const boardStart=Math.max(H*0.72, H-240), available=H-boardStart-24, maxRows=Math.max(5,Math.floor(available/16));
   drawGlobalBoard(18, boardStart, maxRows);
 }
 
-/* ---------- loop ---------- */
+/* ---------- Loop ---------- */
 const PLAYER_Y=()=>Math.min(H-190, H*0.64-30);
 function update(dt){
   updatePetals(dt);
@@ -228,12 +245,12 @@ function update(dt){
   enemies.forEach(e=>e.y+=actual*dt); pickups.forEach(p=>p.y+=actual*dt);
   enemies=enemies.filter(e=>e.y<H+60); pickups=pickups.filter(p=>p.y<H+60);
   const px=lanesX()[currentLane]+slipOffset, py=PLAYER_Y(), pw=CAT_W-4, ph=CAT_H-2;
-  if(graceTimer<=0){
-    for(let i=0;i<enemies.length;i++){ const e=enemies[i]; let ew=e.w,eh=e.h; if(e.type==='tree'){ ew*=.6; eh*=.8; }
-      if(Math.abs(e.x-px)<(ew+pw)/2 && Math.abs(e.y-py)<(eh+ph)/2){ if(e.type==='mud'){ enemies.splice(i,1); fuel=Math.max(0,fuel-10); } else { endGame(); } break; } }
-  }
-  for(let i=0;i<pickups.length;i++){ const p=pickups[i]; if(Math.abs(p.x-px)<(p.w+pw)/2 && Math.abs(p.y-py)<(p.h+ph)/2){ pickups.splice(i,1); score+=5; fuel=Math.min(100,fuel+8); spawnSparkles(px,py,'rgba(255,240,130,.95)'); break; } }
-  updateParticles(dt);
+
+  // collisions
+  for(let i=0;i<enemies.length;i++){ const e=enemies[i]; let ew=e.w,eh=e.h; if(e.type==='tree'){ ew*=.6; eh*=.8; }
+    if(Math.abs(e.x-px)<(ew+pw)/2 && Math.abs(e.y-py)<(eh+ph)/2){ if(e.type==='mud'){ enemies.splice(i,1); fuel=Math.max(0,fuel-10); } else { endGame(); } break; } }
+  for(let i=0;i<pickups.length;i++){ const p=pickups[i]; if(Math.abs(p.x-px)<(p.w+pw)/2 && Math.abs(p.y-py)<(p.h+ph)/2){ pickups.splice(i,1); score+=5; fuel=Math.min(100,fuel+8); break; } }
+
   meters+=(actual*dt)/120; fuel-=dt*2.0; if(fuel<=0) endGame();
 }
 function draw(){
@@ -242,11 +259,11 @@ function draw(){
   enemies.forEach(e=>{ if(e.type==='tree') drawTree(e.x,e.y,e.w,e.h); else drawMud(e.x,e.y,e.w,e.h); });
   pickups.forEach(p=>{ if(p.type==='dash') drawLightning(p.x,p.y,p.scale); });
   drawCat(lanesX()[currentLane]+slipOffset, PLAYER_Y(), CAT_W, CAT_H);
-  drawParticles(); drawPetals(); drawHUD(); drawVignette();
+  drawHUD(); drawVignette();
 }
 function loop(ts){ if(last===undefined) last=ts; let dt=(ts-last)/1000; if(!Number.isFinite(dt)||dt<0) dt=0; dt=Math.min(dt,.05); last=ts; update(dt); draw(); requestAnimationFrame(loop); }
 
-/* ---------- inputs & UI ---------- */
+/* ---------- Inputs & UI ---------- */
 const frontStack=document.getElementById('frontStack');
 const startBtn=document.getElementById('startBtn');
 const changeNameBtn=document.getElementById('changeNameBtn');
@@ -255,24 +272,26 @@ function startGame(){ enemies=[]; pickups=[]; particles=[]; score=0; fuel=100; m
 function endGame(){ gameRunning=false; lastScore=Math.round(score); updateUI(); }
 startBtn.addEventListener('click',startGame);
 changeNameBtn.addEventListener('click',()=>{ localStorage.removeItem(NAME_KEY); alert('Player name set to: '+getPlayerName()); });
+
 let keyLock=false;
 addEventListener('keydown',e=>{ if(!gameRunning){ startGame(); return; } if(keyLock) return; if(e.key==='ArrowLeft'){ if(currentLane>0) currentLane--; keyLock=true; } else if(e.key==='ArrowRight'){ if(currentLane<2) currentLane++; keyLock=true; } });
 addEventListener('keyup',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight') keyLock=false; });
+
 let touchStartX=null;
 canvas.addEventListener('touchstart',e=>{ if(!gameRunning){ startGame(); return; } touchStartX=e.touches[0].clientX; },{passive:true});
 canvas.addEventListener('touchmove',e=>{ if(!gameRunning||touchStartX===null) return; const dx=e.touches[0].clientX-touchStartX; if(dx>50&&currentLane<2){ currentLane++; touchStartX=e.touches[0].clientX; } else if(dx<-50&&currentLane>0){ currentLane--; touchStartX=e.touches[0].clientX; } },{passive:true});
 canvas.addEventListener('touchend',()=>{ touchStartX=null; });
 const btn1=document.getElementById('btnLane1'), btn3=document.getElementById('btnLane3');
-function nudgeLeft(){ if(currentLane>0) currentLane--; } function nudgeRight(){ if(currentLane<2) currentLane++; }
-['pointerdown'].forEach(evt=>{ btn1.addEventListener(evt,e=>{ e.preventDefault(); if(!gameRunning){ startGame(); } else nudgeLeft(); },{passive:false});
-                               btn3.addEventListener(evt,e=>{ e.preventDefault(); if(!gameRunning){ startGame(); } else nudgeRight(); },{passive:false}); });
+['pointerdown'].forEach(evt=>{ btn1.addEventListener(evt,e=>{ e.preventDefault(); if(!gameRunning){ startGame(); } else if(currentLane>0) currentLane--; },{passive:false});
+                               btn3.addEventListener(evt,e=>{ e.preventDefault(); if(!gameRunning){ startGame(); } else if(currentLane<2) currentLane++; },{passive:false}); });
 ['pointerup','pointercancel','pointerout','pointerleave'].forEach(evt=>{ btn1.addEventListener(evt,e=>e.preventDefault(),{passive:false}); btn3.addEventListener(evt,e=>e.preventDefault(),{passive:false}); });
 
-/* ---------- boot ---------- */
+/* ---------- Boot ---------- */
 getPlayerName();
-fetchGlobalTop();
 updateUI();
 requestAnimationFrame(loop);
+/* load Supabase after first frame so rendering never blocks */
+setTimeout(loadSupabaseOnce, 50);
 </script>
 </body>
 </html>
