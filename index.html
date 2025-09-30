@@ -1,444 +1,160 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CatDash</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#12161c" />
+  <title>Gingerbolt</title>
   <style>
-    :root {
-      --bg:#0d0f14;
-      --panel:#12151c;
-      --card:#161a22;
-      --accent:#ffc83d;
-      --accent2:#8ad0ff;
-      --text:#e9eef7;
-      --muted:#94a3b8;
-      --glass:rgba(22,26,34,.65);
+    :root{
+      --pink:#ff4081; --pink-hi:#ff6fa3; --indigo:#5865F2; --bg:#12161c;
+    }
+    html, body { margin:0; padding:0; background:var(--bg); color:#fff; font-family:system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; height:100dvh; overflow:hidden; }
+    canvas { display:block; margin:0 auto; background:#000; touch-action:none; backface-visibility:hidden; -webkit-backface-visibility:hidden; transform:translateZ(0); will-change:transform; }
 
-      /* hero colours */
-      --heroTop:#ff7f7f;
-      --heroMid:#ff7a45;
-      --heroLow:#e4572e;
-      --heroFloor:#0f1320;
-      --sun:#ffd27a;
-    }
-    * { box-sizing: border-box; }
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: radial-gradient(1200px 600px at 50% 10%, #131827 0%, var(--bg) 60%);
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      overflow: hidden;
-    }
-    /* Full screen responsive layout */
-    .shell {
-      position: fixed;
-      inset: 0;
-      display: grid;
-      grid-template-columns: 1fr minmax(280px, 360px);
-      grid-template-rows: 100%;
-      gap: 16px;
-      padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom) 16px;
-    }
-    @media (max-width: 900px) {
-      .shell { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-    }
-    .playfield {
-      position: relative;
-      border-radius: 20px;
-      background: linear-gradient(180deg, #172033 0%, #0f1320 100%);
-      box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
-      overflow: hidden;
-    }
-    canvas { display:block; width:100%; height:100%; touch-action: manipulation; }
+    /* Front & Menu buttons */
+    .stack { position:fixed; display:none; z-index:9; left:50%; transform:translateX(-50%); pointer-events:auto; width:min(92vw,520px); }
+    #frontStack { top: 46%; }  /* raised so text + leaderboard fit */
+    #menuStack  { top: 78%; }
+    .stack .buttons { display:flex; flex-direction:column; gap:12px; align-items:center; }
+    .btn { border:0; border-radius:14px; padding:12px 18px; font-size:16px; color:#fff; box-shadow:0 8px 22px rgba(0,0,0,.35); -webkit-tap-highlight-color:transparent; }
+    .btn:active { transform:translateY(1px) scale(.98); }
+    .btn-primary { background:linear-gradient(180deg,var(--pink-hi) 0%, var(--pink) 100%); font-weight:800; min-width:200px; }
+    .btn-indigo  { background:var(--indigo); min-width:200px; }
 
-    .sidebar {
-      background: var(--panel);
-      border-radius: 20px;
-      padding: 16px;
-      display:flex;flex-direction:column;gap:12px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
-    }
-    .brandRow { display:flex; align-items:center; justify-content:space-between; }
-    .brand { display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.5px; }
-    .brand svg { width:28px; height:28px; }
-    .pill { padding:.25rem .6rem; border-radius:999px; background:#1f2430; color:var(--muted); font-size:.85rem; }
-
-    .card {
-      background: var(--card);
-      border-radius: 14px;
-      padding: 12px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
-    }
-    .card h3 { margin:0 0 8px 0; font-size:1rem; color:#cfe0ff; }
-
-    .lb-list { margin:0; padding:0; list-style:none; }
-    .lb-list li { display:flex; align-items:center; justify-content:space-between; padding:10px 8px; border-radius:10px; }
-    .lb-list li:nth-child(odd){ background:#1a2030; }
-    .lb-name { font-weight:600; }
-    .lb-score { color:var(--accent); font-variant-numeric: tabular-nums; }
-
-    /* Start overlay kept away from leaderboard */
-    .overlay {
-      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      background: radial-gradient(900px 500px at 50% 30%, rgba(20,24,38,.9), rgba(10,12,18,.95));
-      z-index: 5;
-    }
-    .overlay[hidden]{ display:none; }
-    .overlay-inner {
-      position:relative;
-      width:min(900px, 92vw);
-      display:grid; grid-template-columns: 1.2fr 1fr; gap:20px; align-items:center;
-      padding:20px; border-radius:20px; background:var(--glass); backdrop-filter: blur(10px);
-      box-shadow: 0 20px 50px rgba(0,0,0,.45);
-      overflow:hidden;
-    }
-    @media (max-width: 900px){
-      .overlay-inner{ grid-template-columns: 1fr; }
-    }
-
-    /* hero background behind the content */
-    .hero-bg{
-      position:absolute; inset:0; pointer-events:none;
-      background:linear-gradient(180deg,var(--heroTop) 0%, var(--heroMid) 40%, var(--heroLow) 70%, var(--heroFloor) 100%);
-    }
-    .sun, .streaks{ position:absolute; left:50%; top:62%; transform:translate(-50%,-50%); }
-    .sun{
-      width:clamp(220px,40vw,520px); height:clamp(220px,40vw,520px); border-radius:50%;
-      background:radial-gradient(closest-side,var(--sun) 0%,#ffb84a 60%,#ff9a1a 100%);
-      box-shadow:0 0 80px 30px #ffb84a44, 0 0 180px 80px #ff9a1a22;
-      filter:blur(.2px);
-    }
-    .streaks{
-      width:2200px; height:2200px; border-radius:50%;
-      background:repeating-conic-gradient(from 0deg, rgba(255,210,122,.45) 0deg 2deg, transparent 2deg 6deg);
-      mask-image:radial-gradient(circle at 50% 50%, transparent 0 18%, black 20% 100%);
-      -webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 0 18%, black 20% 100%);
-      filter:blur(.2px);
-    }
-
-    .hero { position:relative; z-index:1; }
-    .title {
-      font-size: clamp(36px, 6vw, 56px);
-      font-weight: 900;
-      line-height: 1.05;
-      margin: 0 0 8px 0;
-      letter-spacing: .5px;
-      text-align:center;
-      text-shadow:0 3px 0 #ffffff, 0 10px 20px rgba(0,0,0,.45);
-      color:#0f0a09;
-    }
-    .subtitle { color: var(--muted); margin:0 0 18px 0; text-align:center; }
-    .controls { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-    .input { background:#0f1320; color:var(--text); border:1px solid #283048; border-radius:12px; padding:12px 14px; font-size:1rem; flex:1; min-width: 180px; }
-    .btn { background:var(--accent); color:#2a2100; border:0; border-radius:12px; padding:12px 16px; font-weight:800; font-size:1rem; cursor:pointer; box-shadow: 0 8px 20px rgba(255,200,61,.3); }
-    .btn:active { transform: translateY(1px); }
-
-    /* Cute cat SVG container */
-    .mascot-wrap { position:relative; aspect-ratio: 16/10; width:100%; z-index:1; }
-    .hint { font-size:.9rem; color:var(--muted); margin-top:10px; text-align:center; }
-
-    /* Hide any arrow button the old build might render */
-    .arrow, .arrow-button, .left-arrow, .right-arrow { display:none !important; }
+    /* On-screen arrows (in game only) */
+    .controls { position:fixed; inset:0; pointer-events:none; z-index:10; display:none; }
+    .laneBtn  { position:absolute; width:80px; height:80px; border:none; border-radius:20px; background:rgba(0,0,0,.35); color:#fff; font-size:28px; box-shadow:0 6px 18px rgba(0,0,0,.35); -webkit-tap-highlight-color:transparent; touch-action:manipulation; pointer-events:auto; transform:translate(-50%, -50%); }
+    .laneBtn:active { transform:translate(-50%, -50%) scale(.96); }
+    @media (min-width:900px){ .controls{ display:none !important; } }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <section class="playfield" id="playfield">
-      <canvas id="gameCanvas"></canvas>
+  <canvas id="gameCanvas"></canvas>
 
-      <!-- Start overlay -->
-      <div class="overlay" id="startOverlay" role="dialog" aria-modal="true">
-        <div class="overlay-inner">
-          <!-- anime sun + streaks background -->
-          <div class="hero-bg" aria-hidden="true">
-            <div class="streaks"></div>
-            <div class="sun"></div>
-          </div>
-
-          <div class="hero">
-            <h1 class="title">CatDash</h1>
-            <p class="subtitle">Quick paw reflex game. Catch the mouse, climb the board.</p>
-            <div class="controls">
-              <input id="playerName" class="input" placeholder="Your name" autocomplete="name" />
-              <button id="startBtn" class="btn">Start</button>
-            </div>
-            <p class="hint">Tip: works on phones. Full screen layout.</p>
-          </div>
-
-          <div>
-            <div class="mascot-wrap">
-              <svg id="catSvg" viewBox="0 0 320 200" width="100%" height="100%" aria-label="Cartoon cat chasing a mouse">
-                <defs>
-                  <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.35" />
-                  </filter>
-                </defs>
-                <ellipse cx="160" cy="180" rx="120" ry="14" fill="#0b0e15" />
-                <path d="M240 120c35 -10 45 20 32 30c-8 7 -16 2 -22 -5" fill="none" stroke="#ffcf7d" stroke-width="10" stroke-linecap="round"/>
-                <ellipse cx="200" cy="120" rx="55" ry="40" fill="#ffcf7d" filter="url(#shadow)"/>
-                <ellipse cx="170" cy="150" rx="22" ry="14" fill="#ffcf7d"/>
-                <ellipse cx="230" cy="148" rx="22" ry="14" fill="#ffcf7d"/>
-                <circle cx="145" cy="110" r="28" fill="#ffcf7d"/>
-                <path d="M130 86 l-12 -18 l-8 20 z" fill="#ffcf7d"/>
-                <path d="M158 86 l12 -18 l8 20 z" fill="#ffcf7d"/>
-                <circle cx="137" cy="112" r="4" fill="#333"/>
-                <circle cx="154" cy="112" r="4" fill="#333"/>
-                <path d="M140 120 q6 6 12 0" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
-                <path d="M125 116 q-14 4 -22 0" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
-                <path d="M166 116 q14 4 22 0" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round"/>
-                <g id="mouse" transform="translate(40,158)">
-                  <ellipse cx="12" cy="6" rx="12" ry="8" fill="#9aa6b2"/>
-                  <circle cx="2" cy="6" r="4" fill="#9aa6b2"/>
-                  <circle cx="0" cy="6" r="1.5" fill="#222"/>
-                  <path d="M22 8 q10 6 18 0" stroke="#9aa6b2" stroke-width="2" fill="none"/>
-                </g>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <aside class="sidebar" aria-label="Leaderboard and info">
-      <div class="brandRow">
-        <div class="brand" aria-label="CatDash brand">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="32" cy="32" r="28" fill="#0e1322" stroke="#2b3350" stroke-width="4"/>
-            <path d="M22 28c0-6 10-6 10 0" stroke="#ffc83d" stroke-width="3"/>
-            <circle cx="24" cy="24" r="2" fill="#ffc83d"/>
-            <circle cx="34" cy="24" r="2" fill="#ffc83d"/>
-          </svg>
-          <span>CatDash</span>
-        </div>
-        <span class="pill" id="status">Ready</span>
-      </div>
-
-      <div class="card">
-        <h3>Leaderboard</h3>
-        <ol class="lb-list" id="leaderboard"></ol>
-      </div>
-
-      <div class="card">
-        <h3>Controls</h3>
-        <div style="color:var(--muted); font-size:.95rem; line-height:1.4;">
-          Tap or click to pounce. Catch the mouse for points.
-        </div>
-      </div>
-    </aside>
+  <!-- FRONT -->
+  <div id="frontStack" class="stack">
+    <div class="buttons">
+      <button id="playBtn" class="btn btn-primary" type="button">Play</button>
+      <button id="frontChangeNameBtn" class="btn btn-indigo" type="button">Change Name</button>
+    </div>
   </div>
 
-  <!-- Supabase client -->
+  <!-- MENU -->
+  <div id="menuStack" class="stack">
+    <div class="buttons">
+      <button id="startBtn" class="btn btn-primary" type="button">Start Game</button>
+    </div>
+  </div>
+
+  <!-- In-game lane arrows -->
+  <div id="controls" class="controls">
+    <button id="btnLane1" class="laneBtn" aria-label="Move left">◀</button>
+    <button id="btnLane3" class="laneBtn" aria-label="Move right">▶</button>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script>
-    /* ===== Supabase setup (fill yours) ===== */
-    const SUPABASE_URL  = 'https://YOUR-PROJECT.supabase.co';   // ← replace
-    const SUPABASE_ANON = 'YOUR-ANON-KEY';                      // ← replace
-    const supaEnabled = SUPABASE_URL.includes('supabase.co') && !SUPABASE_ANON.startsWith('YOUR-');
-    const supabase = supaEnabled ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON) : null;
-    // expected table: scores(name text, score int, created_at timestamptz default now())
+  /* ========================= Supabase (Leaderboard) ========================= */
+  const SUPABASE_URL = 'https://fvcvrhaxxpsientgggnx.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2Y3ZyaGF4eHBzaWVudGdnZ254Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYwODczMzYsImV4cCI6MjA3MTY2MzMzNn0.5wTxwGVJDa3gnS61gaDq00xSFGUMEQ0Pda6tJo4VK-A';
+  const TABLE_NAME = 'highscores';
+  const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const NAME_KEY = 'catdash_name';
+  function getPlayerName(){ let n = localStorage.getItem(NAME_KEY); if(!n){ n = prompt('Enter player name (3–12 chars):','CAT')||'CAT'; n=n.trim().slice(0,12); if(n.length<3) n=(n+'CAT').slice(0,3); localStorage.setItem(NAME_KEY,n);} return n; }
+  let globalBoard = []; let lastBoardFetch = 0;
+  async function fetchGlobalTop(limit=20){ try{ const {data,error}=await supa.from(TABLE_NAME).select('name,score,updated_at').order('score',{ascending:false}).limit(limit); if(error) throw error; globalBoard=Array.isArray(data)?data:[]; lastBoardFetch=performance.now(); }catch(e){ console.warn('LB fetch error',e.message||e); } }
+  async function submitBestIfHigher(name,score){ try{ const {data:existing,error:e1}=await supa.from(TABLE_NAME).select('score').eq('name',name).single(); const prev=Number(existing?.score||0); if(!e1 && score<=prev) return false; const payload={name,score,updated_at:new Date().toISOString()}; const {error:e2}=await supa.from(TABLE_NAME).upsert(payload,{onConflict:'name'}); if(e2) throw e2; fetchGlobalTop(20); return true; }catch(e){ console.warn('LB submit error',e.message||e); return false; } }
 
-    /* ===== Local fallback leaderboard (kept) ===== */
-    const storeKey = 'catdash_lb_v2';
-    const loadLBLocal = () => JSON.parse(localStorage.getItem(storeKey) || '[]');
-    const saveLBLocal = (arr) => localStorage.setItem(storeKey, JSON.stringify(arr.slice(0,50)));
-    if (!supaEnabled && loadLBLocal().length === 0){
-      saveLBLocal([
-        { name: 'Mittens', score: 1240 },
-        { name: 'Whiskers', score: 980 },
-        { name: 'Kaye', score: 770 },
-        { name: 'Chris', score: 720 },
-        { name: 'Paws', score: 540 }
-      ]);
-    }
-    function escapeHtml(x){return (x+'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  /* ========================= Canvas / viewport ========================= */
+  const canvas=document.getElementById('gameCanvas');
+  const ctx=canvas.getContext('2d',{alpha:false, desynchronized:true});
+  function getViewportSize(){ const vv=window.visualViewport; if(vv) return {w:Math.floor(vv.width), h:Math.floor(vv.height)}; return {w:Math.floor(window.innerWidth), h:Math.floor(window.innerHeight)}; }
+  let {w:W,h:H}=getViewportSize(); let DPR=1;
+  function resizeCanvas(){ DPR=Math.max(1,Math.min(3,window.devicePixelRatio||1)); canvas.style.width=W+'px'; canvas.style.height=H+'px'; canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; }
+  resizeCanvas();
+  function handleResize(){ const v=getViewportSize(); W=v.w; H=v.h; resizeCanvas(); positionButtons(); initFlowerSpots(); initPetals(); }
+  window.addEventListener('resize',handleResize,{passive:true});
+  if(window.visualViewport){ visualViewport.addEventListener('resize',handleResize,{passive:true}); visualViewport.addEventListener('scroll',handleResize,{passive:true}); }
+  function lanesX(){ return [W/4, W/2, (3*W)/4]; }
 
-    async function loadLB(){
-      if (!supaEnabled){
-        return loadLBLocal().sort((a,b)=>b.score-a.score).slice(0,20);
-      }
-      const { data, error } = await supabase
-        .from('scores')
-        .select('name, score')
-        .order('score', { ascending:false })
-        .limit(20);
-      if (error){ console.error(error); return []; }
-      return data || [];
-    }
-    async function saveScoreGlobal(name, score){
-      if (!supaEnabled){
-        const board = loadLBLocal(); board.push({ name, score }); saveLBLocal(board); return;
-      }
-      const { error } = await supabase.from('scores').insert({ name, score });
-      if (error) console.error(error);
-    }
-    async function renderLB(){
-      const el = document.getElementById('leaderboard');
-      el.innerHTML = '<li><span class="lb-name">Loading…</span></li>';
-      const rows = await loadLB();
-      if (!rows.length){ el.innerHTML = '<li><span class="lb-name">Be the first to set a score</span></li>'; return; }
-      el.innerHTML = rows.map((r,i)=>`<li><span class="lb-name">${i+1}. ${escapeHtml(r.name||'Anon')}</span><span class="lb-score">${r.score}</span></li>`).join('');
-    }
-    renderLB();
+  /* ========================= Controls ========================= */
+  const controls=document.getElementById('controls');
+  const CAT_Y_LIFT=-30; const BUTTON_Y_OFFSET=50;
+  function positionButtons(){
+    const btn1=document.getElementById('btnLane1'); const btn3=document.getElementById('btnLane3');
+    const lx=lanesX();
+    const baseY=H-Math.min(120,H*.12);
+    const y=Math.min(H-10, baseY+BUTTON_Y_OFFSET);
+    btn1.style.left=lx[0]+'px'; btn1.style.top=y+'px';
+    btn3.style.left=lx[2]+'px'; btn3.style.top=y+'px';
+  }
+  positionButtons();
 
-    /* ===== Game (stable) ===== */
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d',{alpha:false, desynchronized:true});
+  /* ========================= Game state ========================= */
+  let mode='front', currentLane=1, enemies=[], pickups=[], particles=[];
+  let score=0, fuel=100, meters=0;
+  let spawnTimer=0, last=undefined, graceTimer=.75, restartDelay=0;
+  let roadSpeed=226, maxSpeed=704, baseAccel=.6, slipTimer=0, slipOffset=0;
+  let btn1Down=false, btn3Down=false, cheatArmTimerMs=0, cheatCharges=0, cheatRearmLock=false;
+  const CHEAT_HOLD_TIME_MS=50;
+  let cheatToastTimer=0, cheatToastText='';
+  let dashActive=false, dashTimer=0;
+  const DASH_DURATION=8.0, DASH_SPEED_MUL=1.30, DASH_SCORE_MUL=2;
 
-    function sizeCanvas(){
-      const rect = document.getElementById('playfield').getBoundingClientRect();
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      canvas.style.width = rect.width + 'px';
-      canvas.style.height = rect.height + 'px';
-      canvas.width  = Math.floor(rect.width  * dpr);
-      canvas.height = Math.floor(rect.height * dpr);
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-    }
-    sizeCanvas();
-    new ResizeObserver(sizeCanvas).observe(document.getElementById('playfield'));
-    window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
+  /* ========================= Visual helpers ========================= */
+  function withShadow(color='rgba(0,0,0,.35)', blur=8, oy=3, fn){ ctx.save(); ctx.shadowColor=color; ctx.shadowBlur=blur; ctx.shadowOffsetX=0; ctx.shadowOffsetY=oy; fn(); ctx.restore(); }
+  function strokeAround(color='rgba(0,0,0,.35)', lw=2, fn){ ctx.save(); ctx.lineWidth=lw; ctx.strokeStyle=color; fn(); ctx.stroke(); ctx.restore(); }
 
-    let running = false;
-    let score = 0;
-    const player = { x: 120, y: 120, r: 26 };
-    const target = { x: 200, y: 120, r: 12 };
+  /* ========================= Background (game scenes) ========================= */
+  const FLOWER_SEG_METERS=400; const FLOWER_COLORS=['#ffec99','#ffd6e7','#c0ebff','#c3fda7','#ffd8a8','#eebefa','#b2f2bb']; const flowerSpots=[];
+  function initFlowerSpots(){ flowerSpots.length=0; const count=Math.max(80,Math.floor(W*H/11000)); for(let i=0;i<count;i++){ flowerSpots.push({x:Math.random()*W,y:Math.random()*H,r:1.2+Math.random()*1.4,rot:Math.random()*Math.PI*2,stem:Math.random()<.8}); } }
+  initFlowerSpots();
+  function drawBloom(x,y,s,color,rot){ ctx.save(); ctx.translate(x,y); ctx.rotate(rot); const pr=s*2.1, cr=s*1.1; ctx.fillStyle=color; for(let i=0;i<5;i++){ const a=(i/5)*Math.PI*2; ctx.beginPath(); ctx.ellipse(Math.cos(a)*s*1.1, Math.sin(a)*s*1.1, pr*.55, pr*.35, a, 0, Math.PI*2); ctx.fill(); } const g=ctx.createRadialGradient(0,0,0,0,0,cr); g.addColorStop(0,'rgba(255,255,220,.95)'); g.addColorStop(1,'rgba(255,255,220,.2)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,cr,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+  function drawBackground(){ const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#64b24a'); g.addColorStop(1,'#4d9c3b'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
 
-    function initialCatY(){ return Math.max(60, canvas.clientHeight * 0.65); }
+  /* ========================= Obstacles, pickups, cat, HUD ========================= */
+  const CAT_W=22, CAT_H=34;
+  function drawCat(x,y,w,h){ withShadow('rgba(0,0,0,.35)',12,5,()=>{ ctx.fillStyle='#d07a2b'; ctx.beginPath(); ctx.ellipse(x,y,w/1.55,h/1.12,0,0,Math.PI*2); ctx.fill(); }); }
 
-    function resetGame(){
-      score = 0;
-      player.x = canvas.clientWidth * 0.3;
-      player.y = initialCatY();
-      jitterTarget();
-    }
-    function jitterTarget(){
-      target.x = Math.random() * (canvas.clientWidth - 80) + 40;
-      target.y = Math.random() * (canvas.clientHeight - 120) + 60;
-    }
+  /* ========================= Anime petals ========================= */
+  const PETAL_COUNT = 36;
+  const petals = [];
+  function initPetals(){ petals.length=0; for(let i=0;i<PETAL_COUNT;i++){ petals.push({x:Math.random()*W,y:Math.random()*H,r:4+Math.random()*4,v:12+Math.random()*24,sway:Math.random()*2+1.2,a:Math.random()*Math.PI*2}); } }
+  initPetals();
+  function updatePetals(dt){ const speedMul=dashActive?1.8:1.0; const swirlMul=dashActive?1.8:1.0; for(const p of petals){ p.a+=dt*1.6*swirlMul; p.x+=Math.sin(p.a)*p.sway*swirlMul; p.y+=p.v*dt*speedMul; if(p.y>H+20){ p.y=-20; p.x=Math.random()*W; } } }
+  function drawPetals(){ ctx.save(); ctx.globalAlpha=dashActive?0.9:0.7; for(const p of petals){ ctx.fillStyle='#ffb3c7'; ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r*0.9,p.r*0.6,0,0,Math.PI*2); ctx.fill(); } ctx.restore(); }
+  function drawPetalVortex(cx,cy){ if(!dashActive) return; ctx.save(); ctx.globalCompositeOperation='lighter'; for(let i=0;i<10;i++){ const t=performance.now()/600+i*0.3; const r=26+i*6; const ang=t*4+i*0.7; const x=cx+Math.cos(ang)*r; const y=cy+Math.sin(ang)*r*0.6; ctx.fillStyle='rgba(255,200,220,0.7)'; ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2); ctx.fill(); } ctx.restore(); }
 
-    function drawCat(cx, cy){
-      ctx.save(); ctx.translate(cx, cy);
-      ctx.fillStyle = '#ffcf7d';
-      ctx.beginPath(); ctx.ellipse(0, 0, 40, 26, 0, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-38, -10, 18, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(-50,-20); ctx.lineTo(-62,-36); ctx.lineTo(-56,-16); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(-26,-20); ctx.lineTo(-14,-36); ctx.lineTo(-20,-16); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(-12, 16, 12, 8, 0, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(18, 14, 12, 8, 0, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#ffcf7d'; ctx.lineWidth = 8; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(22, -6); ctx.quadraticCurveTo(50,-18, 46, 12); ctx.stroke();
-      ctx.fillStyle = '#333';
-      ctx.beginPath(); ctx.arc(-44,-12,2,0,Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-32,-12,2,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(-42,-6); ctx.quadraticCurveTo(-38,-2, -34,-6); ctx.stroke();
-      ctx.restore();
-    }
-    function drawMouse(mx, my){
-      ctx.save(); ctx.translate(mx, my);
-      ctx.fillStyle = '#9aa6b2';
-      ctx.beginPath(); ctx.ellipse(0, 0, 10, 7, 0, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(-9, 0, 3, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-12, 0, 1.2, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#9aa6b2'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(8, 2); ctx.quadraticCurveTo(16, 8, 24, 2); ctx.stroke();
-      ctx.restore();
-    }
+  /* ========================= Dash overlay ========================= */
+  function drawDashOverlay(){ if(!dashActive) return; ctx.save(); ctx.globalAlpha=0.18; ctx.fillStyle='#ff9800'; ctx.fillRect(0,0,W,H); ctx.restore(); }
 
-    function draw(){
-      ctx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
-      // starry bg
-      for(let i=0;i<40;i++){
-        const x = (i*97 % canvas.clientWidth);
-        const y = (i*i*29 % canvas.clientHeight);
-        ctx.globalAlpha = .08 + (i%5)*.04; ctx.fillStyle = '#cfe0ff';
-        ctx.fillRect(x, y, 2, 2);
-      }
-      ctx.globalAlpha = 1;
-      // ground
-      ctx.fillStyle = '#0b0e15';
-      ctx.beginPath(); ctx.ellipse(canvas.clientWidth/2, canvas.clientHeight-18, canvas.clientWidth*0.35, 10, 0, 0, Math.PI*2); ctx.fill();
-      // entities
-      drawCat(player.x, player.y);
-      drawMouse(target.x, target.y);
-      // score
-      ctx.fillStyle = 'rgba(255,255,255,.9)';
-      ctx.font = '700 20px system-ui, -apple-system, Segoe UI';
-      ctx.fillText('Score ' + score, 16, 28);
-    }
+  /* ========================= HUD & Leaderboard ========================= */
+  function drawHUD(){ ctx.fillStyle='#fff'; ctx.font='16px system-ui, sans-serif'; ctx.fillText('Score: '+Math.round(score),10,22); ctx.fillText('Energy: '+Math.round(fuel),10,42); }
+  function drawGlobalBoard(x,y,maxRows=10){ ctx.fillStyle='#fff'; ctx.font='14px monospace'; ctx.fillText('Global Top 20',x,y); if(!globalBoard.length){ ctx.fillText('Loading...',x,y+20); return; } for(let i=0;i<Math.min(maxRows,globalBoard.length);i++){ const e=globalBoard[i]; const line=`${i+1}. ${(e.name||'???').slice(0,10)} ${e.score}`; ctx.fillText(line,x,y+20+i*16); } }
 
-    // input (pointer + touch unified)
-    function handleInput(evt){
-      if (!running) return;
-      const rect = canvas.getBoundingClientRect();
-      const p = 'touches' in evt ? evt.touches[0] : evt;
-      const x = p.clientX - rect.left;
-      const y = p.clientY - rect.top;
-      // smooth move
-      player.x += (x - player.x) * 0.8;
-      player.y += (y - player.y) * 0.8;
-      // hit test
-      const dx = player.x - target.x;
-      const dy = player.y - target.y;
-      const hit = (dx*dx + dy*dy) < ((player.r + target.r) ** 2);
-      if (hit){ score += 50; document.getElementById('status').textContent = 'Nice catch!'; jitterTarget(); }
-      else { score = Math.max(0, score - 5); document.getElementById('status').textContent = 'Missed'; }
-    }
-    canvas.addEventListener('pointerdown', handleInput, { passive:true });
-    canvas.addEventListener('pointermove', e=>{ if(e.pressure>0) handleInput(e); }, { passive:true });
-    canvas.addEventListener('touchstart', handleInput, { passive:true });
+  /* ========================= Front screen ========================= */
+  const CAT_MASCOT_NAME='Gingerbolt';
+  let frontT=0;
+  function drawFront(){ ctx.fillStyle='linear-gradient(#ff3d7f,#ff7a3d)'; ctx.fillRect(0,0,W,H); const title='GINGERBOLT'; ctx.save(); ctx.font=`${Math.floor(W*0.13)}px Impact`; ctx.textAlign='center'; ctx.fillStyle='#2a0a0a'; ctx.fillText(title,W/2,H*0.2); ctx.restore(); ctx.font='18px system-ui'; ctx.fillStyle='#fff'; ctx.fillText('Join Gingerbolt on his electrifying dash to glory!',W/2,H*0.26); ctx.fillText('Help Gingerbolt weave past trees and mud, snag snacks, and charge ⚡ to dash.',W/2,H*0.3); ctx.fillText('Aim: stay alive, collect food, keep energy up, and set a high score.',W/2,H*0.34); drawGlobalBoard(18,H*0.55,10); }
 
-    // main loop (robust)
-    let rafId = 0;
-    function loop(){
-      if (running){
-        // gentle mouse drift
-        const now = performance.now();
-        target.x += Math.sin(now/500) * 0.6;
-        target.y += Math.cos(now/700) * 0.4;
-        target.x = Math.max(20, Math.min(canvas.clientWidth-20, target.x));
-        target.y = Math.max(40, Math.min(canvas.clientHeight-40, target.y));
-      }
-      draw();
-      rafId = requestAnimationFrame(loop);
-    }
-    rafId = requestAnimationFrame(loop);
+  /* ========================= Flow ========================= */
+  const PLAYER_Y=()=>Math.min(H-190,H*0.64+CAT_Y_LIFT);
+  function update(dt){ updatePetals(dt); }
+  function draw(){ if(mode==='front'){ frontT+=.016; drawFront(); return; } drawBackground(); drawPetals(); drawCat(lanesX()[currentLane]+slipOffset,PLAYER_Y(),CAT_W,CAT_H); drawPetalVortex(lanesX()[currentLane]+slipOffset,PLAYER_Y()); drawHUD(); drawDashOverlay(); }
+  function endGame(){ mode='menu'; }
+  function resetGame(){ score=0; fuel=100; meters=0; enemies=[]; pickups=[]; particles=[]; initFlowerSpots(); initPetals(); }
+  function startGame(){ resetGame(); mode='game'; }
+  function loop(ts){ if(last===undefined) last=ts; let dt=(ts-last)/1000; last=ts; update(dt); draw(); requestAnimationFrame(loop); }
 
-    // start / end
-    const overlay = document.getElementById('startOverlay');
-    const startBtn = document.getElementById('startBtn');
-    const nameInput = document.getElementById('playerName');
+  /* ========================= Inputs ========================= */
+  const menuStack=document.getElementById('menuStack'); const startBtn=document.getElementById('startBtn'); const frontStack=document.getElementById('frontStack'); const playBtn=document.getElementById('playBtn'); const frontChangeNameBtn=document.getElementById('frontChangeNameBtn');
+  playBtn.addEventListener('click',()=>{ startGame(); }); startBtn.addEventListener('click',()=>{ startGame(); }); frontChangeNameBtn.addEventListener('click',()=>{ localStorage.removeItem(NAME_KEY); getPlayerName(); });
 
-    startBtn.addEventListener('click', ()=>{
-      const name = (nameInput.value || '').trim() || 'Cat';
-      document.getElementById('status').textContent = 'Playing as ' + name;
-      resetGame();
-      overlay.hidden = true;           // use [hidden] to avoid layout bugs
-      running = true;
-    });
-
-    async function endGame(){
-      if (!running) return;
-      running = false;
-      const name = (nameInput.value || '').trim() || 'Cat';
-      await saveScoreGlobal(name, score);
-      await renderLB();
-      document.getElementById('status').textContent = 'Finished at ' + score;
-      overlay.hidden = false;          // show start screen
-    }
-    // expose for your conditions/timers
-    window.CATDASH = { endGame };
-
-    // idle wiggle on hero svg
-    const svg = document.getElementById('catSvg');
-    let t0 = performance.now();
-    (function wiggle(){
-      const t = (performance.now()-t0)/1000;
-      svg.style.transform = `translateY(${Math.sin(t*2)*3}px)`;
-      requestAnimationFrame(wiggle);
-    })();
+  /* Boot */
+  fetchGlobalTop(20);
+  requestAnimationFrame(loop);
   </script>
 </body>
 </html>
