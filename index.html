@@ -123,13 +123,13 @@ let currentLane=1,enemies=[],pickups=[],particles=[];
 let score=0,fuel=100,meters=0;
 let spawnTimer=0,last=undefined,graceTimer=.75;
 let roadSpeed=226,maxSpeed=704,baseAccel=.6,slipTimer=0,slipOffset=0;
-let cheatCharges=0; // shields from golden chicken and dash
+let cheatCharges=0; // shields from golden chicken + dash
 let cheatToastTimer=0,cheatToastText='';
 let dashActive=false,dashTimer=0; const DASH_DURATION=8.0,DASH_SPEED_MUL=1.30,DASH_SCORE_MUL=2;
 
 /* ===== Cheat lives: activated by pressing BOTH arrows nearly at the same time ===== */
 let cheatLives=0;
-const SIMUL_MS=30; // window to detect simultaneous press
+const SIMUL_MS=150; // window to detect simultaneous press
 let leftDownAt=0, rightDownAt=0;
 let leftHeld=false, rightHeld=false;
 function tryActivateCheatBySimulPress(){
@@ -192,7 +192,7 @@ function drawTree(x,y,w,h){ withShadow('rgba(0,0,0,.35)',10,4,()=>{ const tw=w*.
 function drawMud(x,y,w,h){ withShadow('rgba(0,0,0,.3)',8,3,()=>{ const g=ctx.createRadialGradient(x,y,2,x,y,Math.max(w,h)); g.addColorStop(0,'#6a4a3a'); g.addColorStop(1,'#3e2723'); ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); ctx.fill(); }); strokeAround('rgba(0,0,0,.35)',1.2,()=>{ ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); }); }
 function drawLightning(x,y,s=1){ ctx.save(); ctx.translate(x,y); ctx.scale(s,s); ctx.fillStyle='gold'; ctx.beginPath(); ctx.moveTo(0,-15); ctx.lineTo(8,0); ctx.lineTo(2,0); ctx.lineTo(12,18); ctx.lineTo(-2,2); ctx.lineTo(4,2); ctx.closePath(); ctx.fill(); ctx.lineWidth=2.2; ctx.strokeStyle='#000'; ctx.stroke(); ctx.restore(); }
 
-/* In-game cat — clearer, more cat-like */
+/* In-game cat */
 const CAT_W=24, CAT_H=36;
 function drawCat(cx,cy,w,h){
   withShadow('rgba(0,0,0,.35)',12,5,()=>{
@@ -209,14 +209,14 @@ function drawCat(cx,cy,w,h){
     ctx.quadraticCurveTo(cx-w*0.2, cy+h*0.15, cx-w*0.05, cy+h*0.10);
     ctx.stroke();
 
-    // Body (ginger with soft belly)
+    // Body
     ctx.fillStyle='#d9862f';
     ctx.beginPath(); ctx.ellipse(cx, cy, w*0.65, h*0.55, 0, 0, Math.PI*2); ctx.fill();
     const belly=ctx.createRadialGradient(cx,cy+h*0.10,2,cx,cy+h*0.10,h*0.65);
     belly.addColorStop(0,'rgba(255,230,200,.8)'); belly.addColorStop(1,'rgba(255,230,200,0)');
     ctx.fillStyle=belly; ctx.beginPath(); ctx.ellipse(cx, cy+h*0.10, w*0.40, h*0.35, 0, 0, Math.PI*2); ctx.fill();
 
-    // Paws (front)
+    // Paws
     ctx.fillStyle='#c7772e';
     ctx.beginPath(); ctx.ellipse(cx-w*0.28, cy+h*0.58, w*0.28, h*0.10, 0, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(cx+w*0.28, cy+h*0.58, w*0.28, h*0.10, 0, 0, Math.PI*2); ctx.fill();
@@ -269,18 +269,17 @@ function addGlow(x,y,r,a=.9){
   ctx.restore();
 }
 
-/* Grey mouse for front (uses provided groundY; feet exactly at groundY) */
+/* Grey mouse for front */
 function drawFrontMouseGrey(x,y,s,groundY){
   const t=performance.now()*0.006, w=Math.sin(t+x*.01)*1.2*s;
   const body='#b5b7bb', ear='#d8d9dd', tail='#9a9ba1';
   withShadow('rgba(0,0,0,.25)',6,2,()=>{
-    // legs touching ground line
+    // feet on ground
     ctx.strokeStyle='#8f9096'; ctx.lineWidth=2*s; ctx.lineCap='round';
-    const leftX = x-4*s, rightX = x+6*s;
-    ctx.beginPath(); ctx.moveTo(leftX,groundY); ctx.lineTo(leftX+2*s,groundY); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rightX,groundY); ctx.lineTo(rightX+2*s,groundY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-4*s, groundY); ctx.lineTo(x-2*s, groundY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+6*s, groundY); ctx.lineTo(x+8*s, groundY); ctx.stroke();
 
-    // body & head
+    // body + head
     ctx.lineWidth=1; ctx.fillStyle=body;
     ctx.beginPath(); ctx.ellipse(x,y+w,12*s,7*s,0,0,Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(x+9*s,y-1*s+w,6*s,5*s,0,0,Math.PI*2); ctx.fill();
@@ -296,12 +295,11 @@ function drawFrontMouseGrey(x,y,s,groundY){
   });
 }
 
-/* Front-screen cat (runner) — now returns baseline of lowest paw in global coords */
+/* Front-screen cat (runner) */
 function drawFrontCat(x,y,scale=1){
   const t=performance.now()*0.006, s=scale;
   const bob  = Math.sin(t*3)*2.2*s;
   const lean = 0.08 + 0.04*Math.sin(t*2);
-  let maxFootLocalY = -Infinity; // local coordinates (relative to translate)
 
   function leg(px, phase, front){
     const k = Math.sin(t*7 + phase);
@@ -313,13 +311,7 @@ function drawFrontCat(x,y,scale=1){
     ctx.fillRect(px, py, 7*s, upper);
     ctx.fillRect(px, py+upper-1*s, 6.2*s, lower);
     ctx.fillStyle='#b8682a';
-    const footCY = py+upper+lower+3*s; // center of foot ellipse
-    const footRy = 3.2*s;
-    ctx.beginPath(); ctx.ellipse(px+3.3*s, footCY, 6.6*s, footRy, 0, 0, Math.PI*2); ctx.fill();
-
-    // track lowest point of this foot (local)
-    const footBottom = footCY + footRy;
-    if(footBottom > maxFootLocalY) maxFootLocalY = footBottom;
+    ctx.beginPath(); ctx.ellipse(px+3.3*s, py+upper+lower+3*s, 6.6*s, 3.2*s, 0, 0, Math.PI*2); ctx.fill();
   }
 
   ctx.save(); ctx.translate(x,y+bob); ctx.rotate(-lean);
@@ -345,7 +337,7 @@ function drawFrontCat(x,y,scale=1){
     ctx.beginPath(); ctx.moveTo(hx+6*s, hy-18*s); ctx.lineTo(hx+14*s, hy-6*s); ctx.lineTo(hx, hy-8*s); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(hx-8*s, hy-18*s); ctx.lineTo(hx-1*s, hy-6*s); ctx.lineTo(hx-14*s, hy-8*s); ctx.closePath(); ctx.fill();
 
-    // face details
+    // face
     ctx.fillStyle='#f2c79a'; ctx.beginPath(); ctx.ellipse(hx+6*s, hy+2*s, 8*s, 6*s, 0, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(hx+6*s, hy-4*s, 3*s, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle='#ffb3b3'; ctx.beginPath(); ctx.arc(hx+12*s, hy+3*s, 2.2*s, 0, Math.PI*2); ctx.fill();
@@ -356,16 +348,13 @@ function drawFrontCat(x,y,scale=1){
     ctx.moveTo(hx+10*s, hy+8*s); ctx.lineTo(hx+22*s, hy+12*s);
     ctx.stroke();
 
-    // legs layering: rear then front (updates maxFootLocalY)
+    // legs layering
     leg(-28*s, 0.0, false);
     leg( -6*s, Math.PI, false);
     leg( 18*s, Math.PI*0.5, true);
     leg( 34*s, Math.PI*1.5, true);
   });
   ctx.restore();
-
-  // Return global Y of lowest paw (baseline ground for alignment)
-  return (y + bob) + maxFootLocalY;
 }
 
 /* ========================= Pickups (game) ========================= */
@@ -384,7 +373,7 @@ function drawHUD(){
   ctx.fillText('Energy: '+Math.round(fuel),10,42);
   ctx.fillText('Meters: '+Math.round(meters),10,62);
 
-  // Cheat lives indicator (top-right)
+  // Cheat lives indicator
   if(cheatLives>0){
     const label=`♥ x${cheatLives}`;
     withShadow('rgba(0,0,0,.45)',12,4,()=>{
@@ -395,7 +384,7 @@ function drawHUD(){
     });
   }
 
-  // Shields from golden chicken and dash
+  // Shields from golden chicken + dash
   if(cheatCharges>0){
     const label=`🛡 x${cheatCharges}`;
     withShadow('rgba(0,0,0,.45)',12,4,()=>{
@@ -442,7 +431,7 @@ function drawGlobalBoard(x,y,maxRows){
   return y+22+rows*lh;
 }
 
-/* ========================= Start screen visuals (title glow + bold last score + mouse/cat aligned) ========================= */
+/* ========================= Start screen visuals (title + bold last score + bottom-aligned chase) ========================= */
 let frontRunnerX=0;
 let frontButtonsAnchorY=0;
 function drawFront(){
@@ -476,7 +465,7 @@ function drawFront(){
   const sidePad=Math.max(16, Math.min(28, Math.floor(W*0.06)));
   const contentWidth=W - sidePad*2;
 
-  // title with white glow
+  // title
   const titleSize=fitTitle('GINGERBOLT', contentWidth);
   ctx.textAlign='center';
   ctx.font=`900 ${titleSize}px Impact, system-ui, sans-serif`;
@@ -527,24 +516,30 @@ function drawFront(){
   const maxRows=Math.max(6, Math.floor((H - boardTop - buttonReserved)/18));
   const boardBottom=drawGlobalBoard(sidePad, boardTop, maxRows);
 
-  // Chase strip — ALIGN mouse feet to cat paw baseline
-  const pathW = W*0.86, pathL=(W-pathW)/2;
-  const runSpeed=90;
-  frontRunnerX=(frontRunnerX + runSpeed * 0.016) % (pathW+160);
+  // --- Bottom-aligned chase strip (cat + mouse share same ground line) ---
+  const runSpeed = 90;
+  frontRunnerX = (frontRunnerX + runSpeed * 0.016) % (W * 0.86 + 160);
 
+  const groundY = H - 12; // <-- nearly flush with bottom; tweak padding here
+  const pathW = W * 0.86, pathL = (W - pathW) / 2;
   const mouseX = pathL - 80 + frontRunnerX;
-  // draw the cat first to get its foot baseline
-  const scale = Math.min(1.1, Math.max(0.85, W/720));
-  const catX = mouseX - 104;
-  const catY = Math.max(boardBottom + 54, H*0.60) + Math.sin(performance.now()*0.003+1.2)*0.5;
-  const catFootY = drawFrontCat(catX, catY, scale); // <-- baseline in global coords
 
-  // Now draw mouse at same ground line (feet = catFootY)
+  const scale = Math.min(1.1, Math.max(0.85, W/720));
+  const tNow = performance.now() * 0.006;
+  const bob = Math.sin(tNow * 3) * 2.2 * scale;
+  // empirical offset from cat local origin to lowest paw in drawFrontCat:
+  const footOffset = 43.4 * scale + bob;
+
+  const catX = mouseX - 104;
+  const catY = groundY - footOffset;  // ensures lowest paw sits on groundY
+  drawFrontCat(catX, catY, scale);
+
+  // mouse: center so feet sit on groundY too
   const mouseS = 1.2;
-  const bodyRy = 7 * mouseS; // mouse body vertical radius
   const wobble = Math.sin(performance.now()*0.003)*1.5;
-  const mouseY = catFootY - bodyRy - 1 + wobble; // center so feet sit on catFootY
-  drawFrontMouseGrey(mouseX, mouseY, mouseS, catFootY);
+  const mouseBodyRy = 7 * mouseS;
+  const mouseY = groundY - mouseBodyRy - 1 + wobble;
+  drawFrontMouseGrey(mouseX, mouseY, mouseS, groundY);
 
   drawVignette();
   frontButtonsAnchorY = Math.min(H - 150, boardBottom + 16);
@@ -582,7 +577,6 @@ function spawnPickup(){
 }
 
 /* ========================= Update & draw ========================= */
-/* Align cat bottom with the top of the buttons */
 function playerCenterYAligned(){
   const fallback = Math.min(H-120, H*0.72);
   if(controlsCenterY==null) return fallback;
@@ -630,7 +624,7 @@ function update(dt){
           score=Math.max(0,score-(dashActive?1:2));
           slipTimer=.6;
         }else{
-          // Collision with tree: consume cheatLives first, then shields (cheatCharges)
+          // Collision with tree: lives first, then shields
           if(cheatLives>0){ enemies.splice(i,1); cheatLives--; cheatToastText=`Life lost (♥ ${cheatLives})`; cheatToastTimer=1.0; }
           else if(cheatCharges>0){ enemies.splice(i,1); cheatCharges--; cheatToastText=`Shield used (🛡 ${cheatCharges})`; cheatToastTimer=1.0; }
           else endGame();
@@ -646,7 +640,7 @@ function update(dt){
     if(Math.abs(p.x-px)<(p.w+pw)/2 && Math.abs(p.y-py)<(p.h+ph)/2){
       pickups.splice(i,1);
       if(p.type==='dash'){
-        // Dash: now grants a shield too
+        // Dash: grants a shield too
         startDash();
         cheatCharges=Math.min(2,cheatCharges+1);
         cheatToastText='Dash + Shield +1'; cheatToastTimer=1.1;
@@ -712,7 +706,7 @@ function updateUIState(){ if(mode==='front'){ frontStack.hidden=false; controls.
 startBtn.addEventListener('click',()=>startGame());
 changeNameBtn.addEventListener('click',()=>{ localStorage.removeItem(NAME_KEY); alert('Player name set to: '+getPlayerName()); });
 
-/* ===== Keyboard steering (does NOT affect cheat trigger beyond timing) ===== */
+/* ===== Keyboard steering ===== */
 let keyLock=false;
 addEventListener('keydown',e=>{
   if(mode!=='game') return;
@@ -725,7 +719,7 @@ addEventListener('keyup',e=>{
   if(e.key==='ArrowRight'){ keyLock=false; rightHeld=false; }
 });
 
-/* ===== Button steering + cheat *simultaneous press* detector ===== */
+/* ===== Button steering + cheat simultaneous press ===== */
 function onLeftDown(){ leftHeld=true; leftDownAt=performance.now(); tryActivateCheatBySimulPress(); if(mode==='game' && currentLane>0) currentLane--; }
 function onRightDown(){ rightHeld=true; rightDownAt=performance.now(); tryActivateCheatBySimulPress(); if(mode==='game' && currentLane<2) currentLane++; }
 function onLeftUp(){ leftHeld=false; }
@@ -737,7 +731,7 @@ btnRight.addEventListener('pointerdown',onRightDown);
 btnRight.addEventListener('pointerup',onRightUp);
 btnRight.addEventListener('pointercancel',onRightUp);
 
-/* ===== Touch swipe on canvas (still supported) ===== */
+/* ===== Touch swipe on canvas ===== */
 let touchStartX=null;
 canvas.addEventListener('touchstart',e=>{ if(mode!=='game') return; touchStartX=e.touches[0].clientX; },{passive:true});
 canvas.addEventListener('touchmove',e=>{
