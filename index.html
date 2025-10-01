@@ -128,6 +128,21 @@ let roadSpeed=226,maxSpeed=704,baseAccel=.6,slipTimer=0,slipOffset=0;
 let cheatCharges=0; let cheatToastTimer=0,cheatToastText='';
 let dashActive=false,dashTimer=0; const DASH_DURATION=8.0,DASH_SPEED_MUL=1.30,DASH_SCORE_MUL=2;
 
+/* ===== Cheat: exactly 2 lives, activated by pressing BOTH arrows at the same time ===== */
+let cheatLives=0;
+const SIMUL_MS=120;          // window for "same time" press
+let leftDownAt=0, rightDownAt=0;
+let leftHeld=false, rightHeld=false;
+function tryActivateCheatBySimulPress(){
+  if(mode!=='game') return;
+  if(cheatLives>0) return;   // already active
+  if(leftHeld && rightHeld && Math.abs(leftDownAt-rightDownAt)<=SIMUL_MS){
+    cheatLives=2;
+    cheatToastText='Cheat: 2 lives ready';
+    cheatToastTimer=1.4;
+  }
+}
+
 /* ========================= Helpers ========================= */
 function withShadow(color='rgba(0,0,0,.35)', blur=8, oy=3, fn){ ctx.save(); ctx.shadowColor=color; ctx.shadowBlur=blur; ctx.shadowOffsetX=0; ctx.shadowOffsetY=oy; fn(); ctx.restore(); }
 function strokeAround(color='rgba(0,0,0,.35)', lw=2, fn){ ctx.save(); ctx.lineWidth=lw; ctx.strokeStyle=color; fn(); ctx.stroke(); ctx.restore(); }
@@ -178,165 +193,124 @@ function drawTree(x,y,w,h){ withShadow('rgba(0,0,0,.35)',10,4,()=>{ const tw=w*.
 function drawMud(x,y,w,h){ withShadow('rgba(0,0,0,.3)',8,3,()=>{ const g=ctx.createRadialGradient(x,y,2,x,y,Math.max(w,h)); g.addColorStop(0,'#6a4a3a'); g.addColorStop(1,'#3e2723'); ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); ctx.fill(); }); strokeAround('rgba(0,0,0,.35)',1.2,()=>{ ctx.beginPath(); ctx.ellipse(x,y,w*.5,h*.5,0,0,Math.PI*2); }); }
 function drawLightning(x,y,s=1){ ctx.save(); ctx.translate(x,y); ctx.scale(s,s); ctx.fillStyle='gold'; ctx.beginPath(); ctx.moveTo(0,-15); ctx.lineTo(8,0); ctx.lineTo(2,0); ctx.lineTo(12,18); ctx.lineTo(-2,2); ctx.lineTo(4,2); ctx.closePath(); ctx.fill(); ctx.lineWidth=2.2; ctx.strokeStyle='#000'; ctx.stroke(); ctx.restore(); }
 
-/* In-game cat — improved look */
-const CAT_W=22,CAT_H=34;
-function drawCat(x,y,w,h){
+/* In-game cat (improved) */
+const CAT_W=24, CAT_H=36;
+function drawCat(cx,cy,w,h){
   withShadow('rgba(0,0,0,.35)',12,5,()=>{
-    const rx=w/1.55, ry=h/1.12;
-    const t=performance.now()*0.008, amp=h*.12;
-    const bx=x-rx+w*.3,by=y+ry*.60;
-    /* tail with gentle taper */
-    ctx.strokeStyle='#b86b29'; ctx.lineCap='round';
-    let px=bx,py=by;
-    for(let i=1;i<=16;i++){
-      const u=i/16,k=1-u;
-      const xx=bx-u*h*1.3*.95;
-      const yy=by-u*h*1.3*.55+Math.sin(t+u*7)*amp*(.25+.75*k);
-      ctx.lineWidth=Math.max(1,w*.26*(.28+.72*k));
-      ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(xx,yy); ctx.stroke();
-      px=xx; py=yy;
-    }
-    /* body */
-    ctx.fillStyle='#d9822c';
-    ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx.fill();
-    /* subtle belly shade */
-    const belly=ctx.createRadialGradient(x-2,y+3,2,x-2,y+3,Math.max(rx,ry));
-    belly.addColorStop(0,'rgba(0,0,0,.12)'); belly.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=belly; ctx.beginPath(); ctx.ellipse(x,y+2,rx*.9,ry*.65,0,0,Math.PI*2); ctx.fill();
-    /* head */
-    const hr=h*.36,hx=x,hy=y-h*.78;
-    ctx.fillStyle='#d9822c'; ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.fill();
-    /* ears with inner */
-    ctx.beginPath(); ctx.moveTo(hx-hr*.6,hy-hr*.1); ctx.lineTo(hx-hr*.25,hy-hr*1.0); ctx.lineTo(hx,hy-hr*.1); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(hx+hr*.6,hy-hr*.1); ctx.lineTo(hx+hr*.25,hy-hr*1.0); ctx.lineTo(hx,hy-hr*.1); ctx.closePath(); ctx.fill();
-    ctx.fillStyle='#f2c79a';
-    ctx.beginPath(); ctx.moveTo(hx-hr*.42,hy-hr*.22); ctx.lineTo(hx-hr*.12,hy-hr*.72); ctx.lineTo(hx-hr*.05,hy-hr*.18); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(hx+hr*.42,hy-hr*.22); ctx.lineTo(hx+hr*.12,hy-hr*.72); ctx.lineTo(hx+hr*.05,hy-hr*.18); ctx.closePath(); ctx.fill();
-    /* nose muzzle */
-    ctx.fillStyle='#a85b24'; ctx.beginPath(); ctx.ellipse(x,y+2,w/2.6,h/2.6,0,0,Math.PI*2); ctx.fill();
-    /* eyes with sparkle */
-    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(hx-hr*.35,hy,hr*.15,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(hx+hr*.35,hy,hr*.15,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.8)';
-    ctx.beginPath(); ctx.arc(hx-hr*.30,hy-hr*.06,hr*.05,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(hx+hr*.40,hy-hr*.02,hr*.04,0,Math.PI*2); ctx.fill();
-    /* whiskers */
-    ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=1.4;
+    const t = performance.now()*0.006;
+    const bob = Math.sin(t*3)*1.2;
+
+    // Tail
+    ctx.strokeStyle='#b56a2a'; ctx.lineCap='round'; ctx.lineWidth=6;
+    ctx.beginPath();
+    ctx.moveTo(cx-w*0.8, cy+h*0.10+bob);
+    ctx.quadraticCurveTo(cx-w*0.9, cy-h*0.15, cx-w*0.5, cy-h*0.05);
+    ctx.quadraticCurveTo(cx-w*0.2, cy+h*0.15, cx-w*0.05, cy+h*0.10);
+    ctx.stroke();
+
+    // Body & belly
+    ctx.fillStyle='#d9862f';
+    ctx.beginPath(); ctx.ellipse(cx, cy, w*0.65, h*0.55, 0, 0, Math.PI*2); ctx.fill();
+    const belly=ctx.createRadialGradient(cx,cy+h*0.10,2,cx,cy+h*0.10,h*0.65);
+    belly.addColorStop(0,'rgba(255,230,200,.8)'); belly.addColorStop(1,'rgba(255,230,200,0)');
+    ctx.fillStyle=belly; ctx.beginPath(); ctx.ellipse(cx, cy+h*0.10, w*0.40, h*0.35, 0, 0, Math.PI*2); ctx.fill();
+
+    // Paws
+    ctx.fillStyle='#c7772e';
+    ctx.beginPath(); ctx.ellipse(cx-w*0.28, cy+h*0.58, w*0.28, h*0.10, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx+w*0.28, cy+h*0.58, w*0.28, h*0.10, 0, 0, Math.PI*2); ctx.fill();
+
+    // Head
+    const hx = cx, hy = cy - h*0.72, r=h*0.36;
+    ctx.fillStyle='#d9862f';
+    ctx.beginPath(); ctx.arc(hx,hy,r,0,Math.PI*2); ctx.fill();
+
+    // Ears + inner
+    ctx.fillStyle='#d9862f';
+    ctx.beginPath(); ctx.moveTo(hx-r*0.65,hy-r*0.05); ctx.lineTo(hx-r*0.25,hy-r*0.95); ctx.lineTo(hx-r*0.05,hy-r*0.10); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx+r*0.65,hy-r*0.05); ctx.lineTo(hx+r*0.25,hy-r*0.95); ctx.lineTo(hx+r*0.05,hy-r*0.10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#f3c7a2';
+    ctx.beginPath(); ctx.moveTo(hx-r*0.52,hy-r*0.20); ctx.lineTo(hx-r*0.25,hy-r*0.78); ctx.lineTo(hx-r*0.10,hy-r*0.18); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx+r*0.52,hy-r*0.20); ctx.lineTo(hx+r*0.25,hy-r*0.78); ctx.lineTo(hx+r*0.10,hy-r*0.18); ctx.closePath(); ctx.fill();
+
+    // Eyes + highlights
+    ctx.fillStyle='#1a1a1a';
+    ctx.beginPath(); ctx.ellipse(hx-r*0.35, hy-r*0.05, r*0.13, r*0.09, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx+r*0.35, hy-r*0.05, r*0.13, r*0.09, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(hx-r*0.28, hy-r*0.12, r*0.04, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx+r*0.42, hy-r*0.10, r*0.035, 0, Math.PI*2); ctx.fill();
+
+    // Nose, mouth, whiskers
+    ctx.fillStyle='#7b3f1a';
+    ctx.beginPath(); ctx.moveTo(hx, hy+r*0.10); ctx.lineTo(hx-r*0.06, hy+r*0.04); ctx.lineTo(hx+r*0.06, hy+r*0.04); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#7b3f1a'; ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.moveTo(hx, hy+r*0.10); ctx.lineTo(hx, hy+r*0.18); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx, hy+r*0.18); ctx.quadraticCurveTo(hx-r*0.08, hy+r*0.22, hx-r*0.14, hy+r*0.20); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx, hy+r*0.18); ctx.quadraticCurveTo(hx+r*0.08, hy+r*0.22, hx+r*0.14, hy+r*0.20); ctx.stroke();
+
+    ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.lineWidth=1.6;
     for(let i=-1;i<=1;i++){
-      ctx.beginPath(); ctx.moveTo(hx+hr*.06,hy+hr*(0.05+i*0.1));
-      ctx.lineTo(hx+hr*.55,hy+hr*(0.02+i*0.08)); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(hx-hr*.06,hy+hr*(0.05+i*0.1));
-      ctx.lineTo(hx-hr*.55,hy+hr*(0.02+i*0.08)); ctx.stroke();
+      const oy=i*r*0.10;
+      ctx.beginPath(); ctx.moveTo(hx+r*0.06, hy+r*0.08+oy); ctx.lineTo(hx+r*0.60, hy+r*0.00+oy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx-r*0.06, hy+r*0.08+oy); ctx.lineTo(hx-r*0.60, hy+r*0.00+oy); ctx.stroke();
     }
-    /* little paws at bottom */
-    ctx.fillStyle='#c3732b';
-    ctx.beginPath(); ctx.ellipse(x-w*.42,y+ry*.78,w*.36,h*.12,0,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x+w*.42,y+ry*.78,w*.36,h*.12,0,0,Math.PI*2); ctx.fill();
   });
-  strokeAround('rgba(0,0,0,.4)',1,()=>{ ctx.beginPath(); ctx.ellipse(x,y,w/1.55,h/1.12,0,0,Math.PI*2); });
+  strokeAround('rgba(0,0,0,.35)',1,()=>{ ctx.beginPath(); ctx.ellipse(cx,cy,w*0.65,h*0.55,0,0,Math.PI*2); });
 }
 
-/* ===== Front-screen art ===== */
+/* ===== Front-screen art helpers (unchanged bits) ===== */
 function addGlow(x,y,r,a=.9){
   ctx.save(); ctx.globalCompositeOperation='lighter';
   const g=ctx.createRadialGradient(x,y,0,x,y,r);
-  g.addColorStop(0,`rgba(255,215,0,${a})`);
-  g.addColorStop(1,'rgba(255,215,0,0)');
+  g.addColorStop(0,`rgba(255,215,0,${a})`); g.addColorStop(1,'rgba(255,215,0,0)');
   ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
   ctx.restore();
 }
-
-/* Grey mouse for front (lower + feet on ground) */
 function drawFrontMouseGrey(x,y,s,groundY){
   const t=performance.now()*0.006, w=Math.sin(t+x*.01)*1.2*s;
   const body='#b5b7bb', ear='#d8d9dd', tail='#9a9ba1';
   withShadow('rgba(0,0,0,.25)',6,2,()=>{
-    /* legs touching ground */
     ctx.strokeStyle='#8f9096'; ctx.lineWidth=2*s; ctx.lineCap='round';
-    const legY = y + 7*s + w;
-    const leftX = x-4*s, rightX = x+6*s;
-    ctx.beginPath(); ctx.moveTo(leftX,  Math.min(groundY-6*s, legY)); ctx.lineTo(leftX,  groundY-0.6*s); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rightX, Math.min(groundY-6*s, legY-1*s)); ctx.lineTo(rightX, groundY-0.6*s); ctx.stroke();
-    /* feet on ground line */
+    const legY = y + 7*s + w, leftX=x-4*s, rightX=x+6*s;
+    ctx.beginPath(); ctx.moveTo(leftX,Math.min(groundY-6*s,legY)); ctx.lineTo(leftX,groundY-0.6*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rightX,Math.min(groundY-6*s,legY-1*s)); ctx.lineTo(rightX,groundY-0.6*s); ctx.stroke();
     ctx.lineWidth=3*s;
-    ctx.beginPath(); ctx.moveTo(leftX-2*s,  groundY); ctx.lineTo(leftX+0.6*s, groundY); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rightX-0.6*s,groundY); ctx.lineTo(rightX+2*s,  groundY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(leftX-2*s,groundY); ctx.lineTo(leftX+0.6*s,groundY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rightX-0.6*s,groundY); ctx.lineTo(rightX+2*s,groundY); ctx.stroke();
 
-    /* body & head */
     ctx.lineWidth=1; ctx.fillStyle=body;
     ctx.beginPath(); ctx.ellipse(x,y+w,12*s,7*s,0,0,Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(x+9*s,y-1*s+w,6*s,5*s,0,0,Math.PI*2); ctx.fill();
-
-    /* ears */
     ctx.fillStyle=ear; ctx.beginPath(); ctx.arc(x+12*s,y-5*s+w,2.8*s,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x+7.5*s,y-6*s+w,2.2*s,0,Math.PI*2); ctx.fill();
-
-    /* tail + eye */
-    ctx.strokeStyle=tail; ctx.lineWidth=1.4*s;
-    ctx.beginPath(); ctx.moveTo(x-12*s,y+2*s+w); ctx.quadraticCurveTo(x-18*s,y+6*s+w,x-22*s,y+3*s+w); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x+7.5*s,y-6*s+w,2.2*s,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=tail; ctx.lineWidth=1.4*s; ctx.beginPath(); ctx.moveTo(x-12*s,y+2*s+w); ctx.quadraticCurveTo(x-18*s,y+6*s+w,x-22*s,y+3*s+w); ctx.stroke();
     ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(x+11*s,y-2*s+w,1.4*s,0,Math.PI*2); ctx.fill();
   });
 }
-
-/* Front-screen cat (runner) */
 function drawFrontCat(x,y,scale=1){
-  const t=performance.now()*0.006, s=scale;
-  const bob  = Math.sin(t*3)*2.2*s;
-  const lean = 0.08 + 0.04*Math.sin(t*2);
-
-  function leg(px, phase, front){
-    const k = Math.sin(t*7 + phase);
-    const hipY = 18*s + (front ? -2*s : 2*s);
-    const upper = Math.max(8*s, (18*s + (front ? 3*s*k : -3*s*k))*0.55);
-    const lower = Math.max(6*s, (18*s + (front ? 3*s*k : -3*s*k))*0.45);
-    const py = hipY + (front ? 1.2*s*k : -1.2*s*k);
-    ctx.fillStyle='#c37526';
-    ctx.fillRect(px, py, 7*s, upper);
-    ctx.fillRect(px, py+upper-1*s, 6.2*s, lower);
-    ctx.fillStyle='#b8682a';
-    ctx.beginPath(); ctx.ellipse(px+3.3*s, py+upper+lower+3*s, 6.6*s, 3.2*s, 0, 0, Math.PI*2); ctx.fill();
-  }
-
+  const t=performance.now()*0.006, s=scale, bob=Math.sin(t*3)*2.2*s, lean=0.08+0.04*Math.sin(t*2);
+  function leg(px,phase,front){ const k=Math.sin(t*7+phase), hipY=18*s+(front?-2*s:2*s);
+    const upper=Math.max(8*s,(18*s+(front?3*s*k:-3*s*k))*0.55), lower=Math.max(6*s,(18*s+(front?3*s*k:-3*s*k))*0.45), py=hipY+(front?1.2*s*k:-1.2*s*k);
+    ctx.fillStyle='#c37526'; ctx.fillRect(px,py,7*s,upper); ctx.fillRect(px,py+upper-1*s,6.2*s,lower);
+    ctx.fillStyle='#b8682a'; ctx.beginPath(); ctx.ellipse(px+3.3*s,py+upper+lower+3*s,6.6*s,3.2*s,0,0,Math.PI*2); ctx.fill(); }
   ctx.save(); ctx.translate(x,y+bob); ctx.rotate(-lean);
-  withShadow('rgba(0,0,0,.35)',10,4,()=>{
-    /* tail */
-    ctx.strokeStyle='#b9641f'; ctx.lineWidth=8*s; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(-52*s,-8*s);
-    ctx.quadraticCurveTo(-70*s,-22*s + Math.sin(t*4)*6*s, -90*s,-10*s + Math.cos(t*3)*8*s);
-    ctx.stroke();
-
-    /* body */
-    ctx.save(); ctx.fillStyle='#d9822c';
-    ctx.beginPath(); ctx.ellipse(0,0,46*s,26*s,0,0,Math.PI*2); ctx.fill();
-    const belly=ctx.createRadialGradient(-6*s,10*s,2*s,-6*s,10*s,28*s);
-    belly.addColorStop(0,'rgba(0,0,0,.18)'); belly.addColorStop(1,'rgba(0,0,0,0)');
+  withShadow('rgba(0,0,0,.35)',10,4,()=>{ ctx.strokeStyle='#b9641f'; ctx.lineWidth=8*s; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-52*s,-8*s); ctx.quadraticCurveTo(-70*s,-22*s+Math.sin(t*4)*6*s,-90*s,-10*s+Math.cos(t*3)*8*s); ctx.stroke();
+    ctx.save(); ctx.fillStyle='#d9822c'; ctx.beginPath(); ctx.ellipse(0,0,46*s,26*s,0,0,Math.PI*2); ctx.fill();
+    const belly=ctx.createRadialGradient(-6*s,10*s,2*s,-6*s,10*s,28*s); belly.addColorStop(0,'rgba(0,0,0,.18)'); belly.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=belly; ctx.beginPath(); ctx.ellipse(0,8*s,40*s,18*s,0,0,Math.PI*2); ctx.fill(); ctx.restore();
-
-    /* head */
-    const hx=44*s, hy=-14*s;
-    ctx.fillStyle='#d9822c'; ctx.beginPath(); ctx.arc(hx,hy,18*s,0,Math.PI*2); ctx.fill();
-
-    /* ears */
-    ctx.beginPath(); ctx.moveTo(hx+6*s, hy-18*s); ctx.lineTo(hx+14*s, hy-6*s); ctx.lineTo(hx, hy-8*s); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(hx-8*s, hy-18*s); ctx.lineTo(hx-1*s, hy-6*s); ctx.lineTo(hx-14*s, hy-8*s); ctx.closePath(); ctx.fill();
-
-    /* face */
-    ctx.fillStyle='#f2c79a'; ctx.beginPath(); ctx.ellipse(hx+6*s, hy+2*s, 8*s, 6*s, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(hx+6*s, hy-4*s, 3*s, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle='#ffb3b3'; ctx.beginPath(); ctx.arc(hx+12*s, hy+3*s, 2.2*s, 0, Math.PI*2); ctx.fill();
+    const hx=44*s, hy=-14*s; ctx.fillStyle='#d9822c'; ctx.beginPath(); ctx.arc(hx,hy,18*s,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx+6*s,hy-18*s); ctx.lineTo(hx+14*s,hy-6*s); ctx.lineTo(hx,hy-8*s); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hx-8*s,hy-18*s); ctx.lineTo(hx-1*s,hy-6*s); ctx.lineTo(hx-14*s,hy-8*s); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#f2c79a'; ctx.beginPath(); ctx.ellipse(hx+6*s,hy+2*s,8*s,6*s,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(hx+6*s,hy-4*s,3*s,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ffb3b3'; ctx.beginPath(); ctx.arc(hx+12*s,hy+3*s,2.2*s,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=1.6*s;
-    ctx.beginPath();
-    ctx.moveTo(hx+10*s, hy+4*s); ctx.lineTo(hx+22*s, hy+0*s);
-    ctx.moveTo(hx+10*s, hy+6*s); ctx.lineTo(hx+22*s, hy+6*s);
-    ctx.moveTo(hx+10*s, hy+8*s); ctx.lineTo(hx+22*s, hy+12*s);
-    ctx.stroke();
-
-    /* legs */
-    leg(-28*s, 0.0, false);
-    leg( -6*s, Math.PI, false);
-    leg( 18*s, Math.PI*0.5, true);
-    leg( 34*s, Math.PI*1.5, true);
-  });
+    ctx.beginPath(); ctx.moveTo(hx+10*s,hy+4*s); ctx.lineTo(hx+22*s,hy+0*s);
+    ctx.moveTo(hx+10*s,hy+6*s); ctx.lineTo(hx+22*s,hy+6*s);
+    ctx.moveTo(hx+10*s,hy+8*s); ctx.lineTo(hx+22*s,hy+12*s); ctx.stroke();
+    leg(-28*s,0.0,false); leg(-6*s,Math.PI,false); leg(18*s,Math.PI*0.5,true); leg(34*s,Math.PI*1.5,true); });
   ctx.restore();
 }
 
@@ -355,10 +329,34 @@ function drawHUD(){
   ctx.fillText('Score: '+Math.round(score),10,22);
   ctx.fillText('Energy: '+Math.round(fuel),10,42);
   ctx.fillText('Meters: '+Math.round(meters),10,62);
+
+  if(cheatLives>0){
+    const label=`♥ x${cheatLives}`;
+    withShadow('rgba(0,0,0,.45)',12,4,()=>{
+      ctx.font='700 16px system-ui,sans-serif';
+      ctx.fillStyle='#ff6fa3';
+      const tw=ctx.measureText(label).width;
+      ctx.fillText(label,W - tw - 12,22);
+    });
+  }
+
   if(dashActive){
     const t='DASH '+dashTimer.toFixed(1)+'s';
     const tw=ctx.measureText(t).width;
     ctx.fillStyle='#ffeb3b'; ctx.fillText(t,(W-tw)/2,22);
+  }
+
+  // transient toast (for cheat activation etc.)
+  if(cheatToastTimer>0){
+    cheatToastTimer=Math.max(0,cheatToastTimer-1/60);
+    const a=Math.min(1,cheatToastTimer/0.3);
+    ctx.save(); ctx.globalAlpha=a;
+    const txt=cheatToastText||'';
+    ctx.font='bold 18px system-ui,sans-serif';
+    const tw=ctx.measureText(txt).width;
+    const x=(W-tw)/2, y=H*0.22, pad=10, h=30;
+    ctx.fillStyle='rgba(0,0,0,.35)'; rrectPath(x-pad,y-h+6,tw+pad*2,h,14); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillText(txt,x,y); ctx.restore();
   }
 }
 function drawVignette(){ const g=ctx.createRadialGradient(W/2,H*.58,Math.min(W,H)*.25,W/2,H*.58,Math.max(W,H)*.75); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.35)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
@@ -379,26 +377,23 @@ function drawGlobalBoard(x,y,maxRows){
   return y+22+rows*lh;
 }
 
-/* ========================= Start screen visuals ========================= */
+/* ========================= Start screen visuals (title glow + bold last score) ========================= */
 let frontRunnerX=0;
 let frontButtonsAnchorY=0;
 function drawFront(){
   const t=performance.now()*0.0018;
 
-  /* sky */
   const g=ctx.createLinearGradient(0,0,0,H);
   g.addColorStop(0,'#ff6b9e'); g.addColorStop(.55,'#ff8a4d'); g.addColorStop(1,'#f3c36a');
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
-  /* sun beams */
   const sunX=W*0.72, sunY=H*0.62, baseR=Math.min(W,H)*0.24;
-  const sunR= baseR * (1 + 0.02*Math.sin(t*3.2));
-  const spinDeg = t*10;
+  const sunR= baseR * (1 + 0.02*Math.sin(t*3.2)); const spinDeg=t*10;
   for(let a=0;a<360;a+=6){
-    const phase = (a*0.12) + t*1.2;
-    const alpha = 0.14 + 0.14*(0.5+0.5*Math.sin(phase));
-    const width = 4 + 2*(0.5+0.5*Math.sin(phase+1.2));
-    const lenMul = 2.0 + 0.18*Math.sin(phase+0.8);
+    const phase=(a*0.12)+t*1.2;
+    const alpha=0.14+0.14*(0.5+0.5*Math.sin(phase));
+    const width=4+2*(0.5+0.5*Math.sin(phase+1.2));
+    const lenMul=2.0+0.18*Math.sin(phase+0.8);
     const rad=( (a+spinDeg) * Math.PI/180 );
     ctx.beginPath();
     ctx.moveTo(sunX+Math.cos(rad)*sunR*0.62, sunY+Math.sin(rad)*sunR*0.62);
@@ -411,54 +406,33 @@ function drawFront(){
   sGrad.addColorStop(0,'#ffd27a'); sGrad.addColorStop(.7,'#ffb84a'); sGrad.addColorStop(1,'#ff9a1a');
   ctx.fillStyle=sGrad; ctx.beginPath(); ctx.arc(sunX,sunY,sunR,0,Math.PI*2); ctx.fill();
 
-  /* paddings */
   const sidePad=Math.max(16, Math.min(28, Math.floor(W*0.06)));
   const contentWidth=W - sidePad*2;
 
-  /* title with white glow */
   const titleSize=fitTitle('GINGERBOLT', contentWidth);
   ctx.textAlign='center';
   ctx.font=`900 ${titleSize}px Impact, system-ui, sans-serif`;
   const titleY=Math.max(64, H*0.16);
+  ctx.save(); ctx.shadowColor='rgba(255,255,255,.95)'; ctx.shadowBlur=Math.max(16, titleSize*0.35);
+  ctx.fillStyle='#ffffff'; ctx.fillText('GINGERBOLT', W/2, titleY); ctx.restore();
+  ctx.lineWidth=Math.max(6,titleSize*.06); ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.fillStyle='#eee';
+  ctx.strokeText('GINGERBOLT', W/2, titleY); ctx.fillText('GINGERBOLT', W/2, titleY);
 
-  ctx.save();
-  ctx.shadowColor='rgba(255,255,255,.95)'; ctx.shadowBlur=Math.max(16, titleSize*0.35);
-  ctx.fillStyle='#ffffff'; ctx.fillText('GINGERBOLT', W/2, titleY);
-  ctx.restore();
-
-  ctx.lineWidth=Math.max(6,titleSize*.06);
-  ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.fillStyle='#eee';
-  ctx.strokeText('GINGERBOLT', W/2, titleY);
-  ctx.fillText('GINGERBOLT', W/2, titleY);
-
-  /* Last score badge with bold number */
-  const prefix = 'Your last score: ';
-  const numStr = String(lastScore);
-  const fontNormal = '18px system-ui,sans-serif';
-  const fontBold = '700 18px system-ui,sans-serif';
-  ctx.font = fontNormal;
-  const twPrefix = ctx.measureText(prefix).width;
-  ctx.font = fontBold;
-  const twNum = ctx.measureText(numStr).width;
-  const tw = twPrefix + twNum;
-  const padX = 12, padY = 8, bh = 28;
-  const bx = (W - (tw + padX*2)) / 2, by = titleY + 14;
-
-  ctx.save();
-  ctx.globalAlpha=0.95;
+  const prefix='Your last score: ', numStr=String(lastScore);
+  const normal='18px system-ui,sans-serif', bold='700 18px system-ui,sans-serif';
+  ctx.font=normal; const twPrefix=ctx.measureText(prefix).width;
+  ctx.font=bold;   const twNum=ctx.measureText(numStr).width;
+  const total=twPrefix+twNum, padX=12, bh=28, bx=(W-(total+padX*2))/2, by=titleY+14;
+  ctx.save(); ctx.globalAlpha=0.95;
   const grad=ctx.createLinearGradient(bx,by,bx,by+bh);
   grad.addColorStop(0,'rgba(255,255,255,.20)'); grad.addColorStop(1,'rgba(255,255,255,.06)');
-  ctx.fillStyle=grad; rrectPath(bx,by,tw+padX*2,bh,14); ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1; rrectPath(bx+0.5,by+0.5,tw+padX*2-1,bh-1,13); ctx.stroke();
-  ctx.restore();
-
-  ctx.textAlign='left';
-  ctx.fillStyle='#fff';
-  ctx.font = fontNormal; ctx.fillText(prefix, bx+padX, by + bh/2 + 6);
-  ctx.font = fontBold;   ctx.fillText(numStr,  bx+padX + twPrefix, by + bh/2 + 6);
+  ctx.fillStyle=grad; rrectPath(bx,by,total+padX*2,bh,14); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=1; rrectPath(bx+0.5,by+0.5,total+padX*2-1,bh-1,13); ctx.stroke(); ctx.restore();
+  ctx.textAlign='left'; ctx.fillStyle='#fff';
+  ctx.font=normal; ctx.fillText(prefix, bx+padX, by + bh/2 + 6);
+  ctx.font=bold;   ctx.fillText(numStr,  bx+padX + twPrefix, by + bh/2 + 6);
   ctx.textAlign='center';
 
-  /* Description */
   const descFont=(W<370 ? 13 : 15) + 'px system-ui,-apple-system,Segoe UI';
   const descMax=Math.min(contentWidth, 640);
   const descText='Help Gingerbolt weave past trees and mud, snag snacks, and charge ⚡ to dash. Stay alive, keep energy up, and set a global high score.';
@@ -467,14 +441,12 @@ function drawFront(){
   let y=by + bh + 18; const lh=(W<370 ? 20 : 24);
   for(const ln of lines){ ctx.fillText(ln, W/2, y); y += lh; }
 
-  /* Leaderboard */
   const boardTop=y + 8;
   const buttonReserved=190;
   const maxRows=Math.max(6, Math.floor((H - boardTop - buttonReserved)/18));
   const boardBottom=drawGlobalBoard(sidePad, boardTop, maxRows);
 
-  /* Chase strip — mouse lower so it does not float */
-  const groundY = H*0.94;             /* lowered from earlier */
+  const groundY = H*0.94;
   const pathW = W*0.86, pathL=(W-pathW)/2;
   const runSpeed=90;
   frontRunnerX=(frontRunnerX + runSpeed * 0.016) % (pathW+160);
@@ -523,11 +495,7 @@ function spawnPickup(){
 }
 
 /* ========================= Update & draw ========================= */
-/* Align cat bottom with the top of the buttons:
-   buttons are 72px high and positioned by center at controlsCenterY.
-   top of button row = controlsCenterY - 36. We place cat center so that:
-   catCenterY + CAT_H/2 = controlsCenterY - 36
-*/
+/* Align cat bottom with the top of the buttons */
 function playerCenterYAligned(){
   const fallback = Math.min(H-120, H*0.72);
   if(controlsCenterY==null) return fallback;
@@ -575,7 +543,8 @@ function update(dt){
           score=Math.max(0,score-(dashActive?1:2));
           slipTimer=.6;
         }else{
-          if(cheatCharges>0){ enemies.splice(i,1); cheatCharges--; }
+          if(cheatLives>0){ enemies.splice(i,1); cheatLives--; cheatToastText=`Life lost (♥ ${cheatLives})`; cheatToastTimer=1.0; }
+          else if(cheatCharges>0){ enemies.splice(i,1); cheatCharges--; }
           else endGame();
         }
         break;
@@ -638,7 +607,7 @@ function draw(){
 
 /* ========================= Flow ========================= */
 function endGame(){ mode='front'; lastScore=Math.round(score); const n=getPlayerName(); submitBestIfHigher(n,lastScore); updateUIState(); }
-function resetGame(){ enemies=[]; pickups=[]; particles=[]; score=0; fuel=100; meters=0; roadSpeed=226; currentLane=1; spawnTimer=0; graceTimer=.75; last=undefined; cheatCharges=0; cheatToastTimer=0; cheatToastText=''; dashActive=false; dashTimer=0; initFlowerSpots(); }
+function resetGame(){ enemies=[]; pickups=[]; particles=[]; score=0; fuel=100; meters=0; roadSpeed=226; currentLane=1; spawnTimer=0; graceTimer=.75; last=undefined; cheatCharges=0; cheatToastTimer=0; cheatToastText=''; dashActive=false; dashTimer=0; initFlowerSpots(); cheatLives=0; }
 function startGame(){ resetGame(); mode='game'; updateUIState(); }
 
 /* ========================= UI & inputs ========================= */
@@ -649,7 +618,7 @@ function updateUIState(){ if(mode==='front'){ frontStack.hidden=false; controls.
 startBtn.addEventListener('click',()=>startGame());
 changeNameBtn.addEventListener('click',()=>{ localStorage.removeItem(NAME_KEY); alert('Player name set to: '+getPlayerName()); });
 
-/* Start only via the button */
+/* Steering + cheat simultaneous-press detection on buttons */
 let keyLock=false;
 addEventListener('keydown',e=>{
   if(mode!=='game') return;
@@ -659,6 +628,19 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight') keyLock=false; });
 
+function onLeftDown(){ leftHeld=true; leftDownAt=performance.now(); tryActivateCheatBySimulPress(); }
+function onRightDown(){ rightHeld=true; rightDownAt=performance.now(); tryActivateCheatBySimulPress(); }
+function onLeftUp(){ leftHeld=false; }
+function onRightUp(){ rightHeld=false; }
+
+btnLeft.addEventListener('pointerdown',onLeftDown);
+btnLeft.addEventListener('pointerup',onLeftUp);
+btnLeft.addEventListener('pointercancel',onLeftUp);
+btnRight.addEventListener('pointerdown',onRightDown);
+btnRight.addEventListener('pointerup',onRightUp);
+btnRight.addEventListener('pointercancel',onRightUp);
+
+/* Touch swipe on canvas */
 let touchStartX=null;
 canvas.addEventListener('touchstart',e=>{ if(mode!=='game') return; touchStartX=e.touches[0].clientX; },{passive:true});
 canvas.addEventListener('touchmove',e=>{
@@ -668,9 +650,6 @@ canvas.addEventListener('touchmove',e=>{
   else if(dx<-50 && currentLane>0){ currentLane--; touchStartX=e.touches[0].clientX; }
 },{passive:true});
 canvas.addEventListener('touchend',()=>{ if(mode!=='game') return; touchStartX=null; });
-
-btnLeft.addEventListener('click',()=>{ if(mode!=='game') return; if(currentLane>0) currentLane--; });
-btnRight.addEventListener('click',()=>{ if(mode!=='game') return; if(currentLane<2) currentLane++; });
 
 /* ========================= Boot with on-canvas error guard ========================= */
 getPlayerName();
