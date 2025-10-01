@@ -529,7 +529,7 @@ function drawFront(){
   frontRunnerX=(frontRunnerX + runSpeed * 0.016) % (pathW+160);
 
   const mouseX = pathL - 80 + frontRunnerX;
-  const mouseY = groundY - 2 + Math.sin(performance.now()*0.003)*2;
+  const mouseY = groundY + 6 + Math.sin(performance.now()*0.003)*2;
   drawFrontMouseGrey(mouseX, mouseY, 1.2, groundY);
 
   const catX = mouseX - 104;
@@ -757,3 +757,4 @@ requestAnimationFrame(safeLoop);
   </script>
 </body>
 </html>
+
