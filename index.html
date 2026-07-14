@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#142033">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Cat Dash — Milestone 1</title>
+<title>Cat Dash — Build 2: Living World</title>
 <style>
 :root{
   --ink:#101723;
@@ -49,6 +49,7 @@ canvas{
 }
 button{
   font:inherit;
+  touch-action:none;
 }
 #ui{
   position:fixed;
@@ -341,9 +342,9 @@ p{
 <div id="ui">
   <section id="homeScreen" class="screen active">
     <div id="homeCard" class="glass">
-      <div class="eyebrow">MILESTONE 1 · THE RUNNING ENGINE</div>
+      <div class="eyebrow">BUILD 2 · THE LIVING WORLD</div>
       <h1 id="gameTitle">CAT DASH</h1>
-      <p>Drag anywhere to steer. Swipe up to jump over yellow logs. Avoid red hazards.</p>
+      <p>A living countryside with weather, wildlife and surprise events. Drag to steer. Swipe up only for yellow logs.</p>
       <div class="stats">
         <div class="stat"><span>Best</span><b id="bestStat">0</b></div>
         <div class="stat"><span>Runs</span><b id="runsStat">0</b></div>
@@ -367,6 +368,7 @@ p{
         </div>
         <div class="hudBox">
           <strong id="distanceText">0 m</strong>
+          <div id="worldText" class="small">Sunny Meadow</div>
           <div class="bar"><span id="energyFill"></span></div>
         </div>
       </div>
@@ -438,6 +440,8 @@ p{
 
       <br>
       <div class="actions">
+        <button id="forceRainBtn" class="btn secondary">Force Rain</button>
+        <button id="forceEventBtn" class="btn secondary">Story Event</button>
         <button id="spawnLogBtn" class="btn secondary">Spawn Log</button>
         <button id="spawnTreeBtn" class="btn secondary">Spawn Tree</button>
         <button id="closeDevBtn" class="btn ghost">Close</button>
@@ -450,7 +454,7 @@ p{
 'use strict';
 
 /* ============================================================
-   CAT DASH — MILESTONE 1
+   CAT DASH — BUILD 2: THE LIVING WORLD
    Phone-only running engine
    ============================================================ */
 
@@ -479,6 +483,7 @@ const ui = {
   scoreText: document.getElementById('scoreText'),
   comboText: document.getElementById('comboText'),
   distanceText: document.getElementById('distanceText'),
+  worldText: document.getElementById('worldText'),
   energyFill: document.getElementById('energyFill'),
   toast: document.getElementById('toast'),
   gestureHint: document.getElementById('gestureHint'),
@@ -499,6 +504,8 @@ const ui = {
   devSpeed: document.getElementById('devSpeed'),
   devHitbox: document.getElementById('devHitbox'),
   devFps: document.getElementById('devFps'),
+  forceRainBtn: document.getElementById('forceRainBtn'),
+  forceEventBtn: document.getElementById('forceEventBtn'),
   spawnLogBtn: document.getElementById('spawnLogBtn'),
   spawnTreeBtn: document.getElementById('spawnTreeBtn'),
   closeDevBtn: document.getElementById('closeDevBtn')
@@ -523,28 +530,41 @@ function resizeCanvas() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  player.groundY = H * 0.76;
-  if (state.mode !== 'playing') {
-    player.y = player.groundY;
+  if (typeof player !== 'undefined') {
+    player.groundY = H * 0.76;
+    if (typeof state !== 'undefined' && state.mode !== 'playing') {
+      player.y = player.groundY;
+    }
   }
 }
 
 addEventListener('resize', resizeCanvas, { passive: true });
 addEventListener('orientationchange', () => setTimeout(resizeCanvas, 180), { passive: true });
-resizeCanvas();
 
 /* ---------- Browser gesture blocking ---------- */
 document.addEventListener('gesturestart', event => event.preventDefault(), { passive: false });
 document.addEventListener('gesturechange', event => event.preventDefault(), { passive: false });
 document.addEventListener('gestureend', event => event.preventDefault(), { passive: false });
 
-let lastTouchEnd = 0;
-document.addEventListener('touchend', event => {
-  const now = Date.now();
-  if (now - lastTouchEnd <= 300) {
+document.addEventListener('touchstart', event => {
+  if (event.touches.length > 1) {
     event.preventDefault();
   }
-  lastTouchEnd = now;
+}, { passive: false });
+
+document.addEventListener('touchmove', event => {
+  if (event.touches.length > 1) {
+    event.preventDefault();
+  }
+}, { passive: false });
+
+let lastTouchStart = 0;
+document.addEventListener('touchstart', event => {
+  const now = Date.now();
+  if (now - lastTouchStart < 320) {
+    event.preventDefault();
+  }
+  lastTouchStart = now;
 }, { passive: false });
 
 document.addEventListener('dblclick', event => event.preventDefault(), { passive: false });
@@ -751,7 +771,20 @@ const state = {
   tutorialTimer: 0,
   cameraX: 0,
   cameraTargetX: 0,
-  elapsed: 0
+  elapsed: 0,
+  biome: 'meadow',
+  biomeName: 'Sunny Meadow',
+  dayPhase: 0.16,
+  weather: 'clear',
+  weatherTimer: 0,
+  weatherCooldown: 16,
+  windStrength: 0,
+  storyEvent: 'none',
+  storyTimer: 0,
+  storyCooldown: 10,
+  mudSlow: 0,
+  lightning: 0,
+  streamOffset: 0
 };
 
 const player = {
@@ -786,9 +819,30 @@ let collectibles = [];
 let particles = [];
 let scenery = [];
 let clouds = [];
+let wildlife = [];
+let weatherParticles = [];
+let distantBirds = [];
+
+/* Canvas can now safely use player and state. */
+resizeCanvas();
 
 /* ---------- Object factories ---------- */
 function createObstacle(type, x = random(55, W - 55), y = -100) {
+  if (type === 'mud') {
+    return {
+      kind: 'obstacle',
+      type,
+      x,
+      y,
+      width: 82,
+      height: 36,
+      radius: 31,
+      speed: state.worldSpeed,
+      passed: false,
+      warning: true
+    };
+  }
+
   if (type === 'log') {
     return {
       kind: 'obstacle',
@@ -846,6 +900,261 @@ function createCollectible(type, x = random(48, W - 48), y = -80) {
   };
 }
 
+
+function createWildlife(type, options = {}) {
+  return {
+    type,
+    x: options.x ?? random(30, W - 30),
+    y: options.y ?? -60,
+    vx: options.vx ?? 0,
+    vy: options.vy ?? state.worldSpeed * 0.72,
+    age: 0,
+    life: options.life ?? 10,
+    phase: random(0, Math.PI * 2),
+    collected: false,
+    helped: false,
+    scale: options.scale ?? 1
+  };
+}
+
+function beginWeather(type, duration = 9) {
+  state.weather = type;
+  state.weatherTimer = duration;
+  state.weatherCooldown = random(18, 28);
+
+  if (type === 'rain') {
+    state.windStrength = random(-32, 32);
+    showToast('A summer shower sweeps across the path', 2200);
+    tone(210, 0.18, 'triangle', 0.018, -30);
+  } else if (type === 'wind') {
+    state.windStrength = random(-70, 70);
+    showToast('A gusty wind bends the meadow', 2000);
+  } else {
+    state.windStrength = 0;
+  }
+}
+
+function endWeather() {
+  state.weather = 'clear';
+  state.weatherTimer = 0;
+  state.windStrength = 0;
+}
+
+function startStoryEvent(forcedType = null) {
+  const eventType = forcedType || choose([
+    'butterflies',
+    'ducklings',
+    'fox',
+    'rabbit',
+    state.dayPhase > 0.70 ? 'fireflies' : 'birds'
+  ]);
+
+  state.storyEvent = eventType;
+  state.storyTimer = 10;
+  state.storyCooldown = random(14, 22);
+
+  if (eventType === 'butterflies') {
+    showToast('Story moment: Butterfly trail', 2100);
+    for (let index = 0; index < 12; index += 1) {
+      wildlife.push(createWildlife('butterfly', {
+        x: random(45, W - 45),
+        y: -random(20, H * 0.9),
+        vy: random(105, 145),
+        vx: random(-18, 18),
+        life: 13,
+        scale: random(0.75, 1.2)
+      }));
+    }
+  }
+
+  if (eventType === 'ducklings') {
+    showToast('Story moment: Ducklings crossing', 2200);
+    for (let index = 0; index < 5; index += 1) {
+      wildlife.push(createWildlife('duck', {
+        x: -45 - index * 28,
+        y: H * 0.40 + index * 18,
+        vx: 80,
+        vy: 80,
+        life: 12,
+        scale: 0.85
+      }));
+    }
+  }
+
+  if (eventType === 'fox') {
+    showToast('A curious fox races alongside Ginger', 2200);
+    wildlife.push(createWildlife('fox', {
+      x: W + 90,
+      y: H * 0.61,
+      vx: -145,
+      vy: 0,
+      life: 11,
+      scale: 1.05
+    }));
+  }
+
+  if (eventType === 'rabbit') {
+    showToast('A rabbit bounds through the grass', 1900);
+    wildlife.push(createWildlife('rabbit', {
+      x: -55,
+      y: H * 0.53,
+      vx: 175,
+      vy: 0,
+      life: 8
+    }));
+  }
+
+  if (eventType === 'fireflies') {
+    showToast('Fireflies light the Moonlit Grove', 2200);
+    for (let index = 0; index < 24; index += 1) {
+      wildlife.push(createWildlife('firefly', {
+        x: random(20, W - 20),
+        y: random(H * 0.18, H * 0.72),
+        vx: random(-12, 12),
+        vy: random(-5, 12),
+        life: 12,
+        scale: random(0.7, 1.25)
+      }));
+    }
+  }
+
+  if (eventType === 'birds') {
+    showToast('A flock takes flight overhead', 1800);
+    for (let index = 0; index < 7; index += 1) {
+      distantBirds.push({
+        x: -80 - index * 45,
+        y: random(H * 0.12, H * 0.30),
+        vx: random(70, 110),
+        phase: random(0, 6.28),
+        life: 10
+      });
+    }
+  }
+}
+
+function updateLivingWorld(step) {
+  state.dayPhase = (0.12 + state.distance / 1650) % 1;
+
+  if (state.distance < 420) {
+    state.biome = 'meadow';
+    state.biomeName = 'Sunny Meadow';
+  } else if (state.distance < 900) {
+    state.biome = 'woods';
+    state.biomeName = 'Whisper Woods';
+  } else {
+    state.biome = 'grove';
+    state.biomeName = 'Moonlit Grove';
+  }
+
+  state.weatherCooldown -= step;
+  state.storyCooldown -= step;
+
+  if (state.weather !== 'clear') {
+    state.weatherTimer -= step;
+    if (state.weatherTimer <= 0) {
+      endWeather();
+    }
+  } else if (state.weatherCooldown <= 0) {
+    beginWeather(Math.random() < 0.68 ? 'rain' : 'wind', random(7, 11));
+  }
+
+  if (state.storyTimer > 0) {
+    state.storyTimer -= step;
+    if (state.storyTimer <= 0) {
+      state.storyEvent = 'none';
+    }
+  } else if (state.storyCooldown <= 0 && (save.tutorialSeen || state.tutorialPhase >= 99)) {
+    startStoryEvent();
+  }
+
+  if (state.weather === 'rain' && Math.random() < step * 45) {
+    weatherParticles.push({
+      type: 'rain',
+      x: random(-30, W + 30),
+      y: -30,
+      vx: state.windStrength * 0.55,
+      vy: random(680, 900),
+      life: 1.1
+    });
+  }
+
+  if (state.weather === 'wind' && Math.random() < step * 15) {
+    weatherParticles.push({
+      type: 'leaf',
+      x: state.windStrength > 0 ? -30 : W + 30,
+      y: random(H * 0.25, H * 0.9),
+      vx: state.windStrength * random(1.5, 2.3),
+      vy: random(25, 70),
+      life: 4,
+      phase: random(0, 6.28)
+    });
+  }
+
+  if (state.weather === 'rain' && Math.random() < step * 0.22) {
+    state.lightning = 0.13;
+    tone(80, 0.24, 'sawtooth', 0.025, -20);
+  }
+
+  state.lightning = Math.max(0, state.lightning - step);
+  state.mudSlow = Math.max(0, state.mudSlow - step);
+
+  for (const animal of wildlife) {
+    animal.age += step;
+    animal.life -= step;
+    animal.x += animal.vx * step;
+    animal.y += animal.vy * step;
+    animal.phase += step * 5;
+
+    if (animal.type === 'butterfly') {
+      animal.x += Math.sin(animal.phase) * 20 * step;
+    }
+
+    if (animal.type === 'duck') {
+      animal.y += Math.sin(animal.phase * 0.7) * 10 * step;
+    }
+
+    if (animal.type === 'fox') {
+      animal.y = H * 0.61 + Math.sin(animal.phase * 2) * 4;
+    }
+
+    if (animal.type === 'rabbit') {
+      animal.y = H * 0.53 - Math.abs(Math.sin(animal.phase * 2.2)) * 28;
+    }
+
+    if (animal.type === 'firefly') {
+      animal.x += Math.sin(animal.phase) * 12 * step;
+      animal.y += Math.cos(animal.phase * 0.8) * 8 * step;
+    }
+  }
+
+  for (const bird of distantBirds) {
+    bird.x += bird.vx * step;
+    bird.phase += step * 7;
+    bird.life -= step;
+  }
+
+  for (const particle of weatherParticles) {
+    particle.x += particle.vx * step;
+    particle.y += particle.vy * step;
+    particle.life -= step;
+    if (particle.type === 'leaf') {
+      particle.phase += step * 7;
+      particle.y += Math.sin(particle.phase) * 16 * step;
+    }
+  }
+
+  wildlife = wildlife.filter(animal =>
+    animal.life > 0 &&
+    animal.x > -140 &&
+    animal.x < W + 140 &&
+    animal.y > -160 &&
+    animal.y < H + 160
+  );
+
+  distantBirds = distantBirds.filter(bird => bird.life > 0 && bird.x < W + 100);
+  weatherParticles = weatherParticles.filter(particle => particle.life > 0 && particle.y < H + 80);
+}
+
 function spawnParticleBurst(x, y, color, count = 14, force = 180) {
   for (let index = 0; index < count; index += 1) {
     const angle = random(0, Math.PI * 2);
@@ -887,6 +1196,19 @@ function resetRun() {
   state.cameraX = 0;
   state.cameraTargetX = 0;
   state.elapsed = 0;
+  state.biome = 'meadow';
+  state.biomeName = 'Sunny Meadow';
+  state.dayPhase = 0.16;
+  state.weather = 'clear';
+  state.weatherTimer = 0;
+  state.weatherCooldown = 15;
+  state.windStrength = 0;
+  state.storyEvent = 'none';
+  state.storyTimer = 0;
+  state.storyCooldown = 9;
+  state.mudSlow = 0;
+  state.lightning = 0;
+  state.streamOffset = random(0, 600);
 
   player.x = W * 0.5;
   player.y = H * 0.76;
@@ -903,6 +1225,9 @@ function resetRun() {
   particles = [];
   scenery = [];
   clouds = [];
+  wildlife = [];
+  weatherParticles = [];
+  distantBirds = [];
 
   for (let index = 0; index < 10; index += 1) {
     clouds.push({
@@ -917,7 +1242,7 @@ function resetRun() {
     scenery.push({
       x: random(0, W),
       y: random(H * 0.42, H),
-      type: choose(['grass', 'flower', 'stone']),
+      type: choose(['grass', 'flower', 'stone', 'fern', 'mushroom']),
       phase: random(0, Math.PI * 2)
     });
   }
@@ -1030,13 +1355,19 @@ function spawnObstaclePattern() {
   const safeMargin = 58;
   const choiceValue = Math.random();
 
-  if (choiceValue < 0.28) {
+  if (choiceValue < 0.25) {
     const x = random(safeMargin, W - safeMargin);
     obstacles.push(createObstacle('log', x));
     return;
   }
 
-  if (choiceValue < 0.65) {
+  if (choiceValue < 0.38 && state.distance > 220) {
+    const x = random(safeMargin, W - safeMargin);
+    obstacles.push(createObstacle('mud', x));
+    return;
+  }
+
+  if (choiceValue < 0.68) {
     const type = Math.random() < 0.55 ? 'tree' : 'rock';
     const x = random(safeMargin, W - safeMargin);
     obstacles.push(createObstacle(type, x));
@@ -1209,6 +1540,20 @@ function handleCollisions() {
         continue;
       }
 
+      if (obstacle.type === 'mud') {
+        if (!save.dev.noCollisions) {
+          state.mudSlow = 1.7;
+          state.energy = save.dev.infiniteEnergy ? state.energy : Math.max(0, state.energy - 6);
+          state.shake = 0.10;
+          spawnParticleBurst(obstacle.x, obstacle.y, '#765039', 12, 105);
+          showToast('MUD · steering slowed', 1200);
+          tone(145, 0.11, 'triangle', 0.025, -25);
+          haptic(8);
+        }
+        obstacle.y = H + 200;
+        continue;
+      }
+
       damagePlayer(obstacle.type === 'log' ? 20 : 24, obstacle);
       obstacle.y = H + 200;
       continue;
@@ -1265,6 +1610,7 @@ function update(dt) {
   const step = dt * timeScale;
 
   updateTutorial(step);
+  updateLivingWorld(step);
 
   state.difficulty = 1 + Math.min(0.85, state.distance / 1400);
   state.worldSpeed = (save.dev.superSpeed ? 430 : 290) * state.difficulty;
@@ -1283,7 +1629,7 @@ function update(dt) {
 
   player.groundY = H * 0.76;
 
-  const responsiveness = 18;
+  const responsiveness = state.mudSlow > 0 ? 8.5 : 18;
   const desiredVelocity = (player.targetX - player.x) * responsiveness;
 
   player.vx = lerp(player.vx, desiredVelocity, 1 - Math.pow(0.0008, step));
@@ -1365,6 +1711,9 @@ function update(dt) {
   ui.scoreText.textContent = Math.floor(state.score);
   ui.comboText.textContent = state.combo > 0 ? 'Near-miss combo ×' + state.combo : 'Score';
   ui.distanceText.textContent = Math.floor(state.distance) + ' m';
+  ui.worldText.textContent =
+    state.biomeName +
+    (state.weather === 'rain' ? ' · Rain' : state.weather === 'wind' ? ' · Wind' : '');
   ui.energyFill.style.width = clamp(state.energy, 0, 100) + '%';
 
   if (state.elapsed > 5 && save.tutorialSeen) {
@@ -1389,28 +1738,67 @@ function updateParticles(dt) {
 
 /* ---------- Drawing: world ---------- */
 function drawSky() {
+  const phase = state.mode === 'home' ? 0.18 : state.dayPhase;
   const gradient = ctx.createLinearGradient(0, 0, 0, H);
 
-  gradient.addColorStop(0, '#75c8ff');
-  gradient.addColorStop(1, '#dff4c7');
+  if (state.weather === 'rain') {
+    gradient.addColorStop(0, '#465b70');
+    gradient.addColorStop(1, '#93a4aa');
+  } else if (phase < 0.32) {
+    gradient.addColorStop(0, '#75c8ff');
+    gradient.addColorStop(1, '#dff4c7');
+  } else if (phase < 0.67) {
+    gradient.addColorStop(0, '#ff9e78');
+    gradient.addColorStop(1, '#f4d27f');
+  } else {
+    gradient.addColorStop(0, '#142743');
+    gradient.addColorStop(1, '#526792');
+  }
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = '#ffe68b';
+  const celestialX = W * 0.77 - state.cameraX * 0.1;
+  const celestialY = H * (0.14 + phase * 0.15);
+
+  ctx.fillStyle = phase >= 0.67 ? '#f3f0dc' : '#ffe68b';
   ctx.beginPath();
-  ctx.arc(W * 0.77 - state.cameraX * 0.1, H * 0.16, 48, 0, Math.PI * 2);
+  ctx.arc(celestialX, celestialY, phase >= 0.67 ? 34 : 48, 0, Math.PI * 2);
   ctx.fill();
 
+  if (phase >= 0.67 && state.weather !== 'rain') {
+    ctx.fillStyle = 'rgba(255,255,255,.72)';
+    for (let index = 0; index < 38; index += 1) {
+      const x = (index * 83) % W;
+      const y = 28 + ((index * 47) % Math.floor(H * 0.36));
+      const pulse = 0.6 + Math.sin(state.time * 2 + index) * 0.25;
+      ctx.globalAlpha = pulse;
+      ctx.beginPath();
+      ctx.arc(x, y, index % 4 === 0 ? 1.8 : 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   for (const cloud of clouds) {
-    drawCloud(cloud.x - state.cameraX * 0.22, cloud.y, cloud.scale);
+    drawCloud(
+      cloud.x - state.cameraX * 0.22,
+      cloud.y,
+      cloud.scale,
+      state.weather === 'rain'
+    );
+  }
+
+  if (state.lightning > 0) {
+    ctx.fillStyle = 'rgba(235,245,255,' + state.lightning * 5 + ')';
+    ctx.fillRect(0, 0, W, H);
   }
 }
 
-function drawCloud(x, y, scale) {
+function drawCloud(x, y, scale, storm = false) {
   ctx.save();
   ctx.globalAlpha = 0.72;
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = storm ? '#73808b' : '#ffffff';
 
   ctx.beginPath();
   ctx.arc(x, y, 24 * scale, 0, Math.PI * 2);
@@ -1424,24 +1812,38 @@ function drawCloud(x, y, scale) {
 function drawWorld() {
   drawSky();
 
-  ctx.fillStyle = '#72b95b';
+  const groundColor =
+    state.biome === 'meadow' ? '#72b95b' :
+    state.biome === 'woods' ? '#4e8c4b' :
+    '#426b59';
+  ctx.fillStyle = groundColor;
   ctx.fillRect(0, H * 0.40, W, H * 0.60);
 
   for (let index = 0; index < 22; index += 1) {
     const x = index * 88 - 45 - state.cameraX * 0.38;
     const y = H * 0.42 + Math.sin(index * 1.7) * 7;
 
-    ctx.fillStyle = index % 2 === 0 ? '#4d8b44' : '#5d9a4b';
+    ctx.fillStyle =
+      state.biome === 'meadow'
+        ? (index % 2 === 0 ? '#4d8b44' : '#5d9a4b')
+        : state.biome === 'woods'
+          ? (index % 2 === 0 ? '#2f653b' : '#3b7541')
+          : (index % 2 === 0 ? '#294e44' : '#365f4d');
     ctx.beginPath();
     ctx.arc(x, y, 44, Math.PI, 0);
     ctx.fill();
   }
 
-  ctx.fillStyle = '#d6b476';
+  ctx.fillStyle =
+    state.biome === 'meadow' ? '#d6b476' :
+    state.biome === 'woods' ? '#a47d59' :
+    '#7f755f';
   roundedRectPath(W * 0.055 - state.cameraX, H * 0.47, W * 0.89, H * 0.53, 72);
   ctx.fill();
 
+  drawStreamBank();
   drawScenery();
+  drawDistantBirds();
 }
 
 function drawScenery() {
@@ -1475,10 +1877,160 @@ function drawScenery() {
       continue;
     }
 
+    if (item.type === 'fern') {
+      ctx.strokeStyle = 'rgba(34,104,58,.65)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + 5, y - 10, x + 2, y - 18);
+      ctx.stroke();
+      continue;
+    }
+
+    if (item.type === 'mushroom' && state.biome !== 'meadow') {
+      ctx.fillStyle = '#f3ddd0';
+      ctx.fillRect(x - 1.5, y - 6, 3, 7);
+      ctx.fillStyle = '#d86f63';
+      ctx.beginPath();
+      ctx.arc(x, y - 7, 5, Math.PI, 0);
+      ctx.fill();
+      continue;
+    }
+
     ctx.fillStyle = 'rgba(82,83,85,.25)';
     ctx.beginPath();
     ctx.ellipse(x, y, 5, 3, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+}
+
+
+function drawStreamBank() {
+  if (state.biome === 'meadow') {
+    const streamX = W * 0.01 - state.cameraX * 0.35;
+    const gradient = ctx.createLinearGradient(streamX, 0, streamX + W * 0.16, 0);
+    gradient.addColorStop(0, 'rgba(82,177,218,.70)');
+    gradient.addColorStop(1, 'rgba(82,177,218,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(streamX, H * 0.46, W * 0.18, H * 0.54);
+  }
+}
+
+function drawDistantBirds() {
+  ctx.strokeStyle = 'rgba(25,34,44,.72)';
+  ctx.lineWidth = 2;
+  for (const bird of distantBirds) {
+    const flap = Math.sin(bird.phase) * 4;
+    ctx.beginPath();
+    ctx.moveTo(bird.x - 8, bird.y + flap);
+    ctx.quadraticCurveTo(bird.x - 3, bird.y - 4, bird.x, bird.y);
+    ctx.quadraticCurveTo(bird.x + 3, bird.y - 4, bird.x + 8, bird.y + flap);
+    ctx.stroke();
+  }
+}
+
+function drawWildlife() {
+  for (const animal of wildlife) {
+    const x = animal.x - state.cameraX * 0.75;
+    const y = animal.y;
+    const scale = animal.scale || 1;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+
+    if (animal.type === 'butterfly') {
+      ctx.fillStyle = '#be9dff';
+      ctx.beginPath();
+      ctx.ellipse(-7, 0, 7, 10, -0.45, 0, Math.PI * 2);
+      ctx.ellipse(7, 0, 7, 10, 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#3d3157';
+      ctx.fillRect(-1, -7, 2, 14);
+    }
+
+    if (animal.type === 'duck') {
+      ctx.fillStyle = '#ffe16a';
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f1a23d';
+      ctx.fillRect(8, -2, 9, 4);
+      ctx.fillStyle = '#222';
+      ctx.beginPath();
+      ctx.arc(3, -3, 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (animal.type === 'fox') {
+      ctx.fillStyle = '#d66a2b';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 29, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(-25, -7, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#b45320';
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(27, 1);
+      ctx.quadraticCurveTo(49, -9, 57, 5);
+      ctx.stroke();
+    }
+
+    if (animal.type === 'rabbit') {
+      ctx.fillStyle = '#d6d2cb';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 16, 11, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(13, -6, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(10, -18, 4, 12, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(16, -18, 4, 12, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (animal.type === 'firefly') {
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 14);
+      glow.addColorStop(0, 'rgba(255,242,115,.95)');
+      glow.addColorStop(1, 'rgba(255,242,115,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff36e';
+      ctx.beginPath();
+      ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
+function drawWeather() {
+  for (const particle of weatherParticles) {
+    ctx.save();
+
+    if (particle.type === 'rain') {
+      ctx.strokeStyle = 'rgba(200,229,255,.72)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(particle.x, particle.y);
+      ctx.lineTo(particle.x - 7, particle.y + 19);
+      ctx.stroke();
+    } else {
+      ctx.translate(particle.x, particle.y);
+      ctx.rotate(particle.phase);
+      ctx.fillStyle = '#d8903f';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 7, 3.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 }
 
@@ -1637,7 +2189,25 @@ function drawObstacle(item) {
 
   ctx.save();
 
-  if (item.type === 'log') {
+  if (item.type === 'mud') {
+    drawDangerHalo(x, y, item.radius);
+
+    ctx.strokeStyle = '#ff625a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 46, 24, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#6d4938';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 40, 19, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,210,145,.78)';
+    ctx.textAlign = 'center';
+    ctx.font = '1000 13px system-ui';
+    ctx.fillText('SLOW', x, y - 27);
+  } else if (item.type === 'log') {
     drawJumpHalo(x, y, item.radius);
 
     ctx.fillStyle = '#f0c94e';
@@ -1906,8 +2476,10 @@ function draw() {
       drawCollectible(collectible);
     }
 
+    drawWildlife();
     drawCat();
     drawParticles();
+    drawWeather();
 
     if (state.flash > 0) {
       ctx.fillStyle = 'rgba(255,255,255,' + state.flash * 3.2 + ')';
@@ -1993,6 +2565,18 @@ ui.spawnTreeBtn.addEventListener('click', () => {
   obstacles.push(createObstacle('tree', W * 0.5, -20));
 });
 
+ui.forceRainBtn.addEventListener('click', () => {
+  closeDeveloper();
+  startRun();
+  beginWeather('rain', 12);
+});
+
+ui.forceEventBtn.addEventListener('click', () => {
+  closeDeveloper();
+  startRun();
+  startStoryEvent('butterflies');
+});
+
 /* ---------- UI events ---------- */
 ui.playBtn.addEventListener('click', startRun);
 ui.againBtn.addEventListener('click', startRun);
@@ -2018,8 +2602,10 @@ ui.howBtn.addEventListener('click', () => {
     '• Drag anywhere to steer Ginger.\n' +
     '• Swipe up to jump over YELLOW logs.\n' +
     '• Move around RED trees and rocks.\n' +
-    '• Collect glowing mice, flowers and milk.\n\n' +
-    'The first run teaches these controls automatically.'
+    '• Collect glowing mice, flowers and milk.\n' +
+    '• Brown mud marked SLOW reduces steering briefly.\n' +
+    '• Wildlife is friendly and does not hurt Ginger.\n\n' +
+    'The first run teaches the essential controls automatically.'
   );
 });
 
@@ -2062,6 +2648,20 @@ function gameLoop(now) {
 }
 
 /* ---------- Boot ---------- */
+function forceViewportScale() {
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (!viewport) return;
+  const locked = 'width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover';
+  viewport.setAttribute('content', locked);
+  setTimeout(() => viewport.setAttribute('content', locked), 60);
+}
+
+addEventListener('pageshow', forceViewportScale);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) forceViewportScale();
+});
+forceViewportScale();
+
 refreshHome();
 refreshDeveloperButtons();
 showScreen('homeScreen');
