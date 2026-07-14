@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#142033">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Cat Dash — Level 4: Premium Visual Pass</title>
+<title>Cat Dash — Level 4.3: Comfort and Home Menu Fix</title>
 <style>
 :root{
   --ink:#101723;
@@ -87,6 +87,39 @@ button{
   bottom:max(22px,env(safe-area-inset-bottom));
   padding:20px;
 }
+#homeMinBtn{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:42px;
+  height:42px;
+  padding:0;
+  border-radius:14px;
+  z-index:2;
+}
+#homeMiniBar{
+  position:absolute;
+  left:50%;
+  bottom:max(12px,env(safe-area-inset-bottom));
+  transform:translateX(-50%);
+  display:none;
+  align-items:center;
+  gap:8px;
+  width:min(94vw,520px);
+  padding:8px;
+  border-radius:20px;
+  pointer-events:auto;
+}
+#homeMiniBar.visible{
+  display:flex;
+}
+#homeMiniBar .btn{
+  flex:1;
+  padding:12px 14px;
+}
+#homeCard.minimised{
+  display:none;
+}
 #resultCard{
   top:50%;
   transform:translate(-50%,-50%);
@@ -99,7 +132,6 @@ button{
   padding:22px;
   text-align:center;
 }
-#gardenPanel,
 #gardenPanel,
 #devPanel{
   top:max(18px,env(safe-area-inset-top));
@@ -345,7 +377,8 @@ p{
 <div id="ui">
   <section id="homeScreen" class="screen active">
     <div id="homeCard" class="glass">
-      <div class="eyebrow">LEVEL 4 · PREMIUM VISUAL PASS</div>
+      <button id="homeMinBtn" class="btn ghost" aria-label="Minimise menu">−</button>
+      <div class="eyebrow">LEVEL 4.3 · COMFORT & CONTROL FIX</div>
       <h1 id="gameTitle">CAT DASH</h1>
       <p>A richer, more cinematic Cat Dash with handcrafted obstacles, depth, lighting and motion.</p>
       <div class="stats">
@@ -359,7 +392,11 @@ p{
         <button id="howBtn" class="btn ghost">How to Play</button>
         <button id="soundBtn" class="btn ghost">Sound: On</button>
       </div>
-      <div id="homeHint" class="small" style="margin-top:12px">Stroke Ginger with your finger to pet him.</div>
+      <div id="homeHint" class="small" style="position:absolute;top:-42px;left:50%;transform:translateX(-50%);width:max-content;max-width:88vw;padding:8px 12px;border-radius:999px;background:rgba(10,16,24,.62);border:1px solid rgba(255,255,255,.12)">Stroke Ginger with your finger to pet him.</div>
+    </div>
+    <div id="homeMiniBar" class="glass">
+      <button id="homeExpandBtn" class="btn ghost">▲ Menu</button>
+      <button id="miniPlayBtn" class="btn primary">Adventure</button>
     </div>
     <button id="devPaw" class="btn ghost" aria-label="Developer mode">🐾</button>
   </section>
@@ -496,6 +533,11 @@ const ui = {
   gardenScreen: document.getElementById('gardenScreen'),
   hud: document.getElementById('hud'),
   gameTitle: document.getElementById('gameTitle'),
+  homeCard: document.getElementById('homeCard'),
+  homeMinBtn: document.getElementById('homeMinBtn'),
+  homeMiniBar: document.getElementById('homeMiniBar'),
+  homeExpandBtn: document.getElementById('homeExpandBtn'),
+  miniPlayBtn: document.getElementById('miniPlayBtn'),
   bestStat: document.getElementById('bestStat'),
   gardenStat: document.getElementById('gardenStat'),
   bondStat: document.getElementById('bondStat'),
@@ -614,6 +656,7 @@ const defaultSave = {
   bond: 0,
   homeVisits: 0,
   petSessions: 0,
+  homeMenuMinimised: false,
   dev: {
     infiniteEnergy: false,
     noCollisions: false,
@@ -781,6 +824,17 @@ function showToast(message, duration = 1700) {
   showToast.timer = setTimeout(() => {
     ui.toast.classList.remove('show');
   }, duration);
+}
+
+
+function setHomeMenuMinimised(minimised, persistChoice = true) {
+  save.homeMenuMinimised = Boolean(minimised);
+  ui.homeCard.classList.toggle('minimised', save.homeMenuMinimised);
+  ui.homeMiniBar.classList.toggle('visible', save.homeMenuMinimised);
+
+  if (persistChoice) {
+    persist();
+  }
 }
 
 /* ---------- Game state ---------- */
@@ -1364,6 +1418,7 @@ function resetRun() {
 function startRun() {
   ensureAudio();
   resetRun();
+  ui.homeMiniBar.classList.remove('visible');
   showScreen('gameScreen');
   ui.gestureHint.classList.remove('hidden');
 
@@ -1387,6 +1442,18 @@ function endRun(reason = 'Ginger ran out of energy.') {
   state.slowMotion = 0;
   state.cameraX = 0;
   state.cameraTargetX = 0;
+  state.cameraZoom = 1;
+  state.cameraZoomTarget = 1;
+  state.cameraTilt = 0;
+  state.cameraTiltTarget = 0;
+  state.landingBounce = 0;
+  player.invulnerable = 0;
+  player.vx = 0;
+  player.vy = 0;
+  player.lean = 0;
+  player.blink = 0;
+  player.blinkTimer = 2.5;
+  touch.active = false;
 
   save.runs += 1;
   save.best = Math.max(save.best, Math.floor(state.score));
@@ -1425,9 +1492,22 @@ function goHome() {
   state.slowMotion = 0;
   state.cameraX = 0;
   state.cameraTargetX = 0;
+  state.cameraZoom = 1;
+  state.cameraZoomTarget = 1;
+  state.cameraTilt = 0;
+  state.cameraTiltTarget = 0;
+  state.landingBounce = 0;
+  player.invulnerable = 0;
+  player.vx = 0;
+  player.vy = 0;
+  player.lean = 0;
+  player.blink = 0;
+  player.blinkTimer = 2.5;
+  touch.active = false;
   save.homeVisits += 1;
   persist();
   showScreen('homeScreen');
+  setHomeMenuMinimised(save.homeMenuMinimised, false);
   refreshHome();
 }
 
@@ -1621,7 +1701,6 @@ function jump() {
 
   player.vy = -520;
   player.jumping = true;
-  state.cameraZoomTarget = 0.985;
 
   tone(520, 0.07, 'square', 0.025, 110);
   haptic(8);
@@ -1774,10 +1853,13 @@ function update(dt) {
   updateTutorial(step);
   updateLivingWorld(step);
 
-  state.difficulty = 1 + Math.min(0.85, state.distance / 1400);
+  state.difficulty = 1 + Math.min(0.70, state.distance / 1800);
   state.worldSpeed = (save.dev.superSpeed ? 430 : 290) * state.difficulty;
 
-  state.distance += step * (state.worldSpeed / 8.5);
+  /* Displayed distance is gameplay distance, not raw canvas pixels.
+     Normal pace starts around 9.2 m/s instead of the previous 34+ m/s. */
+  const metresPerSecond = save.dev.superSpeed ? 18 : 9.2;
+  state.distance += step * metresPerSecond * Math.min(state.difficulty, 1.35);
   state.score += step * (19 + state.combo * 4);
 
   if (!save.dev.infiniteEnergy) {
@@ -1815,9 +1897,8 @@ function update(dt) {
     player.vy = 0;
     player.jumping = false;
     if (wasJumping) {
-      state.landingBounce = 1;
-      state.cameraZoomTarget = 1.015;
-      spawnParticleBurst(player.x, player.y + 28, '#d7b47b', 9, 85);
+      spawnParticleBurst(player.x, player.y + 28, '#d7b47b', 8, 70);
+      haptic(6);
     }
   }
 
@@ -1832,13 +1913,14 @@ function update(dt) {
 
   player.blink = Math.max(0, player.blink - step);
 
-  state.cameraTargetX = (player.x - W * 0.5) * 0.05;
-  state.cameraX = lerp(state.cameraX, state.cameraTargetX, 0.065);
-  state.cameraTiltTarget = clamp(player.vx / 620, -1, 1) * 0.018;
-  state.cameraTilt = lerp(state.cameraTilt, state.cameraTiltTarget, 0.07);
-  if (!player.jumping) state.cameraZoomTarget = lerp(state.cameraZoomTarget, 1, 0.06);
-  state.cameraZoom = lerp(state.cameraZoom, state.cameraZoomTarget, 0.08);
-  state.landingBounce = Math.max(0, state.landingBounce - step * 4.5);
+  /* Comfort mode keeps the camera completely fixed. */
+  state.cameraTargetX = 0;
+  state.cameraX = 0;
+  state.cameraTiltTarget = 0;
+  state.cameraTilt = 0;
+  state.cameraZoomTarget = 1;
+  state.cameraZoom = 1;
+  state.landingBounce = 0;
 
   if (save.tutorialSeen || state.tutorialPhase >= 99) {
     state.obstacleTimer -= step;
@@ -1882,12 +1964,7 @@ function update(dt) {
 
   state.ambientTimer -= step;
   if (state.ambientTimer <= 0) {
-    if (Math.random() < 0.55) {
-      spawnAmbient(state.biome === 'meadow' ? 'petal' : 'leaf');
-    } else {
-      spawnMovingShadow();
-    }
-    state.ambientTimer = random(0.22, 0.55);
+    state.ambientTimer = random(2.5, 4.5);
   }
 
   if (state.energy <= 0) {
@@ -2016,6 +2093,63 @@ function drawCloud(x, y, scale, storm = false) {
   ctx.restore();
 }
 
+
+function roadHalfWidthAtY(y) {
+  const horizonY = H * 0.33;
+  const bottomY = H * 1.02;
+  const t = clamp((y - horizonY) / (bottomY - horizonY), 0, 1);
+  return lerp(W * 0.10, W * 0.48, t);
+}
+
+function roadCenterAtY(y) {
+  const horizonY = H * 0.33;
+  const bottomY = H * 1.02;
+  const t = clamp((y - horizonY) / (bottomY - horizonY), 0, 1);
+  return W * 0.5 - state.cameraX * lerp(0.10, 1, t);
+}
+
+function drawPerspectiveRoad() {
+  const roadX = W * 0.055 - state.cameraX;
+  const roadY = H * 0.47;
+  const roadW = W * 0.89;
+  const roadH = H * 0.53;
+
+  const gradient = ctx.createLinearGradient(0, roadY, 0, H);
+  gradient.addColorStop(
+    0,
+    state.biome === 'meadow'
+      ? '#c8aa72'
+      : state.biome === 'woods'
+        ? '#8d6d50'
+        : '#70695a'
+  );
+  gradient.addColorStop(
+    1,
+    state.biome === 'meadow'
+      ? '#d8b77c'
+      : state.biome === 'woods'
+        ? '#a27c59'
+        : '#837a67'
+  );
+
+  ctx.fillStyle = gradient;
+  roundedRectPath(roadX, roadY, roadW, roadH, 72);
+  ctx.fill();
+
+  const spacing = 74;
+  const scroll = (state.distance * 8.5) % spacing;
+
+  for (let y = roadY - spacing + scroll; y < H + spacing; y += spacing) {
+    const depth = clamp((y - roadY) / roadH, 0, 1);
+    ctx.strokeStyle = `rgba(91,66,43,${0.06 + depth * 0.08})`;
+    ctx.lineWidth = 1 + depth * 2;
+    ctx.beginPath();
+    ctx.moveTo(roadX + 10, y);
+    ctx.lineTo(roadX + roadW - 10, y);
+    ctx.stroke();
+  }
+}
+
 function drawWorld() {
   drawSky();
 
@@ -2041,65 +2175,16 @@ function drawWorld() {
     ctx.fill();
   }
 
-  ctx.fillStyle =
-    state.biome === 'meadow' ? '#d6b476' :
-    state.biome === 'woods' ? '#a47d59' :
-    '#7f755f';
-  roundedRectPath(W * 0.055 - state.cameraX, H * 0.47, W * 0.89, H * 0.53, 72);
-  ctx.fill();
+  drawPerspectiveRoad();
 
   drawStreamBank();
   drawScenery();
   drawDistantBirds();
 }
 
-function drawPremiumAtmosphere() {
-  for (const particle of ambientParticles) {
-    const alpha = clamp(1 - particle.age / particle.life, 0, 1);
-    ctx.save();
-    ctx.globalAlpha = alpha * 0.75;
-    ctx.translate(particle.x - state.cameraX * 0.25, particle.y);
-    ctx.rotate(particle.rotation);
-    ctx.fillStyle = particle.type === 'petal' ? '#f2a8c1' : '#d48d3f';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, particle.size, particle.size * 0.55, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
+function drawPremiumAtmosphere() {}
 
-  for (const shadow of movingShadows) {
-    const alpha = clamp(1 - shadow.age / shadow.life, 0, 1) * 0.15;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.translate(shadow.x, shadow.y);
-    ctx.scale(shadow.scale, shadow.scale * 0.55);
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.moveTo(-34, 0);
-    ctx.quadraticCurveTo(-10, -22, 0, -4);
-    ctx.quadraticCurveTo(10, -22, 34, 0);
-    ctx.quadraticCurveTo(8, -7, 0, 6);
-    ctx.quadraticCurveTo(-8, -7, -34, 0);
-    ctx.fill();
-    ctx.restore();
-  }
-}
-
-function drawForegroundFoliage() {
-  const offset = state.distance * 10;
-  for (let index = 0; index < 16; index += 1) {
-    const side = index % 2 === 0 ? -1 : 1;
-    const x = side < 0 ? -8 : W + 8;
-    const y = H * 0.44 + ((index * 73 + offset) % (H * 0.66));
-    const sway = Math.sin(state.time * 1.6 + index) * 9;
-    ctx.strokeStyle = state.biome === 'meadow' ? '#3d8b42' : '#285e3a';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(x, y + 22);
-    ctx.quadraticCurveTo(x + sway, y + 4, x + side * 20, y - 22);
-    ctx.stroke();
-  }
-}
+function drawForegroundFoliage() {}
 
 function drawScenery() {
   const scroll = (state.distance * 7.2) % (H * 0.62);
@@ -2302,7 +2387,7 @@ function drawCat() {
   );
 
   ctx.save();
-  ctx.translate(x, y - state.landingBounce * 3);
+  ctx.translate(x, y);
   ctx.rotate(player.lean);
 
   if (player.invulnerable > 0 && Math.floor(state.time * 18) % 2 === 0) {
@@ -2491,15 +2576,12 @@ function drawJumpHalo(x, y, radius) {
 }
 
 function drawObstacle(item) {
-  const perspective = perspectiveForY(item.y);
-  const x = item.x - state.cameraX * lerp(0.35, 1, perspective.t);
   const y = item.y;
-  const s = perspective.scale;
+  const x = item.x - state.cameraX;
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(s, s);
-  ctx.globalAlpha = perspective.alpha;
+  ctx.globalAlpha = 1;
 
   if (item.type === 'mud') {
     drawSoftShadow(0, 11, 38, 0.14);
@@ -2602,7 +2684,7 @@ function drawObstacle(item) {
 
   if (save.dev.showHitboxes) {
     ctx.strokeStyle = item.type === 'log' ? '#ffe95f' : '#ff365f';
-    ctx.lineWidth = 2 / s;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(0, 0, item.radius, 0, Math.PI * 2);
     ctx.stroke();
@@ -2625,14 +2707,12 @@ function drawCollectibleGlow(x, y, radius, color) {
 }
 
 function drawCollectible(item) {
-  const perspective = perspectiveForY(item.y);
-  const x = item.x - state.cameraX * lerp(0.35, 1, perspective.t);
+  const x = item.x - state.cameraX;
   const y = item.y + Math.sin(item.phase) * 3;
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(perspective.scale, perspective.scale);
-  ctx.globalAlpha = perspective.alpha;
+  ctx.globalAlpha = 1;
 
   if (item.type === 'mouse') {
     drawCollectibleGlow(0, 0, item.radius, 'rgba(255,224,102,.55)');
@@ -2807,6 +2887,7 @@ function petGinger(x, y, movement) {
 
 /* ---------- Drawing: home ---------- */
 function drawHomeBackground() {
+  player.invulnerable = 0;
   const oldPhase = state.dayPhase;
   state.dayPhase = (0.18 + (new Date().getHours() / 24)) % 1;
   drawSky();
@@ -3042,44 +3123,33 @@ function drawHomeBackground() {
 function draw() {
   ctx.save();
 
-  if (state.mode === 'playing') {
-    const centreX = W * 0.5;
-    const centreY = H * 0.58;
-    const landingScale = 1 + state.landingBounce * 0.008;
-
-    ctx.translate(centreX, centreY);
-    ctx.rotate(state.cameraTilt);
-    ctx.scale(
-      state.cameraZoom * landingScale,
-      state.cameraZoom * landingScale
+  if (state.mode === 'playing' && state.shake > 0) {
+    ctx.translate(
+      random(-1, 1) * state.shake * 6,
+      random(-1, 1) * state.shake * 6
     );
-    ctx.translate(-centreX, -centreY);
-
-    if (state.shake > 0) {
-      ctx.translate(
-        random(-1, 1) * state.shake * 18,
-        random(-1, 1) * state.shake * 18
-      );
-    }
   }
 
   if (state.mode === 'home' || state.mode === 'result' || state.mode === 'developer') {
     drawHomeBackground();
   } else {
     drawWorld();
-    drawPremiumAtmosphere();
 
     const sortedObstacles = [...obstacles].sort((a, b) => a.y - b.y);
     const sortedCollectibles = [...collectibles].sort((a, b) => a.y - b.y);
 
-    for (const obstacle of sortedObstacles) drawObstacle(obstacle);
-    for (const collectible of sortedCollectibles) drawCollectible(collectible);
+    for (const obstacle of sortedObstacles) {
+      drawObstacle(obstacle);
+    }
+
+    for (const collectible of sortedCollectibles) {
+      drawCollectible(collectible);
+    }
 
     drawWildlife();
     drawCat();
     drawParticles();
     drawWeather();
-    drawForegroundFoliage();
 
     if (state.flash > 0) {
       ctx.fillStyle = 'rgba(255,255,255,' + state.flash * 3.2 + ')';
@@ -3138,7 +3208,9 @@ function openDeveloper() {
 
 function closeDeveloper() {
   state.mode = 'home';
+  player.invulnerable = 0;
   showScreen('homeScreen');
+  setHomeMenuMinimised(save.homeMenuMinimised, false);
 }
 
 function toggleDeveloperOption(key) {
@@ -3207,8 +3279,15 @@ function openGarden() {
 
 /* ---------- UI events ---------- */
 ui.playBtn.addEventListener('click', startRun);
+ui.miniPlayBtn.addEventListener('click', startRun);
+ui.homeMinBtn.addEventListener('click', () => setHomeMenuMinimised(true));
+ui.homeExpandBtn.addEventListener('click', () => setHomeMenuMinimised(false));
 ui.gardenBtn.addEventListener('click', openGarden);
-ui.closeGardenBtn.addEventListener('click', () => showScreen('homeScreen'));
+ui.closeGardenBtn.addEventListener('click', () => {
+  state.mode = 'home';
+  showScreen('homeScreen');
+  setHomeMenuMinimised(save.homeMenuMinimised, false);
+});
 ui.againBtn.addEventListener('click', startRun);
 ui.homeBtn.addEventListener('click', goHome);
 ui.pauseBtn.addEventListener('click', pauseRun);
@@ -3300,6 +3379,7 @@ state.homeVisitorTimer = 1;
 refreshHome();
 refreshDeveloperButtons();
 showScreen('homeScreen');
+setHomeMenuMinimised(save.homeMenuMinimised, false);
 requestAnimationFrame(gameLoop);
 </script>
 </body>
