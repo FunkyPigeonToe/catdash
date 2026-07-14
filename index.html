@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#142033">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Cat Dash — Level 3: Home</title>
+<title>Cat Dash — Level 4: Premium Visual Pass</title>
 <style>
 :root{
   --ink:#101723;
@@ -345,9 +345,9 @@ p{
 <div id="ui">
   <section id="homeScreen" class="screen active">
     <div id="homeCard" class="glass">
-      <div class="eyebrow">LEVEL 3 · GINGER’S HOME</div>
+      <div class="eyebrow">LEVEL 4 · PREMIUM VISUAL PASS</div>
       <h1 id="gameTitle">CAT DASH</h1>
-      <p>Welcome home. Pet Ginger, grow the garden and head out when you’re ready for another adventure.</p>
+      <p>A richer, more cinematic Cat Dash with handcrafted obstacles, depth, lighting and motion.</p>
       <div class="stats">
         <div class="stat"><span>Best</span><b id="bestStat">0</b></div>
         <div class="stat"><span>Garden</span><b id="gardenStat">0</b></div>
@@ -831,7 +831,13 @@ const state = {
   homeLastPetY: 0,
   homeHeartTimer: 0,
   homeVisitor: 'none',
-  homeVisitorTimer: 0
+  homeVisitorTimer: 0,
+  cameraZoom: 1,
+  cameraZoomTarget: 1,
+  cameraTilt: 0,
+  cameraTiltTarget: 0,
+  landingBounce: 0,
+  ambientTimer: 0
 };
 
 const player = {
@@ -870,6 +876,8 @@ let wildlife = [];
 let weatherParticles = [];
 let distantBirds = [];
 let homeHearts = [];
+let ambientParticles = [];
+let movingShadows = [];
 
 /* Canvas can now safely use player and state. */
 resizeCanvas();
@@ -1221,6 +1229,55 @@ function spawnParticleBurst(x, y, color, count = 14, force = 180) {
   }
 }
 
+
+function perspectiveForY(y) {
+  const horizon = H * 0.28;
+  const bottom = H * 0.92;
+  const raw = clamp((y - horizon) / (bottom - horizon), 0, 1);
+  const eased = raw * raw * (3 - 2 * raw);
+  return {
+    t: eased,
+    scale: lerp(0.34, 1.16, eased),
+    alpha: lerp(0.42, 1, eased)
+  };
+}
+
+function drawSoftShadow(x, y, width, alpha = 0.18) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(x, y, width, width * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function spawnAmbient(type) {
+  ambientParticles.push({
+    type,
+    x: random(0, W),
+    y: -20,
+    vx: random(-15, 18),
+    vy: random(35, 75),
+    age: 0,
+    life: random(3.2, 5.8),
+    size: random(3, 7),
+    rotation: random(0, Math.PI * 2),
+    spin: random(-2, 2)
+  });
+}
+
+function spawnMovingShadow() {
+  movingShadows.push({
+    x: -100,
+    y: random(H * 0.35, H * 0.68),
+    vx: random(130, 190),
+    age: 0,
+    life: random(3.2, 4.8),
+    scale: random(0.8, 1.3)
+  });
+}
+
 /* ---------- Run lifecycle ---------- */
 function resetRun() {
   state.mode = 'playing';
@@ -1257,6 +1314,12 @@ function resetRun() {
   state.mudSlow = 0;
   state.lightning = 0;
   state.streamOffset = random(0, 600);
+  state.cameraZoom = 1;
+  state.cameraZoomTarget = 1;
+  state.cameraTilt = 0;
+  state.cameraTiltTarget = 0;
+  state.landingBounce = 0;
+  state.ambientTimer = 1;
 
   player.x = W * 0.5;
   player.y = H * 0.76;
@@ -1276,6 +1339,8 @@ function resetRun() {
   wildlife = [];
   weatherParticles = [];
   distantBirds = [];
+  ambientParticles = [];
+  movingShadows = [];
 
   for (let index = 0; index < 10; index += 1) {
     clouds.push({
@@ -1556,6 +1621,7 @@ function jump() {
 
   player.vy = -520;
   player.jumping = true;
+  state.cameraZoomTarget = 0.985;
 
   tone(520, 0.07, 'square', 0.025, 110);
   haptic(8);
@@ -1744,9 +1810,15 @@ function update(dt) {
   player.y += player.vy * step;
 
   if (player.y >= player.groundY) {
+    const wasJumping = player.jumping;
     player.y = player.groundY;
     player.vy = 0;
     player.jumping = false;
+    if (wasJumping) {
+      state.landingBounce = 1;
+      state.cameraZoomTarget = 1.015;
+      spawnParticleBurst(player.x, player.y + 28, '#d7b47b', 9, 85);
+    }
   }
 
   player.invulnerable = Math.max(0, player.invulnerable - step);
@@ -1760,8 +1832,13 @@ function update(dt) {
 
   player.blink = Math.max(0, player.blink - step);
 
-  state.cameraTargetX = (player.x - W * 0.5) * 0.075;
-  state.cameraX = lerp(state.cameraX, state.cameraTargetX, 0.08);
+  state.cameraTargetX = (player.x - W * 0.5) * 0.05;
+  state.cameraX = lerp(state.cameraX, state.cameraTargetX, 0.065);
+  state.cameraTiltTarget = clamp(player.vx / 620, -1, 1) * 0.018;
+  state.cameraTilt = lerp(state.cameraTilt, state.cameraTiltTarget, 0.07);
+  if (!player.jumping) state.cameraZoomTarget = lerp(state.cameraZoomTarget, 1, 0.06);
+  state.cameraZoom = lerp(state.cameraZoom, state.cameraZoomTarget, 0.08);
+  state.landingBounce = Math.max(0, state.landingBounce - step * 4.5);
 
   if (save.tutorialSeen || state.tutorialPhase >= 99) {
     state.obstacleTimer -= step;
@@ -1803,6 +1880,16 @@ function update(dt) {
   state.shake = Math.max(0, state.shake - dt);
   state.flash = Math.max(0, state.flash - dt);
 
+  state.ambientTimer -= step;
+  if (state.ambientTimer <= 0) {
+    if (Math.random() < 0.55) {
+      spawnAmbient(state.biome === 'meadow' ? 'petal' : 'leaf');
+    } else {
+      spawnMovingShadow();
+    }
+    state.ambientTimer = random(0.22, 0.55);
+  }
+
   if (state.energy <= 0) {
     endRun();
   }
@@ -1831,6 +1918,27 @@ function updateParticles(dt) {
 
     if (particle.age >= particle.life) {
       particles.splice(index, 1);
+    }
+  }
+
+  for (let index = ambientParticles.length - 1; index >= 0; index -= 1) {
+    const particle = ambientParticles[index];
+    particle.age += dt;
+    particle.x += particle.vx * dt;
+    particle.y += particle.vy * dt;
+    particle.rotation += particle.spin * dt;
+    particle.vx += Math.sin(particle.age * 2.2) * 2.2 * dt;
+    if (particle.age >= particle.life || particle.y > H + 40) {
+      ambientParticles.splice(index, 1);
+    }
+  }
+
+  for (let index = movingShadows.length - 1; index >= 0; index -= 1) {
+    const shadow = movingShadows[index];
+    shadow.age += dt;
+    shadow.x += shadow.vx * dt;
+    if (shadow.age >= shadow.life || shadow.x > W + 150) {
+      movingShadows.splice(index, 1);
     }
   }
 }
@@ -1943,6 +2051,54 @@ function drawWorld() {
   drawStreamBank();
   drawScenery();
   drawDistantBirds();
+}
+
+function drawPremiumAtmosphere() {
+  for (const particle of ambientParticles) {
+    const alpha = clamp(1 - particle.age / particle.life, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.75;
+    ctx.translate(particle.x - state.cameraX * 0.25, particle.y);
+    ctx.rotate(particle.rotation);
+    ctx.fillStyle = particle.type === 'petal' ? '#f2a8c1' : '#d48d3f';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, particle.size, particle.size * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  for (const shadow of movingShadows) {
+    const alpha = clamp(1 - shadow.age / shadow.life, 0, 1) * 0.15;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(shadow.x, shadow.y);
+    ctx.scale(shadow.scale, shadow.scale * 0.55);
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.moveTo(-34, 0);
+    ctx.quadraticCurveTo(-10, -22, 0, -4);
+    ctx.quadraticCurveTo(10, -22, 34, 0);
+    ctx.quadraticCurveTo(8, -7, 0, 6);
+    ctx.quadraticCurveTo(-8, -7, -34, 0);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawForegroundFoliage() {
+  const offset = state.distance * 10;
+  for (let index = 0; index < 16; index += 1) {
+    const side = index % 2 === 0 ? -1 : 1;
+    const x = side < 0 ? -8 : W + 8;
+    const y = H * 0.44 + ((index * 73 + offset) % (H * 0.66));
+    const sway = Math.sin(state.time * 1.6 + index) * 9;
+    ctx.strokeStyle = state.biome === 'meadow' ? '#3d8b42' : '#285e3a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 22);
+    ctx.quadraticCurveTo(x + sway, y + 4, x + side * 20, y - 22);
+    ctx.stroke();
+  }
 }
 
 function drawScenery() {
@@ -2138,8 +2294,15 @@ function drawCat() {
   const x = player.x - state.cameraX;
   const y = player.y + player.bob;
 
+  drawSoftShadow(
+    x,
+    player.groundY + 30,
+    24 + Math.abs(player.y - player.groundY) * 0.05,
+    player.jumping ? 0.10 : 0.18
+  );
+
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(x, y - state.landingBounce * 3);
   ctx.rotate(player.lean);
 
   if (player.invulnerable > 0 && Math.floor(state.time * 18) % 2 === 0) {
@@ -2233,16 +2396,17 @@ function drawCat() {
   ctx.stroke();
 
   if (player.blink <= 0) {
+    const look = clamp((player.targetX - player.x) / 80, -1, 1) * 1.4;
     ctx.fillStyle = '#1e2023';
     ctx.beginPath();
-    ctx.ellipse(-7, -31, 3.2, 4.1, 0, 0, Math.PI * 2);
-    ctx.ellipse(7, -31, 3.2, 4.1, 0, 0, Math.PI * 2);
+    ctx.ellipse(-7 + look * 0.2, -31, 3.2, 4.1, 0, 0, Math.PI * 2);
+    ctx.ellipse(7 + look * 0.2, -31, 3.2, 4.1, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.arc(-6, -32.5, 1.1, 0, Math.PI * 2);
-    ctx.arc(8, -32.5, 1.1, 0, Math.PI * 2);
+    ctx.arc(-6 + look, -32.5, 1.1, 0, Math.PI * 2);
+    ctx.arc(8 + look, -32.5, 1.1, 0, Math.PI * 2);
     ctx.fill();
   } else {
     ctx.strokeStyle = '#252525';
@@ -2327,94 +2491,120 @@ function drawJumpHalo(x, y, radius) {
 }
 
 function drawObstacle(item) {
-  const x = item.x - state.cameraX;
+  const perspective = perspectiveForY(item.y);
+  const x = item.x - state.cameraX * lerp(0.35, 1, perspective.t);
   const y = item.y;
+  const s = perspective.scale;
 
   ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.globalAlpha = perspective.alpha;
 
   if (item.type === 'mud') {
-    drawDangerHalo(x, y, item.radius);
-
-    ctx.strokeStyle = '#ff625a';
-    ctx.lineWidth = 4;
+    drawSoftShadow(0, 11, 38, 0.14);
+    const mud = ctx.createRadialGradient(-8, -5, 4, 0, 0, 44);
+    mud.addColorStop(0, '#8a654c');
+    mud.addColorStop(1, '#4f3329');
+    ctx.fillStyle = mud;
     ctx.beginPath();
-    ctx.ellipse(x, y, 46, 24, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = '#6d4938';
-    ctx.beginPath();
-    ctx.ellipse(x, y, 40, 19, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 43, 20, 0, 0, Math.PI * 2);
     ctx.fill();
-
-    ctx.fillStyle = 'rgba(255,210,145,.78)';
+    ctx.strokeStyle = 'rgba(255,255,255,.18)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(-10, -3, 16, 6, -0.15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.72)';
     ctx.textAlign = 'center';
-    ctx.font = '1000 13px system-ui';
-    ctx.fillText('SLOW', x, y - 27);
-  } else if (item.type === 'log') {
-    drawJumpHalo(x, y, item.radius);
+    ctx.font = '900 12px system-ui';
+    ctx.fillText('SLOW', 0, -27);
+  }
 
-    ctx.fillStyle = '#f0c94e';
-    roundedRectPath(x - 50, y - 22, 100, 44, 15);
+  if (item.type === 'log') {
+    drawSoftShadow(0, 18, 38, 0.17);
+    const bark = ctx.createLinearGradient(0, -18, 0, 18);
+    bark.addColorStop(0, '#9d6938');
+    bark.addColorStop(1, '#5f3b24');
+    ctx.fillStyle = bark;
+    roundedRectPath(-45, -15, 90, 30, 12);
     ctx.fill();
-
-    ctx.fillStyle = '#79502f';
-    roundedRectPath(x - 44, y - 15, 88, 30, 12);
-    ctx.fill();
-
-    ctx.strokeStyle = '#a6734c';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#c28b59';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(x - 32, y, 9, 0, Math.PI * 2);
+    ctx.arc(-33, 0, 9, 0, Math.PI * 2);
     ctx.stroke();
-
-    ctx.fillStyle = '#17202d';
+    ctx.fillStyle = '#f2c35b';
+    ctx.beginPath();
+    ctx.arc(-10, -17, 4.5, Math.PI, 0);
+    ctx.arc(12, -17, 5, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,239,165,.92)';
     ctx.textAlign = 'center';
-    ctx.font = '1000 14px system-ui';
-    ctx.fillText('SWIPE ↑', x, y - 30);
-  } else if (item.type === 'tree') {
-    drawDangerHalo(x, y, item.radius);
+    ctx.font = '900 12px system-ui';
+    ctx.fillText('SWIPE ↑', 0, -27);
+  }
 
-    ctx.strokeStyle = '#ff625a';
-    ctx.lineWidth = 5;
+  if (item.type === 'tree') {
+    drawSoftShadow(0, 39, 35, 0.18);
+    ctx.fillStyle = '#6b4328';
+    roundedRectPath(-11, -3, 22, 58, 8);
+    ctx.fill();
+    const leaves = ctx.createRadialGradient(-8, -23, 4, 0, -10, 42);
+    leaves.addColorStop(0, '#62ac5f');
+    leaves.addColorStop(1, '#2f7538');
+    ctx.fillStyle = leaves;
     ctx.beginPath();
-    ctx.arc(x, y, item.radius + 8, 0, Math.PI * 2);
+    ctx.arc(0, -18, 30, 0, Math.PI * 2);
+    ctx.arc(-20, -2, 22, 0, Math.PI * 2);
+    ctx.arc(20, -2, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.10)';
+    ctx.beginPath();
+    ctx.arc(-10, -27, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#b7783d';
+    for (let index = 0; index < 4; index += 1) {
+      ctx.beginPath();
+      ctx.ellipse(-24 + index * 15, 29, 5, 2.7, index * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  if (item.type === 'rock') {
+    drawSoftShadow(0, 17, 34, 0.17);
+    const rock = ctx.createLinearGradient(-18, -20, 22, 22);
+    rock.addColorStop(0, '#a0a7aa');
+    rock.addColorStop(1, '#596268');
+    ctx.fillStyle = rock;
+    ctx.beginPath();
+    ctx.moveTo(-31, 10);
+    ctx.lineTo(-21, -16);
+    ctx.lineTo(2, -26);
+    ctx.lineTo(28, -10);
+    ctx.lineTo(32, 15);
+    ctx.lineTo(12, 24);
+    ctx.lineTo(-18, 22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.22)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-11, -14);
+    ctx.lineTo(4, -3);
+    ctx.lineTo(16, -12);
     ctx.stroke();
-
-    ctx.fillStyle = '#714523';
-    roundedRectPath(x - 12, y - 7, 24, 58, 9);
-    ctx.fill();
-
-    ctx.fillStyle = '#327f38';
+    ctx.fillStyle = '#5d874d';
     ctx.beginPath();
-    ctx.arc(x, y - 18, 31, 0, Math.PI * 2);
-    ctx.arc(x - 22, y - 3, 23, 0, Math.PI * 2);
-    ctx.arc(x + 22, y - 3, 23, 0, Math.PI * 2);
-    ctx.fill();
-  } else {
-    drawDangerHalo(x, y, item.radius);
-
-    ctx.strokeStyle = '#ff625a';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.ellipse(x, y, 37, 29, -0.15, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = '#7f888d';
-    ctx.beginPath();
-    ctx.ellipse(x, y, 31, 23, -0.15, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255,255,255,.22)';
-    ctx.beginPath();
-    ctx.ellipse(x - 8, y - 7, 11, 6, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(-13, 13, 13, 5, -0.25, 0, Math.PI * 2);
     ctx.fill();
   }
 
   if (save.dev.showHitboxes) {
     ctx.strokeStyle = item.type === 'log' ? '#ffe95f' : '#ff365f';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 / s;
     ctx.beginPath();
-    ctx.arc(x, y, item.radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, item.radius, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -2435,11 +2625,14 @@ function drawCollectibleGlow(x, y, radius, color) {
 }
 
 function drawCollectible(item) {
-  const x = item.x - state.cameraX;
+  const perspective = perspectiveForY(item.y);
+  const x = item.x - state.cameraX * lerp(0.35, 1, perspective.t);
   const y = item.y + Math.sin(item.phase) * 3;
 
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(perspective.scale, perspective.scale);
+  ctx.globalAlpha = perspective.alpha;
 
   if (item.type === 'mouse') {
     drawCollectibleGlow(0, 0, item.radius, 'rgba(255,224,102,.55)');
@@ -2849,30 +3042,44 @@ function drawHomeBackground() {
 function draw() {
   ctx.save();
 
-  if (state.mode === 'playing' && state.shake > 0) {
-    ctx.translate(
-      random(-1, 1) * state.shake * 25,
-      random(-1, 1) * state.shake * 25
+  if (state.mode === 'playing') {
+    const centreX = W * 0.5;
+    const centreY = H * 0.58;
+    const landingScale = 1 + state.landingBounce * 0.008;
+
+    ctx.translate(centreX, centreY);
+    ctx.rotate(state.cameraTilt);
+    ctx.scale(
+      state.cameraZoom * landingScale,
+      state.cameraZoom * landingScale
     );
+    ctx.translate(-centreX, -centreY);
+
+    if (state.shake > 0) {
+      ctx.translate(
+        random(-1, 1) * state.shake * 18,
+        random(-1, 1) * state.shake * 18
+      );
+    }
   }
 
   if (state.mode === 'home' || state.mode === 'result' || state.mode === 'developer') {
     drawHomeBackground();
   } else {
     drawWorld();
+    drawPremiumAtmosphere();
 
-    for (const obstacle of obstacles) {
-      drawObstacle(obstacle);
-    }
+    const sortedObstacles = [...obstacles].sort((a, b) => a.y - b.y);
+    const sortedCollectibles = [...collectibles].sort((a, b) => a.y - b.y);
 
-    for (const collectible of collectibles) {
-      drawCollectible(collectible);
-    }
+    for (const obstacle of sortedObstacles) drawObstacle(obstacle);
+    for (const collectible of sortedCollectibles) drawCollectible(collectible);
 
     drawWildlife();
     drawCat();
     drawParticles();
     drawWeather();
+    drawForegroundFoliage();
 
     if (state.flash > 0) {
       ctx.fillStyle = 'rgba(255,255,255,' + state.flash * 3.2 + ')';
