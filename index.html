@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#142033">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Cat Dash — Build 2: Living World</title>
+<title>Cat Dash — Level 3: Home</title>
 <style>
 :root{
   --ink:#101723;
@@ -74,7 +74,8 @@ button{
 #homeCard,
 #resultCard,
 #devPanel,
-#pauseCard{
+#pauseCard,
+#gardenPanel{
   position:absolute;
   left:50%;
   transform:translateX(-50%);
@@ -98,6 +99,8 @@ button{
   padding:22px;
   text-align:center;
 }
+#gardenPanel,
+#gardenPanel,
 #devPanel{
   top:max(18px,env(safe-area-inset-top));
   bottom:max(18px,env(safe-area-inset-bottom));
@@ -342,19 +345,21 @@ p{
 <div id="ui">
   <section id="homeScreen" class="screen active">
     <div id="homeCard" class="glass">
-      <div class="eyebrow">BUILD 2 · THE LIVING WORLD</div>
+      <div class="eyebrow">LEVEL 3 · GINGER’S HOME</div>
       <h1 id="gameTitle">CAT DASH</h1>
-      <p>A living countryside with weather, wildlife and surprise events. Drag to steer. Swipe up only for yellow logs.</p>
+      <p>Welcome home. Pet Ginger, grow the garden and head out when you’re ready for another adventure.</p>
       <div class="stats">
         <div class="stat"><span>Best</span><b id="bestStat">0</b></div>
-        <div class="stat"><span>Runs</span><b id="runsStat">0</b></div>
-        <div class="stat"><span>Near misses</span><b id="nearStat">0</b></div>
+        <div class="stat"><span>Garden</span><b id="gardenStat">0</b></div>
+        <div class="stat"><span>Bond</span><b id="bondStat">0</b></div>
       </div>
       <div class="actions">
-        <button id="playBtn" class="btn primary">Start Run</button>
-        <button id="howBtn" class="btn secondary">How to Play</button>
+        <button id="playBtn" class="btn primary">Start Adventure</button>
+        <button id="gardenBtn" class="btn secondary">Garden</button>
+        <button id="howBtn" class="btn ghost">How to Play</button>
         <button id="soundBtn" class="btn ghost">Sound: On</button>
       </div>
+      <div id="homeHint" class="small" style="margin-top:12px">Stroke Ginger with your finger to pet him.</div>
     </div>
     <button id="devPaw" class="btn ghost" aria-label="Developer mode">🐾</button>
   </section>
@@ -404,6 +409,23 @@ p{
         <button id="resumeBtn" class="btn primary">Resume</button>
         <button id="quitBtn" class="btn ghost">Quit Run</button>
       </div>
+    </div>
+  </section>
+
+
+  <section id="gardenScreen" class="screen">
+    <div id="gardenPanel" class="glass">
+      <div class="eyebrow">YOUR GARDEN</div>
+      <h2>Garden</h2>
+      <p>Flowers collected during runs grow here permanently.</p>
+      <div class="stats">
+        <div class="stat"><span>Flowers</span><b id="gardenFlowers">0</b></div>
+        <div class="stat"><span>Visits</span><b id="homeVisits">0</b></div>
+        <div class="stat"><span>Bond</span><b id="gardenBond">0</b></div>
+      </div>
+      <div id="gardenUnlocks"></div>
+      <br>
+      <button id="closeGardenBtn" class="btn ghost">Close</button>
     </div>
   </section>
 
@@ -471,12 +493,15 @@ const ui = {
   resultScreen: document.getElementById('resultScreen'),
   pauseScreen: document.getElementById('pauseScreen'),
   devScreen: document.getElementById('devScreen'),
+  gardenScreen: document.getElementById('gardenScreen'),
   hud: document.getElementById('hud'),
   gameTitle: document.getElementById('gameTitle'),
   bestStat: document.getElementById('bestStat'),
-  runsStat: document.getElementById('runsStat'),
-  nearStat: document.getElementById('nearStat'),
+  gardenStat: document.getElementById('gardenStat'),
+  bondStat: document.getElementById('bondStat'),
   playBtn: document.getElementById('playBtn'),
+  gardenBtn: document.getElementById('gardenBtn'),
+  homeHint: document.getElementById('homeHint'),
   howBtn: document.getElementById('howBtn'),
   soundBtn: document.getElementById('soundBtn'),
   devPaw: document.getElementById('devPaw'),
@@ -508,7 +533,13 @@ const ui = {
   forceEventBtn: document.getElementById('forceEventBtn'),
   spawnLogBtn: document.getElementById('spawnLogBtn'),
   spawnTreeBtn: document.getElementById('spawnTreeBtn'),
-  closeDevBtn: document.getElementById('closeDevBtn')
+  closeDevBtn: document.getElementById('closeDevBtn'),
+  gardenPanel: document.getElementById('gardenPanel'),
+  gardenFlowers: document.getElementById('gardenFlowers'),
+  homeVisits: document.getElementById('homeVisits'),
+  gardenBond: document.getElementById('gardenBond'),
+  gardenUnlocks: document.getElementById('gardenUnlocks'),
+  closeGardenBtn: document.getElementById('closeGardenBtn')
 };
 
 /* ---------- Canvas sizing ---------- */
@@ -579,6 +610,10 @@ const defaultSave = {
   sound: true,
   tutorialSeen: false,
   developerUnlocked: false,
+  garden: 0,
+  bond: 0,
+  homeVisits: 0,
+  petSessions: 0,
   dev: {
     infiniteEnergy: false,
     noCollisions: false,
@@ -624,8 +659,8 @@ function persist() {
 
 function refreshHome() {
   ui.bestStat.textContent = Math.floor(save.best);
-  ui.runsStat.textContent = save.runs;
-  ui.nearStat.textContent = save.nearMisses;
+  ui.gardenStat.textContent = save.garden;
+  ui.bondStat.textContent = save.bond;
   ui.soundBtn.textContent = 'Sound: ' + (save.sound ? 'On' : 'Off');
   ui.devPaw.classList.toggle('visible', save.developerUnlocked);
 }
@@ -728,7 +763,7 @@ function roundedRectPath(x, y, width, height, radius) {
 }
 
 function showScreen(id) {
-  const ids = ['homeScreen', 'gameScreen', 'resultScreen', 'pauseScreen', 'devScreen'];
+  const ids = ['homeScreen', 'gameScreen', 'resultScreen', 'pauseScreen', 'gardenScreen', 'devScreen'];
 
   for (const screenId of ids) {
     ui[screenId].classList.toggle('active', screenId === id);
@@ -784,7 +819,19 @@ const state = {
   storyCooldown: 10,
   mudSlow: 0,
   lightning: 0,
-  streamOffset: 0
+  streamOffset: 0,
+  homeTime: 0,
+  homeAction: 'idle',
+  homeActionTimer: 0,
+  homeButterflyX: 0,
+  homeButterflyY: 0,
+  homePetting: false,
+  homePetDistance: 0,
+  homeLastPetX: 0,
+  homeLastPetY: 0,
+  homeHeartTimer: 0,
+  homeVisitor: 'none',
+  homeVisitorTimer: 0
 };
 
 const player = {
@@ -822,6 +869,7 @@ let clouds = [];
 let wildlife = [];
 let weatherParticles = [];
 let distantBirds = [];
+let homeHearts = [];
 
 /* Canvas can now safely use player and state. */
 resizeCanvas();
@@ -1269,10 +1317,16 @@ function endRun(reason = 'Ginger ran out of energy.') {
   }
 
   state.mode = 'result';
+  state.shake = 0;
+  state.flash = 0;
+  state.slowMotion = 0;
+  state.cameraX = 0;
+  state.cameraTargetX = 0;
 
   save.runs += 1;
   save.best = Math.max(save.best, Math.floor(state.score));
   save.nearMisses += state.runNearMisses;
+  save.garden += Math.max(0, state.runCollectibles);
   persist();
 
   ui.finalScore.textContent = Math.floor(state.score);
@@ -1301,6 +1355,13 @@ function endRun(reason = 'Ginger ran out of energy.') {
 function goHome() {
   state.mode = 'home';
   state.paused = false;
+  state.shake = 0;
+  state.flash = 0;
+  state.slowMotion = 0;
+  state.cameraX = 0;
+  state.cameraTargetX = 0;
+  save.homeVisits += 1;
+  persist();
   showScreen('homeScreen');
   refreshHome();
 }
@@ -1391,7 +1452,42 @@ function spawnCollectiblePattern() {
 }
 
 /* ---------- Touch input ---------- */
+
 canvas.addEventListener('pointerdown', event => {
+  if (state.mode === 'home') {
+    state.homePetting = true;
+    state.homeLastPetX = event.clientX;
+    state.homeLastPetY = event.clientY;
+    petGinger(event.clientX, event.clientY, 0);
+  }
+});
+
+canvas.addEventListener('pointermove', event => {
+  if (state.mode === 'home' && state.homePetting) {
+    const movement = distance(
+      event.clientX,
+      event.clientY,
+      state.homeLastPetX,
+      state.homeLastPetY
+    );
+    petGinger(event.clientX, event.clientY, movement);
+    state.homeLastPetX = event.clientX;
+    state.homeLastPetY = event.clientY;
+  }
+});
+
+canvas.addEventListener('pointerup', () => {
+  if (state.mode === 'home') state.homePetting = false;
+});
+canvas.addEventListener('pointercancel', () => {
+  if (state.mode === 'home') state.homePetting = false;
+});
+
+canvas.addEventListener('pointerdown', event => {
+  if (state.mode === 'home' || state.mode === 'developer' || state.mode === 'result') {
+    updateHome(dt);
+  }
+
   if (state.mode !== 'playing' || state.paused) {
     return;
   }
@@ -1427,7 +1523,7 @@ canvas.addEventListener('pointermove', event => {
   touch.lastY = event.clientY;
 
   player.targetX = clamp(event.clientX, 30, W - 30);
-  player.vx += dx * 12;
+  player.vx += dx * 4.5;
 
   if (dy < -22 && touch.startY - event.clientY > 58) {
     jump();
@@ -1629,15 +1725,18 @@ function update(dt) {
 
   player.groundY = H * 0.76;
 
-  const responsiveness = state.mudSlow > 0 ? 8.5 : 18;
-  const desiredVelocity = (player.targetX - player.x) * responsiveness;
+  const responsiveness = state.mudSlow > 0 ? 7.5 : 15.5;
+  const targetDelta = player.targetX - player.x;
+  const desiredVelocity = clamp(targetDelta * responsiveness, -620, 620);
 
-  player.vx = lerp(player.vx, desiredVelocity, 1 - Math.pow(0.0008, step));
-  player.vx = clamp(player.vx, -720, 720);
+  player.vx = lerp(player.vx, desiredVelocity, 1 - Math.pow(0.0025, step));
+  if (Math.abs(targetDelta) < 2.5) {
+    player.vx *= 0.62;
+  }
   player.x += player.vx * step;
   player.x = clamp(player.x, 28, W - 28);
 
-  player.lean = lerp(player.lean, clamp(player.vx / 720, -1, 1) * 0.22, 0.2);
+  player.lean = lerp(player.lean, clamp(player.vx / 620, -1, 1) * 0.16, 0.24);
   player.bob = Math.sin(state.time * 14) * (player.jumping ? 0 : 2.2);
   player.tailPhase += step * 8;
 
@@ -2047,103 +2146,147 @@ function drawCat() {
     ctx.globalAlpha = 0.45;
   }
 
-  ctx.strokeStyle = '#985020';
+  const run = player.jumping ? 0 : Math.sin(state.time * 15);
+  const legSwing = run * 4.5;
+
+  ctx.strokeStyle = '#9a4f20';
   ctx.lineWidth = 7;
   ctx.lineCap = 'round';
-
   ctx.beginPath();
-  ctx.moveTo(-18, 2);
-  ctx.quadraticCurveTo(
-    -43,
-    -4,
-    -31,
-    -29 + Math.sin(player.tailPhase) * 8
-  );
+  ctx.moveTo(-16, 14);
+  ctx.quadraticCurveTo(-39, 10, -31, -10 + Math.sin(player.tailPhase) * 8);
   ctx.stroke();
 
-  ctx.fillStyle = '#da7d2b';
+  ctx.fillStyle = '#c96b24';
   ctx.beginPath();
-  ctx.ellipse(0, 0, 24, 31, 0, 0, Math.PI * 2);
+  ctx.ellipse(-10 - legSwing * 0.35, 26, 9, 6, -0.08, 0, Math.PI * 2);
+  ctx.ellipse(10 + legSwing * 0.35, 26, 9, 6, 0.08, 0, Math.PI * 2);
   ctx.fill();
 
+  const bodyGradient = ctx.createLinearGradient(0, -30, 0, 32);
+  bodyGradient.addColorStop(0, '#e08a34');
+  bodyGradient.addColorStop(1, '#c96d25');
+  ctx.fillStyle = bodyGradient;
   ctx.beginPath();
-  ctx.arc(0, -29, 20, 0, Math.PI * 2);
+  ctx.ellipse(0, 1, 25, 32, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  const chest = ctx.createRadialGradient(0, 8, 1, 0, 8, 24);
+  chest.addColorStop(0, 'rgba(255,240,218,.96)');
+  chest.addColorStop(1, 'rgba(255,240,218,0)');
+  ctx.fillStyle = chest;
   ctx.beginPath();
-  ctx.moveTo(-15, -40);
-  ctx.lineTo(-8, -57);
-  ctx.lineTo(-1, -40);
+  ctx.ellipse(0, 10, 14, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#df8731';
+  ctx.beginPath();
+  ctx.ellipse(0, -31, 21, 19, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#f4c79d';
+  ctx.beginPath();
+  ctx.ellipse(-6, -24, 8, 6, 0, 0, Math.PI * 2);
+  ctx.ellipse(6, -24, 8, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#df8731';
+  ctx.beginPath();
+  ctx.moveTo(-16, -42);
+  ctx.lineTo(-9, -59);
+  ctx.lineTo(-2, -42);
   ctx.closePath();
   ctx.fill();
 
   ctx.beginPath();
-  ctx.moveTo(15, -40);
-  ctx.lineTo(8, -57);
-  ctx.lineTo(1, -40);
+  ctx.moveTo(16, -42);
+  ctx.lineTo(9, -59);
+  ctx.lineTo(2, -42);
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = '#f1bf98';
+  ctx.fillStyle = '#efb894';
+  ctx.beginPath();
+  ctx.moveTo(-13, -44);
+  ctx.lineTo(-9, -54);
+  ctx.lineTo(-5, -44);
+  ctx.closePath();
+  ctx.fill();
 
   ctx.beginPath();
-  ctx.moveTo(-12, -42);
-  ctx.lineTo(-8, -52);
-  ctx.lineTo(-4, -42);
+  ctx.moveTo(13, -44);
+  ctx.lineTo(9, -54);
+  ctx.lineTo(5, -44);
   ctx.closePath();
   ctx.fill();
 
+  ctx.strokeStyle = '#a95520';
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(12, -42);
-  ctx.lineTo(8, -52);
-  ctx.lineTo(4, -42);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(-5, -43);
+  ctx.lineTo(-3, -36);
+  ctx.moveTo(0, -44);
+  ctx.lineTo(0, -36);
+  ctx.moveTo(5, -43);
+  ctx.lineTo(3, -36);
+  ctx.stroke();
 
   if (player.blink <= 0) {
-    ctx.fillStyle = '#222';
-
+    ctx.fillStyle = '#1e2023';
     ctx.beginPath();
-    ctx.ellipse(-6, -29, 2.6, 3.2, 0, 0, Math.PI * 2);
-    ctx.ellipse(6, -29, 2.6, 3.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(-7, -31, 3.2, 4.1, 0, 0, Math.PI * 2);
+    ctx.ellipse(7, -31, 3.2, 4.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(-6, -32.5, 1.1, 0, Math.PI * 2);
+    ctx.arc(8, -32.5, 1.1, 0, Math.PI * 2);
     ctx.fill();
   } else {
-    ctx.strokeStyle = '#222';
+    ctx.strokeStyle = '#252525';
     ctx.lineWidth = 2;
-
     ctx.beginPath();
-    ctx.moveTo(-9, -29);
-    ctx.lineTo(-3, -29);
-    ctx.moveTo(3, -29);
-    ctx.lineTo(9, -29);
+    ctx.moveTo(-10, -31);
+    ctx.lineTo(-4, -31);
+    ctx.moveTo(4, -31);
+    ctx.lineTo(10, -31);
     ctx.stroke();
   }
 
-  ctx.fillStyle = '#f4a9ad';
+  ctx.fillStyle = '#d58c8d';
   ctx.beginPath();
-  ctx.arc(0, -22, 2.7, 0, Math.PI * 2);
+  ctx.moveTo(0, -24);
+  ctx.lineTo(-3, -27);
+  ctx.lineTo(3, -27);
+  ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = '#fff1dc';
+  ctx.strokeStyle = '#7d4426';
+  ctx.lineWidth = 1.7;
   ctx.beginPath();
-  ctx.ellipse(0, 9, 13, 18, 0, 0, Math.PI * 2);
+  ctx.moveTo(0, -24);
+  ctx.lineTo(0, -21);
+  ctx.quadraticCurveTo(-3, -18, -6, -20);
+  ctx.moveTo(0, -21);
+  ctx.quadraticCurveTo(3, -18, 6, -20);
+  ctx.stroke();
+
+  ctx.fillStyle = '#cf7328';
+  ctx.beginPath();
+  ctx.ellipse(-9 + legSwing * 0.45, 23, 8, 5.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(9 - legSwing * 0.45, 23, 8, 5.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#c96923';
-  ctx.beginPath();
-  ctx.ellipse(-10, 30, 9, 5, 0, 0, Math.PI * 2);
-  ctx.ellipse(10, 30, 9, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  ctx.strokeStyle = 'rgba(255,255,255,.92)';
   ctx.lineWidth = 1.4;
-
   for (let index = -1; index <= 1; index += 1) {
     ctx.beginPath();
-    ctx.moveTo(3, -20 + index * 3);
-    ctx.lineTo(17, -22 + index * 4);
-    ctx.moveTo(-3, -20 + index * 3);
-    ctx.lineTo(-17, -22 + index * 4);
+    ctx.moveTo(4, -23 + index * 3);
+    ctx.lineTo(19, -25 + index * 4);
+    ctx.moveTo(-4, -23 + index * 3);
+    ctx.lineTo(-19, -25 + index * 4);
     ctx.stroke();
   }
 
@@ -2391,72 +2534,322 @@ function drawParticles() {
   }
 }
 
+
+function setHomeAction(action, duration) {
+  state.homeAction = action;
+  state.homeActionTimer = duration;
+}
+
+function updateHome(dt) {
+  state.homeTime += dt;
+  state.homeActionTimer -= dt;
+  state.homeVisitorTimer -= dt;
+  state.homeHeartTimer = Math.max(0, state.homeHeartTimer - dt);
+
+  if (state.homeActionTimer <= 0) {
+    const roll = Math.random();
+    if (roll < 0.20) setHomeAction('groom', random(2.5, 4.5));
+    else if (roll < 0.36) setHomeAction('stretch', random(1.5, 2.5));
+    else if (roll < 0.50) setHomeAction('sleep', random(4, 7));
+    else if (roll < 0.66) setHomeAction('watch', random(2, 4));
+    else setHomeAction('idle', random(2, 4));
+  }
+
+  if (state.homeVisitorTimer <= 0) {
+    const visitors = save.garden >= 20 ? ['robin', 'rabbit', 'butterfly'] : ['robin', 'butterfly'];
+    state.homeVisitor = choose(visitors);
+    state.homeVisitorTimer = random(6, 11);
+  }
+
+  state.homeButterflyX = W * 0.72 + Math.sin(state.homeTime * 0.9) * W * 0.16;
+  state.homeButterflyY = H * 0.48 + Math.cos(state.homeTime * 1.25) * H * 0.07;
+
+  for (let index = homeHearts.length - 1; index >= 0; index -= 1) {
+    const heart = homeHearts[index];
+    heart.age += dt;
+    heart.y -= 28 * dt;
+    heart.x += Math.sin(heart.age * 5 + heart.phase) * 10 * dt;
+    if (heart.age >= heart.life) homeHearts.splice(index, 1);
+  }
+}
+
+function addHomeHeart(x, y) {
+  homeHearts.push({
+    x,
+    y,
+    age: 0,
+    life: 1.2,
+    phase: random(0, Math.PI * 2)
+  });
+}
+
+function petGinger(x, y, movement) {
+  if (state.mode !== 'home') return;
+  const catX = W * 0.64;
+  const catY = H * 0.69;
+  if (distance(x, y, catX, catY) > 95) return;
+
+  state.homePetDistance += movement;
+  state.homeAction = 'pet';
+  state.homeActionTimer = 1.2;
+
+  if (movement > 3 && state.homeHeartTimer <= 0) {
+    addHomeHeart(catX + random(-18, 18), catY - 75);
+    state.homeHeartTimer = 0.18;
+    tone(330, 0.05, 'sine', 0.012, 15);
+  }
+
+  if (state.homePetDistance >= 150) {
+    state.homePetDistance = 0;
+    save.bond += 1;
+    save.petSessions += 1;
+    persist();
+    ui.homeHint.textContent = 'Ginger is purring ♥  Bond +' + 1;
+    haptic(8);
+    setTimeout(() => {
+      ui.homeHint.textContent = 'Stroke Ginger with your finger to pet him.';
+    }, 1800);
+  }
+}
+
 /* ---------- Drawing: home ---------- */
 function drawHomeBackground() {
+  const oldPhase = state.dayPhase;
+  state.dayPhase = (0.18 + (new Date().getHours() / 24)) % 1;
   drawSky();
+  state.dayPhase = oldPhase;
 
-  ctx.fillStyle = '#6db05a';
+  const night = new Date().getHours() >= 19 || new Date().getHours() < 6;
+
+  ctx.fillStyle = night ? '#3e6b50' : '#6db05a';
   ctx.fillRect(0, H * 0.47, W, H * 0.53);
 
-  ctx.fillStyle = '#f0dfb8';
-  roundedRectPath(W * 0.075, H * 0.31, W * 0.36, H * 0.39, 28);
+  /* Distant hills */
+  ctx.fillStyle = night ? '#345342' : '#4e8f4a';
+  ctx.beginPath();
+  ctx.arc(W * 0.12, H * 0.48, 82, Math.PI, 0);
+  ctx.arc(W * 0.42, H * 0.48, 105, Math.PI, 0);
+  ctx.arc(W * 0.77, H * 0.48, 88, Math.PI, 0);
   ctx.fill();
 
+  /* Cottage shadow */
+  ctx.fillStyle = 'rgba(0,0,0,.16)';
+  roundedRectPath(W * 0.065 + 6, H * 0.315 + 10, W * 0.37, H * 0.39, 28);
+  ctx.fill();
+
+  /* Cottage */
+  ctx.fillStyle = '#f0dfb8';
+  roundedRectPath(W * 0.065, H * 0.315, W * 0.37, H * 0.39, 28);
+  ctx.fill();
+
+  /* Roof */
   ctx.fillStyle = '#c96745';
   ctx.beginPath();
-  ctx.moveTo(W * 0.035, H * 0.36);
-  ctx.lineTo(W * 0.255, H * 0.17);
-  ctx.lineTo(W * 0.475, H * 0.36);
+  ctx.moveTo(W * 0.025, H * 0.365);
+  ctx.lineTo(W * 0.25, H * 0.17);
+  ctx.lineTo(W * 0.475, H * 0.365);
   ctx.closePath();
   ctx.fill();
 
+  /* Chimney and smoke */
+  ctx.fillStyle = '#8b5a48';
+  ctx.fillRect(W * 0.34, H * 0.205, 25, 70);
+  for (let index = 0; index < 4; index += 1) {
+    ctx.globalAlpha = 0.18 - index * 0.025;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(
+      W * 0.352 + Math.sin(state.homeTime * 0.7 + index) * 8,
+      H * 0.18 - index * 20 - (state.homeTime * 8 % 18),
+      12 + index * 4,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  /* Door */
   ctx.fillStyle = '#76503d';
-  roundedRectPath(W * 0.20, H * 0.49, 52, 116, 10);
+  roundedRectPath(W * 0.19, H * 0.49, 56, 120, 11);
+  ctx.fill();
+  ctx.fillStyle = '#f1ce64';
+  ctx.beginPath();
+  ctx.arc(W * 0.19 + 44, H * 0.55, 3.5, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#a5ddff';
-  roundedRectPath(W * 0.105, H * 0.40, 66, 58, 8);
+  /* Glowing window */
+  ctx.fillStyle = night ? '#ffd96f' : '#a5ddff';
+  roundedRectPath(W * 0.095, H * 0.405, 70, 60, 8);
   ctx.fill();
+  ctx.strokeStyle = '#fff1c5';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.13, H * 0.405);
+  ctx.lineTo(W * 0.13, H * 0.465);
+  ctx.moveTo(W * 0.095, H * 0.435);
+  ctx.lineTo(W * 0.165, H * 0.435);
+  ctx.stroke();
 
-  ctx.fillStyle = '#694729';
-
-  for (let index = 0; index < 9; index += 1) {
-    const x = W * 0.48 + index * 34;
-    roundedRectPath(x, H * 0.56, 8, 65, 3);
+  /* Stone path */
+  for (let index = 0; index < 7; index += 1) {
+    ctx.fillStyle = index % 2 ? '#b6aa92' : '#c5b9a0';
+    ctx.beginPath();
+    ctx.ellipse(
+      W * 0.22 + index * 21,
+      H * 0.69 + index * 22,
+      18,
+      10,
+      index * 0.08,
+      0,
+      Math.PI * 2
+    );
     ctx.fill();
   }
 
-  ctx.fillRect(W * 0.46, H * 0.585, W * 0.52, 7);
-
-  for (let index = 0; index < 16; index += 1) {
-    const x = W * 0.49 + (index % 8) * 28;
-    const y = H * 0.66 + Math.floor(index / 8) * 28;
-
-    ctx.fillStyle = ['#ff91b4', '#ffe36f', '#a9d8ff'][index % 3];
-    ctx.beginPath();
-    ctx.arc(x, y, 5, 0, Math.PI * 2);
+  /* Fence */
+  ctx.fillStyle = '#694729';
+  for (let index = 0; index < 10; index += 1) {
+    const x = W * 0.45 + index * 34;
+    roundedRectPath(x, H * 0.55, 8, 70, 3);
     ctx.fill();
+  }
+  ctx.fillRect(W * 0.43, H * 0.58, W * 0.56, 7);
+
+  /* Garden from saved progress */
+  const flowerCount = Math.min(72, Math.max(8, save.garden));
+  for (let index = 0; index < flowerCount; index += 1) {
+    const cols = 12;
+    const x = W * 0.47 + (index % cols) * 24;
+    const y = H * 0.66 + Math.floor(index / cols) * 23;
+    const sway = Math.sin(state.homeTime * 1.6 + index) * 2;
 
     ctx.strokeStyle = '#4e8d49';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(x, y + 5);
-    ctx.lineTo(x, y + 14);
+    ctx.moveTo(x, y + 6);
+    ctx.lineTo(x + sway, y + 16);
     ctx.stroke();
+
+    ctx.fillStyle = ['#ff91b4', '#ffe36f', '#a9d8ff', '#c7a2ff'][index % 4];
+    ctx.beginPath();
+    ctx.arc(x + sway, y, 5, 0, Math.PI * 2);
+    ctx.fill();
   }
+
+  /* Garden unlocks */
+  if (save.garden >= 12) {
+    ctx.fillStyle = '#8ab8c8';
+    ctx.beginPath();
+    ctx.arc(W * 0.84, H * 0.61, 24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#6d5b48';
+    ctx.fillRect(W * 0.835, H * 0.61, 9, 42);
+  }
+
+  if (save.garden >= 30) {
+    ctx.fillStyle = '#6f9a55';
+    ctx.beginPath();
+    ctx.arc(W * 0.91, H * 0.50, 38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#724a2a';
+    ctx.fillRect(W * 0.90, H * 0.52, 12, 72);
+  }
+
+  if (save.garden >= 55) {
+    ctx.fillStyle = '#79b3d1';
+    ctx.beginPath();
+    ctx.ellipse(W * 0.74, H * 0.82, 55, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.45)';
+    ctx.beginPath();
+    ctx.ellipse(W * 0.72, H * 0.81, 20, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* Visitor */
+  if (state.homeVisitor === 'robin') {
+    const bx = W * 0.55;
+    const by = H * 0.54 + Math.sin(state.homeTime * 3) * 2;
+    ctx.fillStyle = '#8a6649';
+    ctx.beginPath();
+    ctx.ellipse(bx, by, 10, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#d96d45';
+    ctx.beginPath();
+    ctx.arc(bx + 5, by + 1, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (state.homeVisitor === 'rabbit') {
+    const rx = W * 0.89;
+    const ry = H * 0.70;
+    ctx.fillStyle = '#d7d1c8';
+    ctx.beginPath();
+    ctx.ellipse(rx, ry, 15, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(rx + 12, ry - 6, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* Butterfly */
+  ctx.fillStyle = '#c1a3ff';
+  ctx.beginPath();
+  ctx.ellipse(state.homeButterflyX - 6, state.homeButterflyY, 6, 9, -0.45, 0, Math.PI * 2);
+  ctx.ellipse(state.homeButterflyX + 6, state.homeButterflyY, 6, 9, 0.45, 0, Math.PI * 2);
+  ctx.fill();
 
   player.x = W * 0.64;
   player.y = H * 0.69;
   player.groundY = player.y;
-  player.bob = Math.sin(state.time * 2) * 2;
+  player.bob = Math.sin(state.homeTime * 2) * 2;
+
+  if (state.homeAction === 'sleep') {
+    player.blink = 1;
+    player.bob = 0;
+  } else if (state.homeAction === 'stretch') {
+    player.lean = -0.12;
+  } else if (state.homeAction === 'watch') {
+    player.lean = Math.sin(state.homeTime * 2) * 0.05;
+  } else if (state.homeAction === 'pet') {
+    player.blink = 1;
+    player.bob = Math.sin(state.homeTime * 5) * 1;
+  } else {
+    player.lean = lerp(player.lean, 0, 0.1);
+  }
 
   drawCat();
+
+  /* Hearts from petting */
+  for (const heart of homeHearts) {
+    const alpha = 1 - heart.age / heart.life;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(heart.x, heart.y);
+    ctx.fillStyle = '#ff7fa8';
+    ctx.beginPath();
+    ctx.moveTo(0, 5);
+    ctx.bezierCurveTo(-11, -3, -7, -12, 0, -7);
+    ctx.bezierCurveTo(7, -12, 11, -3, 0, 5);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  if (state.homeAction === 'sleep') {
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 18px system-ui';
+    ctx.fillText('Z', W * 0.69, H * 0.57);
+    ctx.font = '900 13px system-ui';
+    ctx.fillText('Z', W * 0.72, H * 0.54);
+  }
 }
 
 /* ---------- Master draw ---------- */
 function draw() {
   ctx.save();
 
-  if (state.shake > 0) {
+  if (state.mode === 'playing' && state.shake > 0) {
     ctx.translate(
       random(-1, 1) * state.shake * 25,
       random(-1, 1) * state.shake * 25
@@ -2577,8 +2970,38 @@ ui.forceEventBtn.addEventListener('click', () => {
   startStoryEvent('butterflies');
 });
 
+
+function renderGardenPanel() {
+  ui.gardenFlowers.textContent = save.garden;
+  ui.homeVisits.textContent = save.homeVisits;
+  ui.gardenBond.textContent = save.bond;
+
+  const unlocks = [
+    { at: 0, name: 'Flower patch', icon: '🌼' },
+    { at: 12, name: 'Bird bath', icon: '🐦' },
+    { at: 30, name: 'Apple tree', icon: '🌳' },
+    { at: 55, name: 'Garden pond', icon: '💧' }
+  ];
+
+  ui.gardenUnlocks.innerHTML = unlocks.map(item => {
+    const unlocked = save.garden >= item.at;
+    return '<div class="devRow">' +
+      '<span>' + item.icon + ' ' + item.name + '</span>' +
+      '<b>' + (unlocked ? 'Unlocked' : item.at + ' flowers') + '</b>' +
+      '</div>';
+  }).join('');
+}
+
+function openGarden() {
+  renderGardenPanel();
+  state.mode = 'home';
+  showScreen('gardenScreen');
+}
+
 /* ---------- UI events ---------- */
 ui.playBtn.addEventListener('click', startRun);
+ui.gardenBtn.addEventListener('click', openGarden);
+ui.closeGardenBtn.addEventListener('click', () => showScreen('homeScreen'));
 ui.againBtn.addEventListener('click', startRun);
 ui.homeBtn.addEventListener('click', goHome);
 ui.pauseBtn.addEventListener('click', pauseRun);
@@ -2662,6 +3085,11 @@ document.addEventListener('visibilitychange', () => {
 });
 forceViewportScale();
 
+save.homeVisits += 1;
+persist();
+state.homeAction = 'idle';
+state.homeActionTimer = 2;
+state.homeVisitorTimer = 1;
 refreshHome();
 refreshDeveloperButtons();
 showScreen('homeScreen');
