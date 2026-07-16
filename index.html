@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#152238">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Cat Dash Remastered — Illustrated Story Build</title>
+<title>Cat Dash Remastered — Puzzle Ginger Fix</title>
 <style>
 :root{
   --ink:#111827;
@@ -23,7 +23,7 @@ html,body{
   touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;
 }
 body{position:fixed;inset:0}
-canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none;background:#83cdfd}
+#game{position:fixed;inset:0;width:100vw;height:100vh;display:block;touch-action:none;background:#83cdfd}
 button{font:inherit;touch-action:none}
 #ui{position:fixed;inset:0;pointer-events:none}
 .screen{position:absolute;inset:0;display:none}
@@ -191,6 +191,8 @@ p{margin:0 0 14px;color:rgba(255,255,255,.78)}
   border:1px solid rgba(255,227,172,.32);
 }
 
+
+.puzzleGingerIcon{position:static!important;inset:auto!important;width:46px!important;height:46px!important;display:block!important;pointer-events:none;touch-action:none}
 </style>
 </head>
 <body>
@@ -4460,6 +4462,8 @@ function allPuzzleGoalsFilled(){
 
 function drawPuzzleGinger(canvas){
   const q=canvas.getContext('2d');
+  q.setTransform(1,0,0,1,0,0);
+  q.clearRect(0,0,canvas.width,canvas.height);
   q.translate(26,31);
 
   q.fillStyle='rgba(45,29,18,.18)';
@@ -4521,8 +4525,8 @@ function renderPuzzle(){
         if(puzzleState.player.x===x&&puzzleState.player.y===y){
           tile.textContent='';
           const icon=document.createElement('canvas');
+          icon.className='puzzleGingerIcon';
           icon.width=52;icon.height=52;
-          icon.style.width='46px';icon.style.height='46px';
           tile.appendChild(icon);
           drawPuzzleGinger(icon);
         }
