@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#152238">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Ginger’s Journey — Poster Style Milestone</title>
+<title>Cat Dash — Motion and Collectibles Fix</title>
 <style>
 :root{
   --ink:#111827;
@@ -4453,6 +4453,8 @@ const state={
   levelIndex:0,
   dashDistance:0,
   dashMice:0,
+  dashFish:0,
+  dashString:0,
   dashHits:0,
   energy:100,
   obstacleTimer:0,
@@ -4543,7 +4545,7 @@ function startDash(index){
   ensureAudio();
   const level=levels[index];
   state.mode='dash';state.paused=false;state.levelIndex=index;
-  state.dashDistance=0;state.dashMice=0;state.dashHits=0;state.energy=100;
+  state.dashDistance=0;state.dashMice=0;state.dashFish=0;state.dashString=0;state.dashHits=0;state.energy=100;
   state.obstacleTimer=1;state.pickupTimer=.8;state.nextScriptIndex=0;state.shake=0;state.flash=0;
   obstacles=[];pickups=[];particles=[];
   player.x=W*.5;player.targetX=player.x;player.y=H*.76;player.groundY=player.y;
@@ -5023,11 +5025,22 @@ function handleDashCollisions(){
     if(distance(player.x,player.y,p.x,p.y)<player.radius+p.radius+6){
       p.taken=true;
       if(p.type==='mouse'){
-        state.dashMice++;tone(900,.07,'sine',.035,80);
+        state.dashMice++;
+        tone(900,.07,'sine',.035,80);
+      }else if(p.type==='fish'){
+        state.dashFish++;
+        state.energy=Math.min(100,state.energy+24);
+        toast('Fish restored energy',900);
+        tone(830,.07,'sine',.03,65);
+      }else if(p.type==='string'){
+        state.dashString++;
+        toast('Ball of string collected',900);
+        tone(710,.08,'triangle',.03,70);
       }else if(p.type==='flower'){
         tone(760,.06,'triangle',.025,55);
       }else{
-        state.energy=Math.min(100,state.energy+18);tone(650,.07,'triangle',.025,60);
+        state.energy=Math.min(100,state.energy+18);
+        tone(650,.07,'triangle',.025,60);
       }
       burst(p.x,p.y,p.type==='mouse'?'#ffe27a':p.type==='flower'?'#ff9fbe':'#bcecff',14,140);
       haptic(7);
@@ -5085,8 +5098,8 @@ function updateDash(dt){
   }
 
   if(state.dashDistance>=level.length){
-    const stars=state.dashHits===0&&state.dashMice>=3?3:state.dashHits<=1&&state.dashMice>=2?2:1;
-    completeLevel(stars,Math.min(3,state.dashMice));
+    const stars=state.dashHits===0&&state.dashFish>=2?3:state.dashHits<=1&&state.dashFish>=1?2:1;
+    completeLevel(stars,Math.min(3,state.dashFish));
   }
 }
 
@@ -5815,99 +5828,75 @@ function drawObstacle(obstacle){
 
   if(obstacle.type==='tree'){
     /* Root flare */
-    ctx.fillStyle='#5a3824';
+    ctx.fillStyle='#583723';
     ctx.beginPath();
-    ctx.moveTo(-18,26);
-    ctx.lineTo(-31,42);
-    ctx.lineTo(-8,38);
-    ctx.lineTo(0,29);
-    ctx.lineTo(11,39);
-    ctx.lineTo(32,42);
-    ctx.lineTo(19,24);
+    ctx.moveTo(-17,24);
+    ctx.lineTo(-30,41);
+    ctx.lineTo(-8,37);
+    ctx.lineTo(0,28);
+    ctx.lineTo(11,38);
+    ctx.lineTo(31,41);
+    ctx.lineTo(18,23);
     ctx.closePath();
     ctx.fill();
 
-    /* Textured trunk */
-    const trunk=ctx.createLinearGradient(-18,0,18,0);
-    trunk.addColorStop(0,'#3f281d');
-    trunk.addColorStop(.25,'#6a432b');
-    trunk.addColorStop(.55,'#8a5b36');
-    trunk.addColorStop(.82,'#5d3a27');
-    trunk.addColorStop(1,'#35231a');
+    /* Continuous trunk */
+    const trunk=ctx.createLinearGradient(-17,0,17,0);
+    trunk.addColorStop(0,'#40281c');
+    trunk.addColorStop(.28,'#66422a');
+    trunk.addColorStop(.56,'#855a36');
+    trunk.addColorStop(.82,'#5b3825');
+    trunk.addColorStop(1,'#342219');
+
     ctx.fillStyle=trunk;
-    roundedRectPath(-15,-16,30,72,12);
+    roundedRectPath(-14,-15,28,71,10);
     ctx.fill();
 
-    ctx.strokeStyle='rgba(42,27,18,.48)';
-    ctx.lineWidth=2;
-    ctx.lineCap='round';
-    for(let y=-5;y<46;y+=11){
+    ctx.strokeStyle='rgba(43,26,16,.46)';
+    ctx.lineWidth=1.8;
+    for(let y=-6;y<45;y+=10){
       ctx.beginPath();
-      ctx.moveTo(-10,y);
-      ctx.bezierCurveTo(-2,y-4,5,y+4,11,y-1);
+      ctx.moveTo(-9,y);
+      ctx.quadraticCurveTo(-1,y-4,9,y);
       ctx.stroke();
     }
 
-    ctx.strokeStyle='rgba(207,151,89,.22)';
-    ctx.lineWidth=1.5;
-    ctx.beginPath();
-    ctx.moveTo(-7,-10);
-    ctx.bezierCurveTo(-5,5,-10,18,-6,35);
-    ctx.stroke();
-
-    /* Branches */
-    ctx.strokeStyle='#5b3825';
+    ctx.strokeStyle='#5d3a26';
     ctx.lineWidth=7;
+    ctx.lineCap='round';
     ctx.beginPath();
-    ctx.moveTo(-4,-6);
+    ctx.moveTo(-3,-5);
     ctx.lineTo(-22,-28);
-    ctx.moveTo(4,-10);
-    ctx.lineTo(24,-32);
+    ctx.moveTo(3,-8);
+    ctx.lineTo(23,-32);
     ctx.stroke();
 
-    /* Layered canopy */
-    const back=ctx.createRadialGradient(-8,-36,4,0,-27,62);
-    back.addColorStop(0,'#84b26d');
-    back.addColorStop(.5,'#4d8149');
-    back.addColorStop(1,'#244c31');
-    ctx.fillStyle=back;
+    const canopy=ctx.createRadialGradient(-11,-39,5,0,-28,59);
+    canopy.addColorStop(0,'#88b66d');
+    canopy.addColorStop(.5,'#4e8349');
+    canopy.addColorStop(1,'#244b30');
+
+    ctx.fillStyle=canopy;
     ctx.beginPath();
-    ctx.moveTo(-45,-16);
-    ctx.bezierCurveTo(-55,-43,-34,-63,-12,-58);
-    ctx.bezierCurveTo(0,-76,34,-66,36,-43);
-    ctx.bezierCurveTo(56,-36,54,-6,35,4);
+    ctx.moveTo(-44,-15);
+    ctx.bezierCurveTo(-54,-43,-33,-63,-10,-58);
+    ctx.bezierCurveTo(2,-76,34,-66,36,-43);
+    ctx.bezierCurveTo(57,-35,54,-7,35,4);
     ctx.bezierCurveTo(18,23,-20,22,-33,6);
-    ctx.bezierCurveTo(-50,5,-58,-8,-45,-16);
+    ctx.bezierCurveTo(-50,5,-58,-8,-44,-15);
     ctx.closePath();
     ctx.fill();
 
-    /* Leaf clusters */
-    const clusters=[
-      [-25,-42,22,'#5f9655'],
-      [2,-54,25,'#6ca35d'],
-      [25,-36,23,'#4d864a'],
-      [-8,-22,28,'#437842'],
-      [18,-12,19,'#376b3b']
-    ];
-
-    for(const [x,y,r,c] of clusters){
-      ctx.fillStyle=c;
-      ctx.beginPath();
-      ctx.arc(x,y,r,0,Math.PI*2);
-      ctx.fill();
-    }
-
-    /* Highlights */
-    ctx.fillStyle='rgba(214,239,177,.20)';
+    ctx.fillStyle='rgba(218,239,179,.18)';
     ctx.beginPath();
-    ctx.ellipse(-14,-49,17,8,-.35,0,Math.PI*2);
+    ctx.ellipse(-13,-50,16,7,-.3,0,Math.PI*2);
     ctx.fill();
 
-    /* Moss around base */
-    ctx.fillStyle='#5b7f49';
+    /* Moss only at ground level */
+    ctx.fillStyle='#5e814c';
     ctx.beginPath();
-    ctx.ellipse(-15,31,17,7,-.1,0,Math.PI*2);
-    ctx.ellipse(16,32,18,7,.1,0,Math.PI*2);
+    ctx.ellipse(-14,31,16,6,-.1,0,Math.PI*2);
+    ctx.ellipse(15,32,17,6,.1,0,Math.PI*2);
     ctx.fill();
   }
 
@@ -6262,53 +6251,57 @@ function drawPickup(pickup){
   }
 
   if(pickup.type==='milk'){
-    /* Bottle shadow */
-    ctx.fillStyle='rgba(34,24,18,.16)';
+    /* Clear milk carton */
+    ctx.fillStyle='rgba(38,25,17,.16)';
     ctx.beginPath();
-    ctx.ellipse(1,18,13,4,0,0,Math.PI*2);
+    ctx.ellipse(1,20,14,4,0,0,Math.PI*2);
     ctx.fill();
 
-    /* Glass bottle */
-    const glass=ctx.createLinearGradient(-13,0,13,0);
-    glass.addColorStop(0,'rgba(225,242,244,.86)');
-    glass.addColorStop(.35,'rgba(255,255,255,.95)');
-    glass.addColorStop(.72,'rgba(224,241,243,.88)');
-    glass.addColorStop(1,'rgba(183,215,221,.82)');
+    const carton=ctx.createLinearGradient(-15,0,15,0);
+    carton.addColorStop(0,'#e6f0ee');
+    carton.addColorStop(.5,'#ffffff');
+    carton.addColorStop(1,'#c8dcde');
 
-    ctx.fillStyle=glass;
-    roundedRectPath(-13,-17,26,35,7);
+    ctx.fillStyle=carton;
+    ctx.beginPath();
+    ctx.moveTo(-14,-15);
+    ctx.lineTo(-7,-27);
+    ctx.lineTo(8,-27);
+    ctx.lineTo(14,-15);
+    ctx.lineTo(14,20);
+    ctx.lineTo(-14,20);
+    ctx.closePath();
     ctx.fill();
 
-    /* Neck and lip */
-    ctx.fillStyle='rgba(238,249,250,.95)';
-    roundedRectPath(-7,-27,14,13,4);
+    ctx.strokeStyle='#8ab7c5';
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+
+    /* Folded carton top */
+    ctx.fillStyle='#b8d5db';
+    ctx.beginPath();
+    ctx.moveTo(-7,-27);
+    ctx.lineTo(0,-33);
+    ctx.lineTo(8,-27);
+    ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle='#b8d9df';
-    roundedRectPath(-9,-29,18,5,2);
-    ctx.fill();
+    /* Blue panel */
+    ctx.fillStyle='#70b7d7';
+    ctx.fillRect(-14,-4,28,16);
 
-    /* Milk level */
-    ctx.fillStyle='#f8f4e7';
-    roundedRectPath(-11,-3,22,19,4);
-    ctx.fill();
-
-    /* Label */
-    ctx.fillStyle='#72b8d8';
-    roundedRectPath(-11,3,22,10,2);
-    ctx.fill();
-
-    ctx.fillStyle='#4d7f96';
-    ctx.font='1000 12px system-ui';
+    ctx.fillStyle='#ffffff';
     ctx.textAlign='center';
-    ctx.fillText('+',0,12);
+    ctx.textBaseline='middle';
+    ctx.font='900 8px system-ui';
+    ctx.fillText('MILK',0,4);
 
-    /* Glass highlight */
-    ctx.strokeStyle='rgba(255,255,255,.82)';
-    ctx.lineWidth=1.6;
+    /* Carton highlight */
+    ctx.strokeStyle='rgba(255,255,255,.80)';
+    ctx.lineWidth=1.4;
     ctx.beginPath();
-    ctx.moveTo(-7,-13);
-    ctx.lineTo(-7,8);
+    ctx.moveTo(-8,-13);
+    ctx.lineTo(-8,15);
     ctx.stroke();
   }
 
@@ -6340,53 +6333,107 @@ function drawPickup(pickup){
 }
 
 function drawDashHills(baseY,amplitude,colour,speed,seed){
-  const offset=(state.dashDistance*speed+seed)%W;
+  /*
+    Forward-motion background:
+    hills remain centred and gently rise/expand as Ginger advances.
+    Nothing slides sideways across the screen.
+  */
+  const cycle=(state.dashDistance*speed*.001+seed*.0001)%1;
+  const lift=cycle*10;
+  const spread=1+cycle*.025;
+
+  ctx.save();
+  ctx.translate(W*.5,baseY-lift);
+  ctx.scale(spread,spread);
+  ctx.translate(-W*.5,-baseY);
 
   ctx.fillStyle=colour;
   ctx.beginPath();
   ctx.moveTo(0,H);
 
-  for(let x=-W;x<=W*2;x+=48){
-    const screenX=x-offset;
+  for(let x=0;x<=W;x+=42){
     const y=
       baseY+
       Math.sin((x+seed)*.009)*amplitude+
       Math.cos((x+seed)*.017)*amplitude*.28;
 
-    ctx.lineTo(screenX,y);
+    ctx.lineTo(x,y);
   }
 
   ctx.lineTo(W,H);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
 }
 
 function drawDashTreeLine(level){
-  const dark=level.biome==='woods'||level.biome==='twilight';
-  const offset=(state.dashDistance*5.2)%105;
+  const dark=
+    level.biome==='woods'||
+    level.biome==='twilight';
 
-  for(let index=-2;index<Math.ceil(W/105)+3;index+=1){
-    const x=index*105-offset;
-    const y=H*.44;
-    const size=.72+(index%3)*.08;
+  const count=Math.ceil(W/96)+3;
+  const cycle=(state.dashDistance*.003)%1;
+  const depthScale=.96+cycle*.05;
+  const baseY=H*.44-cycle*7;
+
+  for(let index=-1;index<count;index+=1){
+    const x=index*96+48;
+    const sway=Math.sin(state.time*.7+index)*1.5;
+    const size=(.68+(index%3)*.07)*depthScale;
 
     ctx.save();
-    ctx.translate(x,y);
+    ctx.translate(x,baseY+sway);
     ctx.scale(size,size);
 
-    ctx.fillStyle=dark?'#493525':'#66472b';
-    ctx.fillRect(-7,-58,14,70);
+    /* Proper uninterrupted trunk */
+    const trunk=ctx.createLinearGradient(-8,0,8,0);
+    trunk.addColorStop(0,dark?'#3a281d':'#4b3020');
+    trunk.addColorStop(.5,dark?'#6b4930':'#815735');
+    trunk.addColorStop(1,dark?'#302219':'#3b281c');
+
+    ctx.fillStyle=trunk;
+    ctx.beginPath();
+    ctx.roundRect(-7,-50,14,64,5);
+    ctx.fill();
+
+    /* Bark lines only. No green bush on the trunk. */
+    ctx.strokeStyle='rgba(45,27,17,.45)';
+    ctx.lineWidth=1.5;
+
+    for(let y=-42;y<4;y+=10){
+      ctx.beginPath();
+      ctx.moveTo(-4,y);
+      ctx.quadraticCurveTo(0,y-3,4,y);
+      ctx.stroke();
+    }
+
+    /* Branches connect trunk to canopy */
+    ctx.strokeStyle=dark?'#4a3425':'#66452b';
+    ctx.lineWidth=5;
+    ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(-2,-38);
+    ctx.lineTo(-18,-55);
+    ctx.moveTo(2,-41);
+    ctx.lineTo(18,-59);
+    ctx.stroke();
 
     const leaves=ctx.createRadialGradient(-10,-62,4,0,-48,50);
-    leaves.addColorStop(0,dark?'#587951':'#73aa62');
-    leaves.addColorStop(1,dark?'#294932':'#315d38');
+    leaves.addColorStop(0,dark?'#5c7f53':'#78ac65');
+    leaves.addColorStop(.55,dark?'#3d6742':'#4f894b');
+    leaves.addColorStop(1,dark?'#264831':'#2e5a35');
 
     ctx.fillStyle=leaves;
     ctx.beginPath();
-    ctx.arc(-18,-53,29,0,Math.PI*2);
-    ctx.arc(15,-57,32,0,Math.PI*2);
-    ctx.arc(0,-80,31,0,Math.PI*2);
-    ctx.arc(0,-40,35,0,Math.PI*2);
+    ctx.arc(-18,-55,27,0,Math.PI*2);
+    ctx.arc(16,-58,30,0,Math.PI*2);
+    ctx.arc(0,-80,29,0,Math.PI*2);
+    ctx.arc(0,-39,32,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle='rgba(221,241,178,.16)';
+    ctx.beginPath();
+    ctx.ellipse(-12,-72,13,6,-.3,0,Math.PI*2);
     ctx.fill();
 
     ctx.restore();
