@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#152238">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Cat Dash — Woodland Trail</title>
+<title>Cat Dash — Health and Puzzle Update</title>
 <style>
 :root{
   --ink:#111827;
@@ -81,6 +81,64 @@ p{margin:0 0 14px;color:rgba(255,255,255,.78)}
 .small{font-size:12px;opacity:.72}
 .bar{height:10px;border-radius:999px;background:rgba(255,255,255,.15);overflow:hidden;margin-top:7px}
 .bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,#7de3a9,#ffe36f)}
+.healthHud{
+  position:absolute;
+  left:12px;
+  top:calc(max(12px,env(safe-area-inset-top)) + 86px);
+  width:min(235px,62vw);
+  padding:9px 11px;
+  border-radius:17px;
+  background:rgba(8,14,23,.78);
+  border:1px solid var(--line);
+  backdrop-filter:blur(10px);
+}
+.healthHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.healthHeader strong{font-size:14px}
+#healthText{font-size:13px;font-weight:1000}
+.healthTrack{
+  position:relative;
+  height:16px;
+  margin-top:6px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(255,255,255,.13);
+  border:1px solid rgba(255,255,255,.18);
+}
+#healthFill{
+  display:block;
+  height:100%;
+  width:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#ff5252 0%,#ffd45f 42%,#62df8b 76%);
+  background-size:235px 100%;
+  background-position:left center;
+  transition:width .18s ease,filter .18s ease;
+}
+.healthHud.danger{
+  animation:healthPulse .62s ease-in-out infinite alternate;
+  border-color:rgba(255,91,91,.8);
+}
+.healthHud.hit{animation:healthHit .28s ease}
+@keyframes healthPulse{
+  from{transform:scale(1);box-shadow:0 0 0 rgba(255,60,60,0)}
+  to{transform:scale(1.025);box-shadow:0 0 20px rgba(255,60,60,.48)}
+}
+@keyframes healthHit{
+  0%{transform:translateX(0)}
+  28%{transform:translateX(-7px)}
+  58%{transform:translateX(6px)}
+  100%{transform:translateX(0)}
+}
+#damageVignette{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:0;
+  background:
+    radial-gradient(circle at center,transparent 38%,rgba(170,0,0,.20) 72%,rgba(115,0,0,.68) 100%);
+  transition:opacity .12s ease;
+}
+#damageVignette.show{opacity:1}
 #toast{
   position:absolute;left:50%;top:93px;transform:translateX(-50%) translateY(-8px);
   max-width:90vw;padding:10px 16px;border-radius:999px;background:rgba(9,15,24,.80);
@@ -468,6 +526,14 @@ body::after{
           <div class="bar"><span id="dashProgressFill"></span></div>
         </div>
       </div>
+      <div id="healthHud" class="healthHud">
+        <div class="healthHeader">
+          <strong>❤️ GINGER</strong>
+          <span id="healthText">100%</span>
+        </div>
+        <div class="healthTrack"><span id="healthFill"></span></div>
+      </div>
+      <div id="damageVignette"></div>
       <div id="toast"></div>
       <button id="pauseBtn" class="btn ghost">Ⅱ</button>
     </div>
@@ -589,7 +655,7 @@ const ui = {};
   'homeCard','homeMinBtn','homeMiniBar','posterStars','posterBond','posterProgress','homeExpandBtn','miniContinueBtn','gameTitle',
   'progressStat','starsStat','bondStat','continueBtn','mapBtn','soundBtn','homeHint','devPaw',
   'mapCard','levelGrid','mapHomeBtn','hud','dashLevelName','dashGoalText','dashDistanceText',
-  'dashProgressFill','weatherText','toast','pauseBtn','interludeTitle','interludeArt','interludeText','interludeContinueBtn','puzzleIntroTitle','puzzleIntroObjective','puzzleIntroStartBtn','puzzleIntroMapBtn','puzzleEyebrow','puzzleTitle','puzzleDescription',
+  'dashProgressFill','weatherText','healthHud','healthText','healthFill','damageVignette','toast','pauseBtn','interludeTitle','interludeArt','interludeText','interludeContinueBtn','puzzleIntroTitle','puzzleIntroObjective','puzzleIntroStartBtn','puzzleIntroMapBtn','puzzleEyebrow','puzzleTitle','puzzleDescription',
   'puzzleBoard','pUp','pLeft','pDown','pRight','puzzleResetBtn','puzzleQuitBtn',
   'resultTitle','resultText','resultStars','resultMice','resultReward','nextBtn','resultMapBtn',
   'resumeBtn','quitDashBtn','devCard','devEnergy','devGhost','devUnlock','closeDevBtn'
@@ -955,18 +1021,19 @@ const levels=[
     "name": "Clear the Mouse Hole",
     "type": "puzzle",
     "reward": "Flower Patch",
-    "description": "Move the box onto the paw pad, then reach the mouse.",
+    "description": "Place both boxes on the paw pads without trapping either one, then reach the mouse.",
     "map": [
-      "########",
-      "#P.....#",
-      "#..C#..#",
-      "#...#M.#",
-      "#..G...#",
-      "#......#",
-      "########"
+      "#########",
+      "#P......#",
+      "#.C.#C..#",
+      "#...#...#",
+      "#.G...G.#",
+      "#..###M.#",
+      "#.......#",
+      "#########"
     ],
     "crateGoal": true,
-    "par": 18,
+    "par": 34,
     "requiresMouse": true
   },
   {
@@ -1245,18 +1312,19 @@ const levels=[
     "name": "Robin’s Seed Store",
     "type": "puzzle",
     "reward": "Robin Nest",
-    "description": "Place both boxes on the two paw pads.",
+    "description": "Work around the centre walls and place all three boxes on the paw pads.",
     "map": [
-      "#########",
-      "#P......#",
-      "#.CC.##.#",
-      "#.......#",
-      "#.GG....#",
-      "#.......#",
-      "#########"
+      "##########",
+      "#P.......#",
+      "#.C.C.C..#",
+      "#..##....#",
+      "#....##..#",
+      "#.G..G.G.#",
+      "#........#",
+      "##########"
     ],
     "crateGoal": true,
-    "par": 28,
+    "par": 48,
     "requiresMouse": false
   },
   {
@@ -4558,6 +4626,10 @@ function startDash(index){
   ui.homeMiniBar.classList.remove('visible');
   ui.dashLevelName.textContent=level.id+' '+level.name;
   ui.dashGoalText.textContent='Reach '+level.length+'m';
+  ui.healthFill.style.width='100%';
+  ui.healthText.textContent='100%';
+  ui.healthHud.classList.remove('danger','hit');
+  ui.damageVignette.classList.remove('show');
   showScreen('dashScreen');
   toast('Drag to steer · Swipe up over fallen logs',2200);
 }
@@ -5012,8 +5084,13 @@ function spawnDashPickup(){
 function damage(item){
   if(save.dev.noCollisions||player.invulnerable>0)return;
   if(!save.dev.infiniteEnergy)state.energy-=24;
-  state.dashHits++;player.invulnerable=.8;state.shake=.22;state.flash=.10;
-  burst(item.x,item.y,'#d3a16f',16,180);tone(120,.13,'sawtooth',.055,-40);haptic([18,35,18]);
+  state.dashHits++;player.invulnerable=.8;state.shake=.28;state.flash=.16;
+  ui.healthHud.classList.remove('hit');
+  void ui.healthHud.offsetWidth;
+  ui.healthHud.classList.add('hit');
+  ui.damageVignette.classList.add('show');
+  setTimeout(()=>ui.damageVignette.classList.remove('show'),180);
+  burst(item.x,item.y,'#ff735f',22,210);tone(120,.13,'sawtooth',.055,-40);haptic([25,35,25]);
 }
 
 function handleDashCollisions(){
@@ -5094,6 +5171,11 @@ function updateDash(dt){
 
   ui.dashDistanceText.textContent=Math.floor(state.dashDistance)+'m';
   ui.dashProgressFill.style.width=clamp(state.dashDistance/level.length*100,0,100)+'%';
+
+  const healthPercent=Math.max(0,Math.round(state.energy));
+  ui.healthFill.style.width=healthPercent+'%';
+  ui.healthText.textContent=healthPercent+'%';
+  ui.healthHud.classList.toggle('danger',healthPercent<=30);
 
   if(state.energy<=0){
     state.energy=0;
@@ -5755,55 +5837,63 @@ function drawHome(){
   const wake=clamp(state.homeWakeAmount,0,1);
   const eased=wake*wake*(3-2*wake);
 
-  function drawHomeGingerSprite(image,width,alpha,offsetY,rotation=0){
-    if(
-      alpha<=.001 ||
-      !image.complete ||
-      !image.naturalWidth
-    ){
-      return;
-    }
+  function drawMasterGingerPose(width,alpha,offsetY,rotation=0,scaleX=1,scaleY=1,eyesClosed=false){
+    const image=HOME_SITTING_GINGER;
+    if(alpha<=.001||!image.complete||!image.naturalWidth)return;
 
     const drawWidth=width*ginger.scale;
-    const drawHeight=
-      drawWidth*
-      image.naturalHeight/
-      image.naturalWidth;
+    const drawHeight=drawWidth*image.naturalHeight/image.naturalWidth;
 
     ctx.save();
     ctx.globalAlpha=alpha;
     ctx.imageSmoothingEnabled=true;
     ctx.imageSmoothingQuality='high';
-    ctx.translate(
-      ginger.x,
-      ginger.y+offsetY*ginger.scale
-    );
+    ctx.translate(ginger.x,ginger.y+offsetY*ginger.scale);
     ctx.rotate(rotation);
-    ctx.drawImage(
-      image,
-      -drawWidth/2,
-      -drawHeight*.78,
-      drawWidth,
-      drawHeight
-    );
+    ctx.scale(scaleX,scaleY);
+    ctx.drawImage(image,-drawWidth/2,-drawHeight*.78,drawWidth,drawHeight);
+
+    /* Sleeping eyelids are painted over the same Ginger face, not a different cat. */
+    if(eyesClosed){
+      ctx.strokeStyle='rgba(69,38,22,.92)';
+      ctx.lineWidth=Math.max(2,3.2*ginger.scale);
+      ctx.lineCap='round';
+      const eyeY=-drawHeight*.49;
+      const eyeGap=drawWidth*.095;
+      const eyeHalf=drawWidth*.035;
+      ctx.beginPath();
+      ctx.moveTo(-eyeGap-eyeHalf,eyeY);
+      ctx.quadraticCurveTo(-eyeGap,eyeY+drawHeight*.018,-eyeGap+eyeHalf,eyeY);
+      ctx.moveTo(eyeGap-eyeHalf,eyeY);
+      ctx.quadraticCurveTo(eyeGap,eyeY+drawHeight*.018,eyeGap+eyeHalf,eyeY);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
-  /* One Ginger only: asleep first, then awake after the player strokes him. */
-  drawHomeGingerSprite(
-    HOME_SLEEPING_GINGER,
-    292,
-    1-eased,
-    27-Math.sin(wake*Math.PI)*8,
-    -Math.sin(wake*Math.PI)*.035
+  /* One master Ginger asset is transformed between sleeping and awake poses. */
+  const sleepAlpha=1-eased;
+  const awakeAlpha=eased;
+  const sleepBreath=Math.sin(state.time*1.8)*.012;
+
+  drawMasterGingerPose(
+    230,
+    sleepAlpha,
+    18+Math.sin(state.time*1.8)*1.5,
+    1.36-Math.sin(wake*Math.PI)*.18,
+    1.03+sleepBreath,
+    .72-sleepBreath,
+    true
   );
 
-  drawHomeGingerSprite(
-    HOME_SITTING_GINGER,
+  drawMasterGingerPose(
     218,
-    eased,
+    awakeAlpha,
     21*(1-eased),
-    Math.sin(wake*Math.PI)*.02
+    Math.sin(wake*Math.PI)*.02,
+    1,
+    1,
+    false
   );
 
   player.x=ginger.x;
