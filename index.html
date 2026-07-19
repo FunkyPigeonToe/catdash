@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#152238">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Cat Dash — Proper Ginger Wake Build</title>
+<title>Cat Dash — Stable Ginger Build</title>
 <style>
 :root{
   --ink:#111827;
@@ -5837,147 +5837,104 @@ function drawHome(){
   const wake=clamp(state.homeWakeAmount,0,1);
   const eased=wake*wake*(3-2*wake);
 
-  function drawSingleGinger(){
+  function drawStableHomeGinger(){
     const image=HOME_SLEEPING_GINGER;
-    if(!image.complete||!image.naturalWidth)return;
 
-    const wake=clamp(
-      state.homeAwake
-        ? (performance.now()-state.homeWakeStarted)/1500
-        : 0,
-      0,
-      1
-    );
-    const eased=easeInOutCubic(wake);
+    if(!image.complete || !image.naturalWidth){
+      ctx.save();
+      ctx.translate(ginger.x,ginger.y);
+      ctx.fillStyle='#d97822';
+      ctx.strokeStyle='#6d3518';
+      ctx.lineWidth=3;
 
-    const baseWidth=250*ginger.scale;
-    const baseHeight=baseWidth*image.naturalHeight/image.naturalWidth;
+      ctx.beginPath();
+      ctx.ellipse(0,-18,62,39,0,0,Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
 
-    /* The exact same transparent Ginger sprite is used asleep and awake. */
-    const breathing=(1-eased)*Math.sin(state.time*1.75)*.012;
-    const alertBreathing=eased*Math.sin(state.time*2.4)*.005;
-    const bodyScaleY=1+breathing+alertBreathing;
-    const headLift=eased*5*ginger.scale;
-    const gentleTurn=eased*.018*Math.sin(state.time*1.2);
-    const wakeBounce=Math.sin(Math.min(1,wake)*Math.PI)*5*ginger.scale;
+      ctx.beginPath();
+      ctx.arc(42,-34,28,0,Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(28,-56);
+      ctx.lineTo(36,-78);
+      ctx.lineTo(49,-56);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(48,-56);
+      ctx.lineTo(58,-77);
+      ctx.lineTo(68,-51);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle='#3d2518';
+      ctx.lineWidth=3;
+      ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(34,-35);
+      ctx.quadraticCurveTo(40,-30,46,-35);
+      ctx.moveTo(49,-35);
+      ctx.quadraticCurveTo(55,-30,61,-35);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(-35,-9,33,.2,5.7);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    const width=250*ginger.scale;
+    const height=width*image.naturalHeight/image.naturalWidth;
+    const breathe=state.homeAwake ? 0 : Math.sin(state.time*1.7)*1.4*ginger.scale;
+    const lift=state.homeAwake ? 3*ginger.scale : 0;
 
     ctx.save();
-    ctx.translate(ginger.x,ginger.y-wakeBounce);
-    ctx.rotate(gentleTurn);
-    ctx.scale(1,bodyScaleY);
+    ctx.globalAlpha=1;
+    ctx.filter='none';
     ctx.imageSmoothingEnabled=true;
     ctx.imageSmoothingQuality='high';
     ctx.drawImage(
       image,
-      -baseWidth/2,
-      -baseHeight*.80-headLift,
-      baseWidth,
-      baseHeight
+      ginger.x-width/2,
+      ginger.y-height*.79-lift+breathe,
+      width,
+      height
     );
     ctx.restore();
 
-    /*
-      Wake details are drawn onto the same face:
-      closed eyelids fade away, then matching amber eyes appear.
-      Coordinates are tied to the sleeping sprite proportions.
-    */
-    const faceX=ginger.x+baseWidth*.285;
-    const faceY=ginger.y-baseHeight*.50-headLift-wakeBounce;
-    const eyeGap=baseWidth*.034;
-    const eyeW=baseWidth*.018;
-    const eyeH=baseHeight*.022;
+    if(state.homeAwake){
+      const faceX=ginger.x+width*.27;
+      const faceY=ginger.y-height*.49-lift;
+      const gap=width*.032;
 
-    if(eased<.84){
       ctx.save();
-      ctx.globalAlpha=1-clamp(eased/.84,0,1);
-      ctx.strokeStyle='rgba(72,38,20,.95)';
-      ctx.lineWidth=Math.max(2,2.5*ginger.scale);
-      ctx.lineCap='round';
-      ctx.beginPath();
-      ctx.moveTo(faceX-eyeGap-eyeW,faceY);
-      ctx.quadraticCurveTo(faceX-eyeGap,faceY+eyeH,faceX-eyeGap+eyeW,faceY);
-      ctx.moveTo(faceX+eyeGap-eyeW,faceY);
-      ctx.quadraticCurveTo(faceX+eyeGap,faceY+eyeH,faceX+eyeGap+eyeW,faceY);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    if(eased>.30){
-      const eyeOpen=clamp((eased-.30)/.42,0,1);
-      ctx.save();
-      ctx.globalAlpha=eyeOpen;
-      ctx.fillStyle='#d89a25';
-      ctx.strokeStyle='rgba(57,31,19,.95)';
-      ctx.lineWidth=Math.max(1.3,1.8*ginger.scale);
-
+      ctx.fillStyle='#d69a25';
+      ctx.strokeStyle='#3a2418';
+      ctx.lineWidth=1.5;
       for(const dir of [-1,1]){
         ctx.beginPath();
-        ctx.ellipse(
-          faceX+dir*eyeGap,
-          faceY,
-          eyeW,
-          eyeH*eyeOpen,
-          0,
-          0,
-          Math.PI*2
-        );
+        ctx.ellipse(faceX+dir*gap,faceY,4.1*ginger.scale,6.2*ginger.scale,0,0,Math.PI*2);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle='#1e1710';
+        ctx.fillStyle='#17120d';
         ctx.beginPath();
-        ctx.ellipse(
-          faceX+dir*eyeGap,
-          faceY,
-          eyeW*.23,
-          Math.max(1,eyeH*.82*eyeOpen),
-          0,
-          0,
-          Math.PI*2
-        );
+        ctx.ellipse(faceX+dir*gap,faceY,1.1*ginger.scale,5*ginger.scale,0,0,Math.PI*2);
         ctx.fill();
-        ctx.fillStyle='#d89a25';
+        ctx.fillStyle='#d69a25';
       }
-      ctx.restore();
-    }
-
-    /* A subtle ear twitch and tail-tip movement after waking. */
-    if(eased>.55){
-      const twitch=Math.sin(state.time*7)*2.2*ginger.scale*eased;
-      ctx.save();
-      ctx.translate(
-        ginger.x+baseWidth*.36,
-        ginger.y-baseHeight*.67-headLift-wakeBounce
-      );
-      ctx.rotate(twitch*.008);
-      ctx.strokeStyle='rgba(94,48,23,.85)';
-      ctx.lineWidth=Math.max(2,2.2*ginger.scale);
-      ctx.lineCap='round';
-      ctx.beginPath();
-      ctx.moveTo(0,0);
-      ctx.lineTo(5*ginger.scale,-7*ginger.scale);
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.save();
-      ctx.globalAlpha=.32*eased;
-      ctx.strokeStyle='rgba(137,67,24,.75)';
-      ctx.lineWidth=Math.max(3,4*ginger.scale);
-      ctx.lineCap='round';
-      ctx.beginPath();
-      ctx.arc(
-        ginger.x-baseWidth*.31,
-        ginger.y-baseHeight*.16,
-        12*ginger.scale,
-        .5,
-        2.15
-      );
-      ctx.stroke();
       ctx.restore();
     }
   }
 
-  drawSingleGinger();
+  drawStableHomeGinger();
 
   player.x=ginger.x;
   player.y=ginger.y;
