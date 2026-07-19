@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#152238">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Cat Dash — Stable Ginger Build</title>
+<title>Cat Dash — Correct Trees and Puzzle Challenge</title>
 <style>
 :root{
   --ink:#111827;
@@ -1021,19 +1021,18 @@ const levels=[
     "name": "Clear the Mouse Hole",
     "type": "puzzle",
     "reward": "Flower Patch",
-    "description": "Place both boxes on the paw pads without trapping either one, then reach the mouse.",
+    "description": "Move both crates around the dividing wall, fill both paw pads, then reach the mouse.",
     "map": [
       "#########",
-      "#P......#",
-      "#.C.#C..#",
-      "#...#...#",
-      "#.G...G.#",
-      "#..###M.#",
+      "#..#....#",
+      "#.C..G..#",
+      "#..#....#",
+      "#P.C.G.M#",
       "#.......#",
       "#########"
     ],
     "crateGoal": true,
-    "par": 34,
+    "par": 21,
     "requiresMouse": true
   },
   {
@@ -1312,20 +1311,20 @@ const levels=[
     "name": "Robin’s Seed Store",
     "type": "puzzle",
     "reward": "Robin Nest",
-    "description": "Work around the centre walls and place all three boxes on the paw pads.",
+    "description": "Plan the route around the blocked centre. Both crates must reach the far-side pads before Ginger can leave.",
     "map": [
       "##########",
       "#P.......#",
-      "#.C.C.C..#",
-      "#..##....#",
-      "#....##..#",
-      "#.G..G.G.#",
-      "#........#",
+      "#.C.#.G..#",
+      "#...#....#",
+      "#.C...G..#",
+      "#..###...#",
+      "#.......M#",
       "##########"
     ],
     "crateGoal": true,
-    "par": 48,
-    "requiresMouse": false
+    "par": 42,
+    "requiresMouse": true
   },
   {
     "id": "1-5",
@@ -1669,19 +1668,20 @@ const levels=[
     "name": "The Narrow Garden",
     "type": "puzzle",
     "reward": "Mushroom Log",
-    "description": "Plan the order carefully. Boxes can become trapped.",
+    "description": "Three crates share a tight crossing. Push them in the wrong order and the route closes.",
     "map": [
-      "#########",
-      "#P......#",
-      "#.##C##.#",
-      "#...C...#",
-      "#.G...G.#",
-      "#.......#",
-      "#########"
+      "###########",
+      "#P........#",
+      "#.C.#..G..#",
+      "#...#.....#",
+      "#.C...G...#",
+      "#..##C....#",
+      "#....G...M#",
+      "###########"
     ],
     "crateGoal": true,
-    "par": 34,
-    "requiresMouse": false
+    "par": 41,
+    "requiresMouse": true
   },
   {
     "id": "1-7",
@@ -2097,19 +2097,20 @@ const levels=[
     "name": "Bridge Supplies",
     "type": "puzzle",
     "reward": "Little Bridge",
-    "description": "Move three supply boxes onto the marked spaces.",
+    "description": "Use the open lower lane to get behind each crate. The centre wall makes the order important.",
     "map": [
-      "##########",
-      "#P.......#",
-      "#.CCC.##.#",
-      "#........#",
-      "#.G.G.G..#",
-      "#........#",
-      "##########"
+      "###########",
+      "#P........#",
+      "#.C.#..G..#",
+      "#...#.....#",
+      "#.C...G...#",
+      "#..#C#....#",
+      "#....G...M#",
+      "###########"
     ],
     "crateGoal": true,
-    "par": 44,
-    "requiresMouse": false
+    "par": 53,
+    "requiresMouse": true
   },
   {
     "id": "1-9",
@@ -2597,18 +2598,19 @@ const levels=[
     "name": "Wind Chime Workshop",
     "type": "puzzle",
     "reward": "Wind Chime",
-    "description": "Place both boxes, then reach the mouse.",
+    "description": "Three crates begin together, but their pads are split by the wall. Keep an escape route open.",
     "map": [
-      "##########",
-      "#P.......#",
-      "#.##C.##.#",
-      "#...C....#",
-      "#.G...G.M#",
-      "#........#",
-      "##########"
+      "###########",
+      "#P........#",
+      "#.CC#.....#",
+      "#...#..GG.#",
+      "#.C....G..#",
+      "#..###....#",
+      "#........M#",
+      "###########"
     ],
     "crateGoal": true,
-    "par": 48,
+    "par": 60,
     "requiresMouse": true
   },
   {
@@ -3163,19 +3165,20 @@ const levels=[
     "name": "Lantern Courtyard",
     "type": "puzzle",
     "reward": "Fireplace",
-    "description": "Three boxes, three pads and very little spare room.",
+    "description": "Separate the clustered crates and feed them through the narrow centre in the correct sequence.",
     "map": [
-      "##########",
-      "#P.......#",
-      "#.C#C#C..#",
-      "#........#",
-      "#.G.G.G..#",
-      "#........#",
-      "##########"
+      "###########",
+      "#P........#",
+      "#.C.C#....#",
+      "#....#G...#",
+      "#.C....GG.#",
+      "#..###....#",
+      "#........M#",
+      "###########"
     ],
     "crateGoal": true,
-    "par": 58,
-    "requiresMouse": false
+    "par": 59,
+    "requiresMouse": true
   },
   {
     "id": "1-13",
@@ -3795,18 +3798,19 @@ const levels=[
     "name": "Rescue the Kitten",
     "type": "puzzle",
     "reward": "Kitten Friend",
-    "description": "Solve the courtyard, then reach the waiting kitten.",
+    "description": "Final garden puzzle: three crates, two narrow routes and no spare corner. Think before every push.",
     "map": [
       "###########",
       "#P........#",
-      "#.C.C.C##.#",
-      "#.........#",
-      "#.G.G.G...#",
-      "#.......M.#",
+      "#.C.C#....#",
+      "#....#GG..#",
+      "#.C....G..#",
+      "#..###....#",
+      "#........M#",
       "###########"
     ],
     "crateGoal": true,
-    "par": 66,
+    "par": 61,
     "requiresMouse": true
   },
   {
@@ -5980,76 +5984,87 @@ function drawObstacle(obstacle){
   ctx.restore();
 
   if(obstacle.type==='tree'){
-    /* Root flare */
-    ctx.fillStyle='#583723';
+    /* One continuous tree silhouette: roots, trunk, branches and canopy. */
+    const trunk=ctx.createLinearGradient(-18,0,18,0);
+    trunk.addColorStop(0,'#352219');
+    trunk.addColorStop(.25,'#604029');
+    trunk.addColorStop(.55,'#855a36');
+    trunk.addColorStop(.82,'#573621');
+    trunk.addColorStop(1,'#2c1d16');
+
+    /* Roots sit visibly on the road. */
+    ctx.fillStyle='#4b3020';
     ctx.beginPath();
-    ctx.moveTo(-17,24);
-    ctx.lineTo(-30,41);
-    ctx.lineTo(-8,37);
-    ctx.lineTo(0,28);
-    ctx.lineTo(11,38);
-    ctx.lineTo(31,41);
-    ctx.lineTo(18,23);
+    ctx.moveTo(-14,20);
+    ctx.lineTo(-34,42);
+    ctx.lineTo(-8,38);
+    ctx.lineTo(0,27);
+    ctx.lineTo(10,39);
+    ctx.lineTo(35,42);
+    ctx.lineTo(15,19);
     ctx.closePath();
     ctx.fill();
 
-    /* Continuous trunk */
-    const trunk=ctx.createLinearGradient(-17,0,17,0);
-    trunk.addColorStop(0,'#40281c');
-    trunk.addColorStop(.28,'#66422a');
-    trunk.addColorStop(.56,'#855a36');
-    trunk.addColorStop(.82,'#5b3825');
-    trunk.addColorStop(1,'#342219');
-
+    /* Tall uninterrupted trunk goes behind the canopy. */
     ctx.fillStyle=trunk;
-    roundedRectPath(-14,-15,28,71,10);
+    ctx.beginPath();
+    ctx.moveTo(-14,34);
+    ctx.lineTo(-12,-58);
+    ctx.quadraticCurveTo(0,-66,12,-58);
+    ctx.lineTo(14,34);
+    ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle='rgba(43,26,16,.46)';
-    ctx.lineWidth=1.8;
-    for(let y=-6;y<45;y+=10){
-      ctx.beginPath();
-      ctx.moveTo(-9,y);
-      ctx.quadraticCurveTo(-1,y-4,9,y);
-      ctx.stroke();
-    }
-
-    ctx.strokeStyle='#5d3a26';
-    ctx.lineWidth=7;
+    ctx.strokeStyle='#543520';
+    ctx.lineWidth=8;
     ctx.lineCap='round';
     ctx.beginPath();
-    ctx.moveTo(-3,-5);
-    ctx.lineTo(-22,-28);
-    ctx.moveTo(3,-8);
-    ctx.lineTo(23,-32);
+    ctx.moveTo(-3,-34);ctx.lineTo(-29,-60);
+    ctx.moveTo(3,-39);ctx.lineTo(30,-68);
+    ctx.moveTo(0,-51);ctx.lineTo(-3,-82);
     ctx.stroke();
 
-    const canopy=ctx.createRadialGradient(-11,-39,5,0,-28,59);
-    canopy.addColorStop(0,'#88b66d');
-    canopy.addColorStop(.5,'#4e8349');
-    canopy.addColorStop(1,'#244b30');
-
+    /* Closed canopy path prevents holes or background showing through. */
+    const canopy=ctx.createRadialGradient(-18,-83,7,0,-63,70);
+    canopy.addColorStop(0,'#9bc878');
+    canopy.addColorStop(.48,'#568e4d');
+    canopy.addColorStop(1,'#244b31');
     ctx.fillStyle=canopy;
     ctx.beginPath();
-    ctx.moveTo(-44,-15);
-    ctx.bezierCurveTo(-54,-43,-33,-63,-10,-58);
-    ctx.bezierCurveTo(2,-76,34,-66,36,-43);
-    ctx.bezierCurveTo(57,-35,54,-7,35,4);
-    ctx.bezierCurveTo(18,23,-20,22,-33,6);
-    ctx.bezierCurveTo(-50,5,-58,-8,-44,-15);
+    ctx.moveTo(-50,-50);
+    ctx.bezierCurveTo(-63,-71,-50,-95,-28,-98);
+    ctx.bezierCurveTo(-23,-121,6,-131,23,-111);
+    ctx.bezierCurveTo(48,-113,63,-89,52,-69);
+    ctx.bezierCurveTo(69,-49,52,-25,31,-25);
+    ctx.bezierCurveTo(12,-10,-22,-13,-34,-29);
+    ctx.bezierCurveTo(-54,-27,-66,-42,-50,-50);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle='rgba(218,239,179,.18)';
+    /* Leaf masses are highlights only, never separate canopy pieces. */
+    ctx.fillStyle='rgba(211,235,168,.17)';
     ctx.beginPath();
-    ctx.ellipse(-13,-50,16,7,-.3,0,Math.PI*2);
+    ctx.ellipse(-22,-91,19,9,-.35,0,Math.PI*2);
+    ctx.ellipse(18,-78,16,8,.2,0,Math.PI*2);
     ctx.fill();
 
-    /* Moss only at ground level */
-    ctx.fillStyle='#5e814c';
+    ctx.strokeStyle='rgba(38,68,38,.38)';
+    ctx.lineWidth=2;
     ctx.beginPath();
-    ctx.ellipse(-14,31,16,6,-.1,0,Math.PI*2);
-    ctx.ellipse(15,32,17,6,.1,0,Math.PI*2);
+    ctx.moveTo(-38,-57);ctx.quadraticCurveTo(0,-38,39,-57);
+    ctx.stroke();
+
+    /* Bark grooves and ground moss. */
+    ctx.strokeStyle='rgba(38,22,14,.48)';
+    ctx.lineWidth=1.7;
+    for(let y=-45;y<27;y+=12){
+      ctx.beginPath();
+      ctx.moveTo(-8,y);ctx.quadraticCurveTo(0,y-4,8,y);ctx.stroke();
+    }
+    ctx.fillStyle='#66864c';
+    ctx.beginPath();
+    ctx.ellipse(-14,31,17,6,-.1,0,Math.PI*2);
+    ctx.ellipse(15,32,18,6,.1,0,Math.PI*2);
     ctx.fill();
   }
 
@@ -6519,75 +6534,74 @@ function drawDashHills(baseY,amplitude,colour,speed,seed){
 }
 
 function drawDashTreeLine(level){
-  const dark=
-    level.biome==='woods'||
-    level.biome==='twilight';
+  const dark=level.biome==='woods'||level.biome==='twilight';
+  const baseY=H*.455;
+  const count=Math.ceil(W/82)+4;
+  const forward=(state.dashDistance*.0027)%1;
+  const scale=0.88+forward*.055;
+  const rise=forward*7;
 
-  const count=Math.ceil(W/96)+3;
-  const cycle=(state.dashDistance*.003)%1;
-  const depthScale=.96+cycle*.05;
-  const baseY=H*.44-cycle*7;
+  /* A continuous hedge line closes the lower gaps between trunks. */
+  const hedge=ctx.createLinearGradient(0,baseY-52,0,baseY+16);
+  hedge.addColorStop(0,dark?'#315239':'#416f3d');
+  hedge.addColorStop(1,dark?'#1e392a':'#294d31');
+  ctx.fillStyle=hedge;
+  ctx.beginPath();
+  ctx.moveTo(0,baseY+20-rise);
+  for(let x=0;x<=W;x+=28){
+    const y=baseY-15-rise+Math.sin(x*.035+state.dashDistance*.004)*7;
+    ctx.lineTo(x,y);
+  }
+  ctx.lineTo(W,baseY+35-rise);
+  ctx.lineTo(0,baseY+35-rise);
+  ctx.closePath();
+  ctx.fill();
 
-  for(let index=-1;index<count;index+=1){
-    const x=index*96+48;
-    const sway=Math.sin(state.time*.7+index)*1.5;
-    const size=(.68+(index%3)*.07)*depthScale;
+  for(let i=-2;i<count;i++){
+    const x=i*82+36;
+    const variant=((i%4)+4)%4;
+    const h=92+variant*9;
+    const w=55+variant*4;
+    const sway=Math.sin(state.time*.45+i*.8)*.7;
 
     ctx.save();
-    ctx.translate(x,baseY+sway);
-    ctx.scale(size,size);
+    ctx.translate(x,baseY-rise+sway);
+    ctx.scale(scale,scale);
 
-    /* Proper uninterrupted trunk */
+    /* Trunk is always behind and enters the canopy. */
     const trunk=ctx.createLinearGradient(-8,0,8,0);
-    trunk.addColorStop(0,dark?'#3a281d':'#4b3020');
-    trunk.addColorStop(.5,dark?'#6b4930':'#815735');
-    trunk.addColorStop(1,dark?'#302219':'#3b281c');
-
+    trunk.addColorStop(0,dark?'#2d211a':'#40291c');
+    trunk.addColorStop(.5,dark?'#68472e':'#805534');
+    trunk.addColorStop(1,dark?'#2a2018':'#36251b');
     ctx.fillStyle=trunk;
     ctx.beginPath();
-    ctx.roundRect(-7,-50,14,64,5);
-    ctx.fill();
+    ctx.moveTo(-7,12);ctx.lineTo(-6,-h*.58);
+    ctx.quadraticCurveTo(0,-h*.63,6,-h*.58);
+    ctx.lineTo(7,12);ctx.closePath();ctx.fill();
 
-    /* Bark lines only. No green bush on the trunk. */
-    ctx.strokeStyle='rgba(45,27,17,.45)';
-    ctx.lineWidth=1.5;
-
-    for(let y=-42;y<4;y+=10){
-      ctx.beginPath();
-      ctx.moveTo(-4,y);
-      ctx.quadraticCurveTo(0,y-3,4,y);
-      ctx.stroke();
-    }
-
-    /* Branches connect trunk to canopy */
-    ctx.strokeStyle=dark?'#4a3425':'#66452b';
-    ctx.lineWidth=5;
-    ctx.lineCap='round';
+    ctx.strokeStyle=dark?'#493326':'#624129';
+    ctx.lineWidth=4.5;ctx.lineCap='round';
     ctx.beginPath();
-    ctx.moveTo(-2,-38);
-    ctx.lineTo(-18,-55);
-    ctx.moveTo(2,-41);
-    ctx.lineTo(18,-59);
+    ctx.moveTo(-1,-h*.45);ctx.lineTo(-w*.28,-h*.66);
+    ctx.moveTo(2,-h*.49);ctx.lineTo(w*.28,-h*.71);
     ctx.stroke();
 
-    const leaves=ctx.createRadialGradient(-10,-62,4,0,-48,50);
-    leaves.addColorStop(0,dark?'#5c7f53':'#78ac65');
-    leaves.addColorStop(.55,dark?'#3d6742':'#4f894b');
-    leaves.addColorStop(1,dark?'#264831':'#2e5a35');
-
+    const leaves=ctx.createRadialGradient(-w*.16,-h*.76,3,0,-h*.65,w*.75);
+    leaves.addColorStop(0,dark?'#6e9462':'#8abd72');
+    leaves.addColorStop(.52,dark?'#416b45':'#538b4c');
+    leaves.addColorStop(1,dark?'#213f2d':'#285232');
     ctx.fillStyle=leaves;
     ctx.beginPath();
-    ctx.arc(-18,-55,27,0,Math.PI*2);
-    ctx.arc(16,-58,30,0,Math.PI*2);
-    ctx.arc(0,-80,29,0,Math.PI*2);
-    ctx.arc(0,-39,32,0,Math.PI*2);
-    ctx.fill();
+    ctx.moveTo(-w*.52,-h*.53);
+    ctx.bezierCurveTo(-w*.68,-h*.72,-w*.48,-h*.91,-w*.23,-h*.89);
+    ctx.bezierCurveTo(-w*.12,-h*1.12,w*.17,-h*1.12,w*.29,-h*.91);
+    ctx.bezierCurveTo(w*.58,-h*.91,w*.69,-h*.68,w*.51,-h*.51);
+    ctx.bezierCurveTo(w*.58,-h*.30,w*.25,-h*.22,0,-h*.31);
+    ctx.bezierCurveTo(-w*.29,-h*.21,-w*.60,-h*.33,-w*.52,-h*.53);
+    ctx.closePath();ctx.fill();
 
-    ctx.fillStyle='rgba(221,241,178,.16)';
-    ctx.beginPath();
-    ctx.ellipse(-12,-72,13,6,-.3,0,Math.PI*2);
-    ctx.fill();
-
+    ctx.fillStyle='rgba(218,239,179,.13)';
+    ctx.beginPath();ctx.ellipse(-w*.18,-h*.82,w*.19,h*.06,-.25,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
 }
