@@ -490,7 +490,7 @@ body::after{
         <button id="mapBtn" class="btn secondary">Level Map</button>
         <button id="soundBtn" class="btn ghost">Sound: On</button>
       </div>
-      <div id="homeHint" class="small" style="margin-top:12px">Minimise the menu to pet Ginger.</div>
+      <div id="homeHint" class="small" style="margin-top:12px">Minimise the menu, then stroke Ginger gently.</div>
     </div>
 
     <div id="homeMiniBar" class="glass">
@@ -725,6 +725,7 @@ const defaultSave = {
   stars:Array(15).fill(0),
   bestMice:Array(15).fill(0),
   bond:0,
+  lastPetBondAt:0,
   homeMenuMinimised:false,
   developerUnlocked:false,
   dev:{ infiniteEnergy:false, noCollisions:false, unlockAll:false }
@@ -765,6 +766,12 @@ function refreshHome(){
   ui.progressStat.textContent=completed+'/15';
   ui.starsStat.textContent=totalStars();
   ui.bondStat.textContent=save.bond;
+  const posterStars=document.getElementById('posterStars');
+  const posterBond=document.getElementById('posterBond');
+  const posterProgress=document.getElementById('posterProgress');
+  if(posterStars)posterStars.textContent=totalStars();
+  if(posterBond)posterBond.textContent=save.bond;
+  if(posterProgress)posterProgress.textContent=completed+'/15';
   ui.soundBtn.textContent='Sound: '+(save.sound?'On':'Off');
   ui.devPaw.classList.toggle('visible',save.developerUnlocked);
 }
@@ -4543,7 +4550,11 @@ const state={
   homeActionTimer:2,
   homePetting:false,
   homePetDistance:0,
+  homePetTime:0,
   homeHeartTimer:0,
+  homePurrTimer:0,
+  homeReactionTimer:0,
+  homeReactionText:'',
   homeAwake:false,
   homeWakeAmount:0,
   levelIntroTimer:0,
@@ -4557,7 +4568,7 @@ const player={
   tailPhase:0
 };
 
-const touch={active:false,startX:0,startY:0,lastX:0,lastY:0,startTime:0};
+const touch={active:false,startX:0,startY:0,lastX:0,lastY:0,startTime:0,homeHit:false};
 let obstacles=[],pickups=[],particles=[],clouds=[],homeHearts=[];
 
 /* ---------- Run objects ---------- */
@@ -4707,9 +4718,16 @@ canvas.addEventListener('pointerdown',e=>{
     touch.lastX=e.clientX;touch.lastY=e.clientY;touch.startTime=performance.now();
     player.targetX=clamp(e.clientX,28,W-28);
   }else if(state.mode==='home'){
-    state.homePetting=true;
+    const gingerHome=homePoint(544,1134);
+    touch.homeHit=distance(e.clientX,e.clientY,gingerHome.x,gingerHome.y)<=125;
+    state.homePetting=touch.homeHit;
+    state.homePetDistance=0;
+    state.homePetTime=0;
     touch.lastX=e.clientX;touch.lastY=e.clientY;
-    petGinger(e.clientX,e.clientY,0);
+    if(touch.homeHit){
+      canvas.setPointerCapture?.(e.pointerId);
+      petGinger(e.clientX,e.clientY,0);
+    }
   }
 });
 
@@ -4734,8 +4752,22 @@ function finishPointer(e){
   if(state.mode==='dash'&&touch.active){
     const dy=e.clientY-touch.startY;
     if(dy<-52&&performance.now()-touch.startTime<650)jump();
+  }else if(state.mode==='home'&&touch.homeHit){
+    if(state.homePetDistance<16){
+      state.homeAction='watch';
+      state.homeActionTimer=1.8;
+      state.homeReactionText=choose(['Mrrp!','Meow!','Hello!']);
+      state.homeReactionTimer=1.15;
+      tone(430,.09,'triangle',.025,90);
+      haptic(5);
+    }else{
+      state.homeAction='content';
+      state.homeActionTimer=2.2;
+    }
   }
-  touch.active=false;state.homePetting=false;
+  touch.active=false;
+  touch.homeHit=false;
+  state.homePetting=false;
 }
 canvas.addEventListener('pointerup',finishPointer);
 canvas.addEventListener('pointercancel',finishPointer);
@@ -5018,36 +5050,66 @@ function movePuzzle(dx,dy){
 
 /* ---------- Home ---------- */
 function petGinger(x,y,movement){
-  const gingerHome=homePoint(544,1134);const catX=gingerHome.x,catY=gingerHome.y;
-  if(distance(x,y,catX,catY)>115)return;
+  const gingerHome=homePoint(544,1134);
+  const catX=gingerHome.x,catY=gingerHome.y;
+  if(distance(x,y,catX,catY)>130)return;
+
   state.homeAction='pet';
   state.homeActionTimer=1.2;
   state.homeAwake=true;
   state.homePetDistance+=movement;
-  if(movement>3&&state.homeHeartTimer<=0){
-    homeHearts.push({x:catX+random(-18,18),y:catY-70,age:0,life:1.1});
-    state.homeHeartTimer=.18;
-    tone(320,.04,'sine',.01,15);
+  state.homePetTime+=movement>0?Math.min(.08,movement/450):0;
+
+  if(movement>2&&state.homeHeartTimer<=0){
+    homeHearts.push({x:catX+random(-30,24),y:catY-72,age:0,life:1.15});
+    state.homeHeartTimer=.16;
   }
-  if(state.homePetDistance>=150){
-    state.homePetDistance=0;save.bond+=1;persist();haptic(7);
-    ui.homeHint.textContent='Ginger is purring ♥';
-    setTimeout(()=>ui.homeHint.textContent='Minimise the menu to pet Ginger.',1500);
+
+  if(movement>2&&state.homePurrTimer<=0){
+    tone(72,.13,'sine',.018,-8);
+    state.homePurrTimer=.24;
+    state.homeReactionText='purr…';
+    state.homeReactionTimer=.45;
+  }
+
+  const now=Date.now();
+  if(state.homePetDistance>=220 && now-Number(save.lastPetBondAt||0)>=8000){
+    state.homePetDistance=0;
+    save.lastPetBondAt=now;
+    save.bond+=1;
+    persist();
+    haptic([8,22,8]);
+    state.homeReactionText='+1 BOND ♥';
+    state.homeReactionTimer=1.7;
+    ui.homeHint.textContent='Ginger loves that! Bond +1';
+    clearTimeout(petGinger._hintTimer);
+    petGinger._hintTimer=setTimeout(()=>ui.homeHint.textContent='Stroke Ginger gently to build your bond.',1800);
   }
 }
 
 function updateHome(dt){
   state.homeActionTimer-=dt;
   state.homeHeartTimer=Math.max(0,state.homeHeartTimer-dt);
+  state.homePurrTimer=Math.max(0,state.homePurrTimer-dt);
+  state.homeReactionTimer=Math.max(0,state.homeReactionTimer-dt);
+
+  const shouldBeAwake=state.homePetting||['pet','watch','content'].includes(state.homeAction);
+  state.homeAwake=shouldBeAwake;
   state.homeWakeAmount=lerp(
     state.homeWakeAmount,
-    state.homeAwake?1:0,
+    shouldBeAwake?1:0,
     1-Math.pow(.0008,dt)
   );
-  if(state.homeActionTimer<=0){
-    state.homeAction=choose(['idle','idle','sleep','watch']);
-    state.homeActionTimer=random(2,5);
+
+  if(state.homeActionTimer<=0&&!state.homePetting){
+    state.homeAction=choose(['idle','idle','sleep','watch','stretch']);
+    state.homeActionTimer=random(2.5,6);
+    if(state.homeAction==='watch'&&Math.random()<.45){
+      state.homeReactionText=choose(['…','chirp?','mrrp']);
+      state.homeReactionTimer=random(.7,1.2);
+    }
   }
+
   for(let i=homeHearts.length-1;i>=0;i--){
     const h=homeHearts[i];h.age+=dt;h.y-=25*dt;
     if(h.age>=h.life)homeHearts.splice(i,1);
@@ -5917,28 +5979,63 @@ function drawHome(){
       const faceX=ginger.x+width*.27;
       const faceY=ginger.y-height*.49-lift;
       const gap=width*.032;
+      const beingPetted=state.homePetting||state.homeAction==='pet'||state.homeAction==='content';
 
       ctx.save();
-      ctx.fillStyle='#d69a25';
       ctx.strokeStyle='#3a2418';
-      ctx.lineWidth=1.5;
-      for(const dir of [-1,1]){
+      ctx.fillStyle='#d69a25';
+      ctx.lineWidth=Math.max(1.5,2*ginger.scale);
+      ctx.lineCap='round';
+      if(beingPetted){
+        for(const dir of [-1,1]){
+          ctx.beginPath();
+          ctx.arc(faceX+dir*gap,faceY+1,5*ginger.scale,.15*Math.PI,.85*Math.PI);
+          ctx.stroke();
+        }
         ctx.beginPath();
-        ctx.ellipse(faceX+dir*gap,faceY,4.1*ginger.scale,6.2*ginger.scale,0,0,Math.PI*2);
-        ctx.fill();
+        ctx.arc(faceX,faceY+10*ginger.scale,5*ginger.scale,.12*Math.PI,.88*Math.PI);
         ctx.stroke();
-
-        ctx.fillStyle='#17120d';
-        ctx.beginPath();
-        ctx.ellipse(faceX+dir*gap,faceY,1.1*ginger.scale,5*ginger.scale,0,0,Math.PI*2);
-        ctx.fill();
-        ctx.fillStyle='#d69a25';
+        ctx.fillStyle='rgba(240,112,104,.48)';
+        for(const dir of [-1,1]){
+          ctx.beginPath();
+          ctx.ellipse(faceX+dir*gap*1.9,faceY+9*ginger.scale,5*ginger.scale,2.8*ginger.scale,0,0,Math.PI*2);
+          ctx.fill();
+        }
+      }else{
+        for(const dir of [-1,1]){
+          ctx.fillStyle='#d69a25';
+          ctx.beginPath();
+          ctx.ellipse(faceX+dir*gap,faceY,4.1*ginger.scale,6.2*ginger.scale,0,0,Math.PI*2);
+          ctx.fill();ctx.stroke();
+          ctx.fillStyle='#17120d';
+          ctx.beginPath();
+          ctx.ellipse(faceX+dir*gap,faceY,1.1*ginger.scale,5*ginger.scale,0,0,Math.PI*2);
+          ctx.fill();
+        }
       }
       ctx.restore();
     }
   }
 
   drawStableHomeGinger();
+
+  if(state.homeReactionTimer>0&&state.homeReactionText){
+    const alpha=clamp(state.homeReactionTimer/.35,0,1);
+    const bubbleY=ginger.y-158*ginger.scale-Math.sin(state.time*3)*2;
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.font=`900 ${Math.max(13,17*ginger.scale)}px system-ui,sans-serif`;
+    const pad=10*ginger.scale;
+    const textWidth=ctx.measureText(state.homeReactionText).width;
+    const bw=textWidth+pad*2;
+    const bh=30*ginger.scale;
+    roundedRectPath(ginger.x-bw/2,bubbleY-bh/2,bw,bh,14*ginger.scale);
+    ctx.fillStyle='rgba(255,246,218,.96)';ctx.fill();
+    ctx.strokeStyle='rgba(91,51,25,.75)';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#5a3218';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(state.homeReactionText,ginger.x,bubbleY+1);
+    ctx.restore();
+  }
 
   player.x=ginger.x;
   player.y=ginger.y;
