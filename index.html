@@ -4889,6 +4889,7 @@ function allPuzzleGoalsFilled(){
 
 function drawGingerModel(g, options={}){
   const pose=options.pose||'sit';
+  const sleeping=pose==='sleep';
   const t=Number(options.time||0);
   const scale=Number(options.scale||1);
   const facing=options.facing===-1?-1:1;
@@ -4910,7 +4911,7 @@ function drawGingerModel(g, options={}){
   g.globalAlpha=.22;
   g.fillStyle='#3b281c';
   g.beginPath();
-  g.ellipse(1,28+(pose==='run'?5:0),pose==='run'?34:31,pose==='run'?8:9,0,0,Math.PI*2);
+  g.ellipse(1,sleeping?18:28+(pose==='run'?5:0),sleeping?38:(pose==='run'?34:31),sleeping?10:(pose==='run'?8:9),sleeping?-.08:0,0,Math.PI*2);
   g.fill();
   g.restore();
 
@@ -4920,7 +4921,10 @@ function drawGingerModel(g, options={}){
   g.strokeStyle='#8d3f1b';
   g.lineWidth=12;
   g.beginPath();
-  if(pose==='run'){
+  if(sleeping){
+    g.moveTo(-23,11);
+    g.bezierCurveTo(-43,22,-41,42,-16+tailSwing*.12,34);
+  }else if(pose==='run'){
     g.moveTo(-20,11);
     g.bezierCurveTo(-42,4,-48,-14,-31+tailSwing*.25,-21);
   }else{
@@ -4931,7 +4935,13 @@ function drawGingerModel(g, options={}){
   g.strokeStyle='#d8732d';
   g.lineWidth=8;
   g.beginPath();
-  if(pose==='run'){
+  if(sleeping){
+    g.moveTo(-23,11);
+    g.bezierCurveTo(-43,22,-41,42,-16+tailSwing*.12,34);
+  }else if(sleeping){
+    g.moveTo(-23,11);
+    g.bezierCurveTo(-42,22,-40,40,-15+tailSwing*.12,33);
+  }else if(pose==='run'){
     g.moveTo(-20,11);
     g.bezierCurveTo(-41,4,-46,-13,-30+tailSwing*.25,-20);
   }else{
@@ -4957,7 +4967,8 @@ function drawGingerModel(g, options={}){
   bodyGrad.addColorStop(1,'#873817');
   g.fillStyle=bodyGrad;
   g.beginPath();
-  if(pose==='run') g.ellipse(0,5+breathe*.2,30,20,-.10,0,Math.PI*2);
+  if(sleeping) g.ellipse(0,10+breathe*.28,37,22,-.08,0,Math.PI*2);
+  else if(pose==='run') g.ellipse(0,5+breathe*.2,30,20,-.10,0,Math.PI*2);
   else g.ellipse(0,7+breathe*.35,23,31,0,0,Math.PI*2);
   g.fill();
 
@@ -4978,13 +4989,25 @@ function drawGingerModel(g, options={}){
   chest.addColorStop(1,'#c98c55');
   g.fillStyle=chest;
   g.beginPath();
-  if(pose==='run') g.ellipse(14,7,12,13,-.2,0,Math.PI*2);
+  if(sleeping) g.ellipse(13,12,17,12,-.18,0,Math.PI*2);
+  else if(pose==='run') g.ellipse(14,7,12,13,-.2,0,Math.PI*2);
   else g.ellipse(3,10,11,21,0,0,Math.PI*2);
   g.fill();
 
   // Legs and paws. Running legs cycle; sitting paws stay neatly together.
   g.fillStyle='#d86e29';
-  if(pose==='run'){
+  if(sleeping){
+    g.fillStyle='#d86e29';
+    g.beginPath();
+    g.ellipse(19,22,14,7,-.15,0,Math.PI*2);
+    g.ellipse(-5,24,13,6,.08,0,Math.PI*2);
+    g.fill();
+    g.fillStyle='#efbb82';
+    g.beginPath();
+    g.ellipse(24,24,8,4,-.08,0,Math.PI*2);
+    g.ellipse(1,25,7,3.8,.08,0,Math.PI*2);
+    g.fill();
+  }else if(pose==='run'){
     const frontX=17+stride*11;
     const backX=-15-stride*10;
     g.save();
@@ -5012,11 +5035,11 @@ function drawGingerModel(g, options={}){
   }
 
   // Head and ears stay identical in all modes.
-  const headY=pose==='run'?-18-jump*2:-25+breathe*.18;
-  const headX=pose==='run'?19:0;
+  const headY=sleeping?-2+breathe*.18:(pose==='run'?-18-jump*2:-25+breathe*.18);
+  const headX=sleeping?22:(pose==='run'?19:0);
   g.save();
   g.translate(headX,headY);
-  g.rotate(pose==='run'?.07*stride:Math.sin(t*.72)*.018);
+  g.rotate(sleeping?-.16:(pose==='run'?.07*stride:Math.sin(t*.72)*.018));
 
   const earTwitch=(Math.sin(t*1.17)>0.965)?Math.sin(t*20)*.08:0;
   const headGrad=g.createRadialGradient(-7,-9,2,0,0,25);
@@ -5053,7 +5076,7 @@ function drawGingerModel(g, options={}){
   g.beginPath();g.ellipse(-5,7,8,6,.08,0,Math.PI*2);g.ellipse(5,7,8,6,-.08,0,Math.PI*2);g.fill();
 
   // Eyes: same green, shape and highlights everywhere.
-  const eyeOpen=Math.max(.08,1-blink);
+  const eyeOpen=sleeping?.08:Math.max(.08,1-blink);
   const eyeGrad=g.createRadialGradient(0,-1,1,0,0,5);
   eyeGrad.addColorStop(0,'#eaf4a0');
   eyeGrad.addColorStop(.52,'#91b44d');
@@ -5820,53 +5843,56 @@ function drawHome(){
   const eased=wake*wake*(3-2*wake);
 
   function drawStableHomeGinger(){
-    const image=HOME_SLEEPING_GINGER;
     const sitting=state.homePetting||['pet','watch','content','sit','stretch'].includes(state.homeAction);
+    const transition=clamp(eased,0,1);
+    const baseScale=2.28*ginger.scale;
 
-    if(sitting){
-      const sc=2.15*ginger.scale;
+    // Sleeping and awake poses are the same Ginger renderer, softly cross-faded.
+    if(transition<.995){
       ctx.save();
+      ctx.globalAlpha=1-transition;
+      ctx.translate(ginger.x,ginger.y+3*ginger.scale);
+      ctx.scale(baseScale,baseScale);
+      drawGingerModel(ctx,{
+        pose:'sleep',
+        scale:1,
+        time:state.time,
+        blink:1,
+        happy:.34,
+        lookX:0,
+        lookY:0
+      });
+      ctx.restore();
+    }
+
+    if(transition>.005){
+      ctx.save();
+      ctx.globalAlpha=transition;
       ctx.translate(ginger.x,ginger.y-5*ginger.scale);
-      ctx.scale(sc,sc);
-      const oldBlink=player.blink;
-      const oldTail=player.tailPhase;
-      player.blink=(state.homePetting||state.homeAction==='content')?0.18:oldBlink;
-      player.tailPhase=state.time*(state.homePetting?7:3);
-      drawCat(0,0);
-      player.blink=oldBlink;
-      player.tailPhase=oldTail;
+      ctx.scale(baseScale,baseScale);
+      drawGingerModel(ctx,{
+        pose:'sit',
+        scale:1,
+        time:state.time,
+        blink:(state.homePetting||state.homeAction==='content')?.72:player.blink,
+        happy:state.homeAction==='content'?1:(state.homePetting?.8:.28),
+        lookX:state.homePetting?0:Math.sin(state.time*.72)*.32,
+        lookY:state.homePetting?.12:-.06
+      });
       ctx.restore();
-
-      if(state.homeAction==='content'){
-        ctx.save();
-        ctx.globalAlpha=.35+.12*Math.sin(state.time*5);
-        ctx.strokeStyle='#fff1b8';
-        ctx.lineWidth=3*ginger.scale;
-        ctx.beginPath();
-        ctx.arc(ginger.x,ginger.y-95*ginger.scale,74*ginger.scale,0,Math.PI*2);
-        ctx.stroke();
-        ctx.restore();
-      }
-      return;
     }
 
-    if(!image.complete || !image.naturalWidth){
+    // A restrained highlight makes successful petting feel polished, not noisy.
+    if(state.homeAction==='content'){
       ctx.save();
-      ctx.translate(ginger.x,ginger.y);
-      ctx.scale(2*ginger.scale,2*ginger.scale);
-      drawCat(0,0);
+      ctx.globalAlpha=.22+.08*Math.sin(state.time*5);
+      ctx.strokeStyle='#fff4c9';
+      ctx.lineWidth=2.4*ginger.scale;
+      ctx.beginPath();
+      ctx.arc(ginger.x,ginger.y-96*ginger.scale,76*ginger.scale,0,Math.PI*2);
+      ctx.stroke();
       ctx.restore();
-      return;
     }
-
-    const width=250*ginger.scale;
-    const height=width*image.naturalHeight/image.naturalWidth;
-    const breathe=Math.sin(state.time*1.7)*1.4*ginger.scale;
-    ctx.save();
-    ctx.imageSmoothingEnabled=true;
-    ctx.imageSmoothingQuality='high';
-    ctx.drawImage(image,ginger.x-width/2,ginger.y-height*.79+breathe,width,height);
-    ctx.restore();
   }
   drawStableHomeGinger();
 
@@ -5881,10 +5907,17 @@ function drawHome(){
     const textWidth=ctx.measureText(state.homeReactionText).width;
     const bw=textWidth+pad*2;
     const bh=30*ginger.scale;
-    roundedRectPath(ginger.x-bw/2,bubbleY-bh/2,bw,bh,14*ginger.scale);
-    ctx.fillStyle='rgba(255,246,218,.96)';ctx.fill();
-    ctx.strokeStyle='rgba(91,51,25,.75)';ctx.lineWidth=2;ctx.stroke();
-    ctx.fillStyle='#5a3218';ctx.textAlign='center';ctx.textBaseline='middle';
+    roundedRectPath(ginger.x-bw/2,bubbleY-bh/2,bw,bh,13*ginger.scale);
+    ctx.fillStyle='rgba(255,250,232,.985)';ctx.fill();
+    ctx.strokeStyle='rgba(92,52,28,.82)';ctx.lineWidth=Math.max(1.5,2*ginger.scale);ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ginger.x-7*ginger.scale,bubbleY+bh/2-1);
+    ctx.lineTo(ginger.x,bubbleY+bh/2+10*ginger.scale);
+    ctx.lineTo(ginger.x+7*ginger.scale,bubbleY+bh/2-1);
+    ctx.closePath();
+    ctx.fillStyle='rgba(255,250,232,.985)';ctx.fill();
+    ctx.strokeStyle='rgba(92,52,28,.82)';ctx.stroke();
+    ctx.fillStyle='#573019';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(state.homeReactionText,ginger.x,bubbleY+1);
     ctx.restore();
   }
@@ -5900,7 +5933,7 @@ function drawHome(){
   for(const heart of homeHearts){
     ctx.save();
     ctx.globalAlpha=1-heart.age/heart.life;
-    ctx.fillStyle='#ff6f9e';
+    const heartGlow=ctx.createRadialGradient(0,0,1,0,0,13);heartGlow.addColorStop(0,'#ffd9e7');heartGlow.addColorStop(.35,'#ff7ca8');heartGlow.addColorStop(1,'rgba(255,86,145,0)');ctx.fillStyle=heartGlow;
     ctx.translate(heart.x,heart.y);
     ctx.beginPath();
     ctx.moveTo(0,6);
