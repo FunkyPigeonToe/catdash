@@ -484,6 +484,281 @@ body::after{
 @keyframes starBounce{0%{transform:scale(.6)}55%{transform:scale(1.2)}100%{transform:scale(1)}}
 @media (max-width:430px){.trailNode{width:82%!important}.trailRow{min-height:108px}.worldMarker{margin-top:12px}}
 
+
+/* ---------- Rebuilt home screen ---------- */
+#homeScreen{
+  overflow:hidden;
+  color:#fff9e9;
+}
+#homeScreen::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(17,30,23,.42) 0%,rgba(17,30,23,.04) 28%,rgba(14,18,13,.08) 62%,rgba(16,12,8,.58) 100%),
+    radial-gradient(circle at 50% 58%,transparent 0 26%,rgba(13,17,11,.12) 56%,rgba(9,10,8,.28) 100%);
+  z-index:1;
+}
+#homeScreen::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:1;
+  box-shadow:inset 0 0 70px rgba(18,14,8,.28);
+}
+.homeTopBar{
+  position:absolute;
+  top:max(14px,env(safe-area-inset-top));
+  left:14px;
+  right:14px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  z-index:4;
+  pointer-events:none;
+}
+.homeBrand{
+  text-shadow:0 3px 16px rgba(0,0,0,.5);
+}
+.homeBrandKicker{
+  display:block;
+  margin-bottom:2px;
+  font-size:9px;
+  letter-spacing:.18em;
+  font-weight:1000;
+  color:#ffe7a6;
+}
+#homeScreen #gameTitle{
+  margin:0;
+  font-size:clamp(34px,9.5vw,54px);
+  line-height:.86;
+  letter-spacing:-.055em;
+  color:#fff7dd;
+}
+#homeScreen #gameTitle span{color:#ffc856}
+#homeScreen .posterResourceBar{
+  position:static;
+  display:flex;
+  gap:6px;
+  z-index:auto;
+}
+#homeScreen .resourceChip{
+  min-width:54px;
+  padding:7px 8px 6px;
+  display:grid;
+  grid-template-columns:auto auto;
+  grid-template-rows:auto auto;
+  column-gap:4px;
+  align-items:center;
+  border-radius:15px;
+  color:#fff8e8;
+  background:rgba(35,27,18,.72);
+  border:1px solid rgba(255,235,182,.38);
+  box-shadow:0 8px 20px rgba(0,0,0,.22);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+#homeScreen .resourceChip>span{font-size:13px;grid-row:1}
+#homeScreen .resourceChip>b{font-size:14px;grid-row:1}
+#homeScreen .resourceChip>small{
+  grid-column:1/3;
+  font-size:7px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  opacity:.68;
+}
+.homeStoryCard{
+  position:absolute;
+  top:max(92px,calc(env(safe-area-inset-top) + 84px));
+  left:14px;
+  width:min(48vw,210px);
+  padding:11px 13px;
+  z-index:3;
+  color:#4d2d18;
+  border-radius:16px;
+  background:linear-gradient(180deg,rgba(255,244,211,.96),rgba(232,203,145,.94));
+  border:2px solid rgba(100,61,31,.72);
+  box-shadow:0 10px 24px rgba(27,17,9,.26),inset 0 1px rgba(255,255,255,.75);
+  pointer-events:none;
+}
+.homeStoryWorld{
+  display:block;
+  font-size:8px;
+  letter-spacing:.16em;
+  font-weight:1000;
+  opacity:.66;
+}
+.homeStoryCard strong{
+  display:block;
+  margin:2px 0 3px;
+  font:900 18px Georgia,serif;
+}
+.homeStoryCard p{
+  margin:0;
+  font-size:10px;
+  line-height:1.25;
+}
+.gingerInteractionCue{
+  position:absolute;
+  left:50%;
+  bottom:clamp(222px,29vh,270px);
+  transform:translateX(-50%);
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 12px;
+  border-radius:999px;
+  color:#5b351d;
+  background:rgba(255,248,221,.9);
+  border:1px solid rgba(93,54,28,.48);
+  box-shadow:0 7px 18px rgba(26,16,9,.2);
+  font-size:11px;
+  font-weight:950;
+  pointer-events:none;
+  animation:gingerCue 2.2s ease-in-out infinite;
+}
+.cuePaw{font-size:14px}
+@keyframes gingerCue{
+  0%,100%{transform:translateX(-50%) translateY(0);opacity:.84}
+  50%{transform:translateX(-50%) translateY(-4px);opacity:1}
+}
+#homeScreen #homeCard.homeDock{
+  position:absolute;
+  left:12px;
+  right:12px;
+  bottom:max(12px,env(safe-area-inset-bottom));
+  width:auto;
+  transform:none;
+  z-index:5;
+  padding:12px;
+  border-radius:24px;
+  color:#fff7e7;
+  background:linear-gradient(180deg,rgba(66,43,26,.94),rgba(31,24,19,.97));
+  border:1px solid rgba(255,222,159,.36);
+  box-shadow:0 18px 36px rgba(12,9,6,.4),inset 0 1px rgba(255,255,255,.12);
+  backdrop-filter:blur(15px);
+  -webkit-backdrop-filter:blur(15px);
+  pointer-events:auto;
+}
+#homeScreen #homeCard::before{display:none}
+.homeProgressLine{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+  padding:0 2px;
+}
+.homeProgressLine>div:first-child span{
+  display:block;
+  font-size:9px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  opacity:.65;
+}
+.homeProgressLine>div:first-child b{font-size:18px}
+.homeCompactStats{display:flex;gap:7px}
+.homeCompactStats span{
+  padding:6px 9px;
+  border-radius:12px;
+  background:rgba(255,255,255,.08);
+  font-size:12px;
+}
+.homePrimaryActions{
+  display:grid;
+  grid-template-columns:minmax(0,1.65fr) minmax(105px,.85fr);
+  gap:9px;
+}
+.homePlayButton,.homeMapButton,.homeUtilityButton{
+  border:0;
+  cursor:pointer;
+  font:inherit;
+}
+.homePlayButton{
+  min-height:62px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:11px;
+  border-radius:18px;
+  color:#382308;
+  background:linear-gradient(180deg,#fff2a7,#ffc444);
+  box-shadow:0 8px 18px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.9),inset 0 -2px rgba(170,102,10,.25);
+}
+.homePlayButton .playIcon{
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(91,57,11,.13);
+  font-size:16px;
+}
+.homePlayButton small{display:block;font-size:8px;letter-spacing:.13em;opacity:.68;text-align:left}
+.homePlayButton b{display:block;font-size:20px;line-height:1;text-align:left}
+.homeMapButton{
+  min-height:62px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  border-radius:18px;
+  color:#203326;
+  background:linear-gradient(180deg,#e6f7df,#9fd18d);
+  box-shadow:0 8px 18px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.75);
+}
+.homeMapButton span{font-size:21px}.homeMapButton b{font-size:12px}
+.homeUtilityRow{display:flex;gap:7px;margin-top:8px}
+.homeUtilityButton{
+  flex:1;
+  padding:8px 9px;
+  border-radius:12px;
+  color:#f9ead0;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.10);
+  font-size:10px;
+  font-weight:800;
+}
+.homeHint{
+  margin-top:7px;
+  min-height:14px;
+  text-align:center;
+  color:rgba(255,244,217,.69);
+  font-size:9px;
+}
+.homePlayButton:active,.homeMapButton:active,.homeUtilityButton:active{transform:scale(.975)}
+.homePlayButton:focus-visible,.homeMapButton:focus-visible,.homeUtilityButton:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.homeHiddenControl{display:none!important}
+.homeDevPaw{
+  position:absolute;
+  left:7px;
+  bottom:7px;
+  width:26px;
+  height:26px;
+  padding:0;
+  z-index:6;
+  border:0;
+  background:transparent;
+  opacity:.08;
+  pointer-events:auto;
+}
+#homeCard.minimised{display:block!important}
+@media(max-width:430px){
+  .homeTopBar{left:10px;right:10px}
+  #homeScreen .resourceChip{min-width:47px;padding:6px}
+  #homeScreen .resourceChip>small{display:none}
+  .homeStoryCard{left:10px;width:47vw}
+  #homeScreen #homeCard.homeDock{left:9px;right:9px;padding:10px}
+  .gingerInteractionCue{bottom:220px}
+}
+@media(max-height:700px){
+  .homeStoryCard{display:none}
+  .gingerInteractionCue{bottom:205px}
+  .homeUtilityRow{display:none}
+  .homeHint{display:none}
+  .homePlayButton,.homeMapButton{min-height:56px}
+}
 </style>
 </head>
 <body>
@@ -498,41 +773,61 @@ body::after{
 
 <div id="ui">
   <section id="homeScreen" class="screen active">
-    <div class="posterResourceBar" aria-hidden="true">
-      <div class="resourceChip">★ <b id="posterStars">0</b></div>
-      <div class="resourceChip">🐾 <b id="posterBond">0</b></div>
-      <div class="resourceChip">🏡 <b id="posterProgress">0/15</b></div>
-    </div>
-    <div class="chapterPlaque" aria-hidden="true">
-      <small>WORLD 1</small>
-      <b>Woodland Trail</b>
-      <span>Complete adventures and restore Ginger’s home</span>
-    </div>
-    <div id="homeCard" class="glass card">
-      <button id="homeMinBtn" class="btn ghost" aria-label="Minimise menu">−</button>
-      <div class="eyebrow">WORLD 1 · WOODLAND TRAIL</div>
-      <h1 id="gameTitle">CAT<br><span>DASH</span></h1>
-      <p>Dash through Woodland Trail, solve puzzles and restore Ginger’s home.</p>
-      <div class="stats">
-        <div class="stat"><span>Progress</span><b id="progressStat">0/5</b></div>
-        <div class="stat"><span>Stars</span><b id="starsStat">0</b></div>
-        <div class="stat"><span>Bond</span><b id="bondStat">0</b></div>
+    <header class="homeTopBar">
+      <div class="homeBrand">
+        <span class="homeBrandKicker">GINGER'S ADVENTURE</span>
+        <h1 id="gameTitle">CAT <span>DASH</span></h1>
       </div>
-      <div class="actions">
-        <button id="continueBtn" class="btn primary">Continue</button>
-        <button id="mapBtn" class="btn secondary">Level Map</button>
-        <button id="soundBtn" class="btn ghost">Sound FX: On</button>
-        <button id="vibrationBtn" class="btn ghost">Vibration: On</button>
+      <div class="posterResourceBar" aria-label="Game progress">
+        <div class="resourceChip"><span>★</span><b id="posterStars">0</b><small>Stars</small></div>
+        <div class="resourceChip"><span>🐾</span><b id="posterBond">0</b><small>Bond</small></div>
+        <div class="resourceChip"><span>🏡</span><b id="posterProgress">0/15</b><small>Journey</small></div>
       </div>
-      <div id="homeHint" class="small" style="margin-top:12px">Minimise the menu, then stroke Ginger gently.</div>
+    </header>
+
+    <div class="homeStoryCard">
+      <span class="homeStoryWorld">WORLD 1</span>
+      <strong>Woodland Trail</strong>
+      <p>Help Ginger explore, solve puzzles and restore his home.</p>
     </div>
 
-    <div id="homeMiniBar" class="glass">
-      <button id="homeExpandBtn" class="btn ghost">▲ Menu</button>
-      <button id="miniContinueBtn" class="btn primary">Continue</button>
+    <div class="gingerInteractionCue" aria-hidden="true">
+      <span class="cuePaw">🐾</span>
+      <span>Stroke Ginger</span>
     </div>
 
-    <button id="devPaw" class="btn ghost" aria-label="Developer mode">🐾</button>
+    <div id="homeCard" class="homeDock">
+      <button id="homeMinBtn" class="homeHiddenControl" aria-label="Minimise menu">−</button>
+      <div class="homeProgressLine">
+        <div>
+          <span>Next adventure</span>
+          <b id="progressStat">0/5</b>
+        </div>
+        <div class="homeCompactStats">
+          <span>★ <b id="starsStat">0</b></span>
+          <span>🐾 <b id="bondStat">0</b></span>
+        </div>
+      </div>
+      <div class="homePrimaryActions">
+        <button id="continueBtn" class="homePlayButton">
+          <span class="playIcon">▶</span>
+          <span><small>KEEP EXPLORING</small><b>Continue</b></span>
+        </button>
+        <button id="mapBtn" class="homeMapButton"><span>🗺️</span><b>Level Map</b></button>
+      </div>
+      <div class="homeUtilityRow">
+        <button id="soundBtn" class="homeUtilityButton">Sound FX: On</button>
+        <button id="vibrationBtn" class="homeUtilityButton">Vibration: On</button>
+      </div>
+      <div id="homeHint" class="homeHint">Stroke Ginger gently to build your bond.</div>
+    </div>
+
+    <div id="homeMiniBar" class="homeHiddenControl">
+      <button id="homeExpandBtn">Menu</button>
+      <button id="miniContinueBtn">Continue</button>
+    </div>
+
+    <button id="devPaw" class="homeDevPaw" aria-label="Developer mode">🐾</button>
   </section>
 
   <section id="mapScreen" class="screen">
@@ -4804,7 +5099,7 @@ function goHome(){
   state.mode='home';state.paused=false;
   player.invulnerable=0;player.vx=0;player.vy=0;player.lean=0;
   showScreen('homeScreen');
-  setHomeMinimised(save.homeMenuMinimised,false);
+  setHomeMinimised(false,false);
 }
 
 function showMap(){
@@ -4892,92 +5187,62 @@ function allPuzzleGoalsFilled(){
 
 function drawGingerModel(g, options={}){
   const pose=options.pose||'sleep';
-  const sleeping=pose==='sleep';
   const t=Number(options.time||0);
   const scale=Number(options.scale||1);
   const facing=options.facing===-1?-1:1;
-  const happy=clamp(Number(options.happy||0),0,1);
   const jump=clamp(Number(options.jump||0),0,1);
   const run=Number(options.run||0);
-  const lookX=clamp(Number(options.lookX||0),-1,1);
-  const lookY=clamp(Number(options.lookY||0),-1,1);
-  const blink=clamp(Number(options.blink||0),0,1);
+  const active=pose==='run';
 
   g.save();
   g.scale(scale*facing,scale);
 
-  const active=pose==='run';
+  // Animate the painted artwork itself. No replacement eyes, mouth or face overlays.
+  // This keeps Ginger's original face perfectly aligned at every size.
   const stride=Math.sin(run);
-  const bob=active?Math.abs(Math.sin(run))*2.3:Math.sin(t*2.1)*.55;
-  const tilt=active?stride*.035:Math.sin(t*.7)*.008;
-  const lift=jump*5;
+  const step=Math.abs(Math.sin(run));
+  const breathing=Math.sin(t*2.15);
+  const idleSway=Math.sin(t*.72);
 
-  g.translate(0,bob-lift);
-  g.rotate(tilt);
+  const bob=active ? step*4.2 : breathing*.8;
+  const lift=jump*8;
+  const lean=active ? (-.075 + stride*.045) : idleSway*.012;
+  const stretchX=active ? 1.035 + step*.035 : 1 + breathing*.004;
+  const stretchY=active ? .965 - step*.025 : 1 + breathing*.012;
 
-  // Soft grounding shadow. The character itself remains the original painted Ginger.
+  g.translate(active ? stride*1.6 : 0, bob-lift);
+  g.rotate(lean);
+
+  // Ground shadow moves in the opposite direction to make the motion readable.
   g.save();
-  g.globalAlpha=.2;
+  g.globalAlpha=active ? .24 : .18;
   g.fillStyle='#2d241e';
   g.beginPath();
-  g.ellipse(0,22,active?46:50,active?7:8,0,0,Math.PI*2);
+  g.ellipse(-stride*2,24+jump*7,active?48-step*4:50,active?7-step:8,0,0,Math.PI*2);
   g.fill();
   g.restore();
 
-  const breathe=1+Math.sin(t*2.05)*.006;
-  g.scale(active?1.02:1,breathe);
+  // Small dust puffs make running visibly animated without changing Ginger's artwork.
+  if(active && jump<.2){
+    g.save();
+    g.globalAlpha=.15+.16*step;
+    g.fillStyle='#ead8ad';
+    const puffX=-48-stride*4;
+    const puffY=20;
+    g.beginPath();
+    g.arc(puffX,puffY,2.2+step*1.6,0,Math.PI*2);
+    g.arc(puffX-5,puffY+1,1.5+step,0,Math.PI*2);
+    g.arc(puffX-9,puffY+2,1+step*.7,0,Math.PI*2);
+    g.fill();
+    g.restore();
+  }
+
+  g.scale(stretchX,stretchY);
 
   if(GINGER_PAINTED_CUTOUT.complete&&GINGER_PAINTED_CUTOUT.naturalWidth){
     g.imageSmoothingEnabled=true;
     g.imageSmoothingQuality='high';
     g.drawImage(GINGER_PAINTED_CUTOUT,-60,-31,120,50.5);
-  }
-
-  // Awake reactions are painted over the original face rather than replacing Ginger.
-  if(!sleeping){
-    const eyeOpen=1-blink;
-    const eyeY=-4.1;
-    const eyeXs=[33.3,42.1];
-    for(const ex of eyeXs){
-      // Soft fur patch hides the original closed eyelid without creating a sticker effect.
-      const patch=g.createRadialGradient(ex,eyeY,0,ex,eyeY,4.2);
-      patch.addColorStop(0,'rgba(203,111,42,.94)');
-      patch.addColorStop(.72,'rgba(190,91,31,.76)');
-      patch.addColorStop(1,'rgba(190,91,31,0)');
-      g.fillStyle=patch;
-      g.beginPath();g.ellipse(ex,eyeY,4.3,2.7,0,0,Math.PI*2);g.fill();
-
-      if(eyeOpen>.08){
-        g.save();
-        g.translate(ex+lookX*.65,eyeY+lookY*.45);
-        g.scale(1,Math.max(.08,eyeOpen));
-        const iris=g.createRadialGradient(-.35,-.35,.2,0,0,2.25);
-        iris.addColorStop(0,'#d8f09b');
-        iris.addColorStop(.5,'#8cac4e');
-        iris.addColorStop(1,'#425c24');
-        g.fillStyle='#2a1d13';
-        g.beginPath();g.ellipse(0,0,3.25,1.95,0,0,Math.PI*2);g.fill();
-        g.fillStyle=iris;
-        g.beginPath();g.ellipse(0,0,2.35,1.45,0,0,Math.PI*2);g.fill();
-        g.fillStyle='#11100d';
-        g.beginPath();g.ellipse(lookX*.3,0,.42,1.15,0,0,Math.PI*2);g.fill();
-        g.fillStyle='rgba(255,255,255,.9)';
-        g.beginPath();g.arc(-.65,-.55,.33,0,Math.PI*2);g.fill();
-        g.restore();
-      }
-    }
-
-    if(happy>.55){
-      g.save();
-      g.globalAlpha=.28+.12*happy;
-      g.strokeStyle='#5e2d1e';
-      g.lineWidth=.8;
-      g.lineCap='round';
-      g.beginPath();
-      g.arc(37.8,2.6,4.1,.22,Math.PI-.22);
-      g.stroke();
-      g.restore();
-    }
   }
 
   g.restore();
@@ -7001,7 +7266,7 @@ resizeCanvas();
 refreshHome();
 refreshDev();
 showScreen('homeScreen');
-setHomeMinimised(save.homeMenuMinimised,false);
+setHomeMinimised(false,false);
 
 let last=performance.now();
 function loop(now){
