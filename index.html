@@ -5976,9 +5976,10 @@ function drawHome(){
     ctx.restore();
 
     if(state.homeAwake){
-      const faceX=ginger.x+width*.27;
-      const faceY=ginger.y-height*.49-lift;
-      const gap=width*.032;
+      /* Anchor the expression to Ginger's actual face in the source artwork. */
+      const faceX=ginger.x+width*.265;
+      const faceY=ginger.y-height*.17-lift;
+      const gap=width*.05;
       const beingPetted=state.homePetting||state.homeAction==='pet'||state.homeAction==='content';
 
       ctx.save();
@@ -5993,12 +5994,12 @@ function drawHome(){
           ctx.stroke();
         }
         ctx.beginPath();
-        ctx.arc(faceX,faceY+10*ginger.scale,5*ginger.scale,.12*Math.PI,.88*Math.PI);
+        ctx.arc(faceX,faceY+height*.09,6*ginger.scale,.12*Math.PI,.88*Math.PI);
         ctx.stroke();
         ctx.fillStyle='rgba(240,112,104,.48)';
         for(const dir of [-1,1]){
           ctx.beginPath();
-          ctx.ellipse(faceX+dir*gap*1.9,faceY+9*ginger.scale,5*ginger.scale,2.8*ginger.scale,0,0,Math.PI*2);
+          ctx.ellipse(faceX+dir*gap*1.45,faceY+height*.075,5*ginger.scale,2.8*ginger.scale,0,0,Math.PI*2);
           ctx.fill();
         }
       }else{
